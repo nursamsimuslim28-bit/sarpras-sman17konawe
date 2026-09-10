@@ -1,12 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { Aset, KategoriAset, KondisiAset, StandardRuang, LogPemusnahan, PengaturanSekolah, MasterRuang } from '../types';
+import ImportExportModal from './ImportExportModal';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, Search, Filter, Edit, Trash2, Camera, Info, Barcode, Calendar, 
   RefreshCw, X, AlertTriangle, AlertCircle, ShieldCheck, Lock, ZoomIn, ZoomOut, 
   RotateCw, Maximize2, Loader2, MapPin, Building, FileText, Layers, 
   Hash, DollarSign, BookOpen, Wrench, HardHat, FileSpreadsheet, Check, FolderOpen,
-  Sparkles, Wand2
+  Sparkles, Wand2, Download, Upload
 } from 'lucide-react';
 
 // Helper functions to handle multiple photo URLs stored as JSON array or single string inside 'fotoUrl'
@@ -98,6 +99,7 @@ interface AsetTabProps {
   pengaturan: PengaturanSekolah;
   masterRuangs?: MasterRuang[];
   onSaveAset: (aset: Aset) => Promise<void>;
+  onSaveMultipleAsets?: (asets: Aset[]) => Promise<void>;
   onDeleteAset: (id: string) => Promise<void>;
   onLogPemusnahan: (log: LogPemusnahan) => Promise<void>;
   onOpenScanner: (actionType: 'search' | 'aset_form', callback?: (code: string) => void) => void;
@@ -109,6 +111,7 @@ export default function AsetTab({
   pengaturan,
   masterRuangs = [],
   onSaveAset,
+  onSaveMultipleAsets,
   onDeleteAset,
   onLogPemusnahan,
   onOpenScanner,
@@ -120,6 +123,7 @@ export default function AsetTab({
   const [filterTahun, setFilterTahun] = useState<string>('Semua');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPemusnahanModalOpen, setIsPemusnahanModalOpen] = useState(false);
+  const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
   
   // Current editing aset
   const [currentAset, setCurrentAset] = useState<Partial<Aset> | null>(null);
@@ -560,8 +564,8 @@ export default function AsetTab({
         errors.merek = 'Merek / Pabrikan wajib diisi (isi "-" jika tidak ada merek).';
       }
     } else if (activeKib === 'C') { // KIB C (Gedung & Bangunan)
-      const rawLuasGedung = Number(aset.luasLantaiM2);
-      if (!aset.luasLantaiM2 || isNaN(rawLuasGedung) || rawLuasGedung <= 0) {
+      const rawLuasGedung = Number(aset.luasLantaiM2 || aset.luasM2);
+      if ((!aset.luasLantaiM2 && !aset.luasM2) || isNaN(rawLuasGedung) || rawLuasGedung <= 0) {
         errors.luasLantaiM2 = 'Luas lantai gedung (m²) wajib diisi angka positif (> 0).';
       }
       if (!aset.statusTanahGedung || !aset.statusTanahGedung.trim()) {
@@ -614,13 +618,71 @@ export default function AsetTab({
   };
 
   const handleEditClick = (aset: Aset) => {
-    setCurrentAset(aset);
-    setIsCustomRuangActive(!spaces.includes(aset.ruangLokasi as any));
-    setIsCustomSatuanActive(!customSatuans.includes(aset.satuan));
-    setIsCustomSumberDanaActive(!fundingSources.includes(aset.sumberDana));
-    setIsCustomStatusTanahActive(!!aset.statusTanahGedung && !standardStatusTanahOptions.includes(aset.statusTanahGedung));
+    const kibId = getActiveKib(aset.kategori);
+    const smart = generateSmartAsetDefaults(kibId, asets, pengaturan, spaces);
+
+    // Merge existing aset with smart defaults so any legacy / missing fields get safely populated
+    const mergedAset: Aset = {
+      ...smart,
+      ...aset,
+      // Pastikan identitas tidak tertimpa jika sudah ada
+      id: aset.id || smart.id || '',
+      nomorRegister: aset.nomorRegister || aset.nomorRegisterBmd || smart.nomorRegister || '000001',
+      nomorRegisterBmd: aset.nomorRegisterBmd || aset.nomorRegister || smart.nomorRegister || '000001',
+      kodeBarangBmd: aset.kodeBarangBmd || smart.kodeBarangBmd || '02.06.01.01.001',
+      nama: aset.nama || '',
+      merek: aset.merek !== undefined ? aset.merek : (kibId === 'B' ? '-' : ''),
+      spesifikasi: aset.spesifikasi || '',
+      jumlah: aset.jumlah !== undefined && aset.jumlah !== null ? aset.jumlah : 1,
+      satuan: aset.satuan || smart.satuan || 'Unit',
+      sumberDana: aset.sumberDana || smart.sumberDana || 'BOS Reguler',
+      tahunPerolehan: aset.tahunPerolehan || smart.tahunPerolehan || new Date().getFullYear(),
+      hargaPerolehan: aset.hargaPerolehan !== undefined && aset.hargaPerolehan !== null ? aset.hargaPerolehan : 0,
+      kondisi: aset.kondisi || 'Baik',
+      ruangLokasi: aset.ruangLokasi || smart.ruangLokasi || spaces[0] || 'Ruang Kelas',
+      fotoUrl: aset.fotoUrl || '',
+      catatan: aset.catatan || '',
+      // Field KIB C (Gedung & Bangunan)
+      luasLantaiM2: aset.luasLantaiM2 || aset.luasM2 || smart.luasLantaiM2 || 72,
+      statusTanahGedung: aset.statusTanahGedung || smart.statusTanahGedung || 'Tanah Hak Pakai Pemerintah Daerah',
+      nomorDokumenGedung: aset.nomorDokumenGedung || smart.nomorDokumenGedung || `IMB-GDG/${new Date().getFullYear()}/${(aset.id || '0001').replace(/\D/g, '').slice(-4).padStart(4, '0') || '0001'}`,
+      tanggalDokumenGedung: aset.tanggalDokumenGedung || smart.tanggalDokumenGedung || new Date().toISOString().split('T')[0],
+      kodeTanahKibA: aset.kodeTanahKibA || aset.kodeTanahGedung || smart.kodeTanahKibA || '',
+      kodeTanahGedung: aset.kodeTanahGedung || aset.kodeTanahKibA || smart.kodeTanahGedung || '',
+      // Field KIB A (Tanah)
+      luasTanahM2: aset.luasTanahM2 || aset.luasM2 || smart.luasTanahM2 || 10000,
+      luasM2: aset.luasM2 || aset.luasTanahM2 || smart.luasM2 || 10000,
+      hakTanah: aset.hakTanah || smart.hakTanah || 'Hak Pakai',
+      nomorSertifikatTanah: aset.nomorSertifikatTanah || aset.nomorSertifikat || smart.nomorSertifikatTanah || `HP-DIKBUD/${new Date().getFullYear()}/0001`,
+      nomorSertifikat: aset.nomorSertifikat || aset.nomorSertifikatTanah || smart.nomorSertifikat || `HP-DIKBUD/${new Date().getFullYear()}/0001`,
+      tanggalSertifikat: aset.tanggalSertifikat || smart.tanggalSertifikat || new Date().toISOString().split('T')[0],
+      tanggalSertifikatTanah: aset.tanggalSertifikatTanah || smart.tanggalSertifikatTanah || new Date().toISOString().split('T')[0],
+      letakAlamat: aset.letakAlamat || aset.letakAlamatTanah || smart.letakAlamat || pengaturan.alamat || 'Kec. Routa, Kab. Konawe, Sulawesi Tenggara',
+      letakAlamatTanah: aset.letakAlamatTanah || aset.letakAlamat || smart.letakAlamatTanah || pengaturan.alamat || 'Kec. Routa, Kab. Konawe, Sulawesi Tenggara',
+      penggunaanTanah: aset.penggunaanTanah || aset.penggunaan || smart.penggunaanTanah || 'Bangunan Sekolah & Fasilitas Pembelajaran',
+      asalUsulTanah: aset.asalUsulTanah || smart.asalUsulTanah || 'Pemerintah Provinsi Sulawesi Tenggara',
+      // Field KIB D
+      konstruksiJaringan: aset.konstruksiJaringan || smart.konstruksiJaringan || 'Paving Block / Beton',
+      panjangM: aset.panjangM || aset.panjangMeter || smart.panjangM || 50,
+      lebarM: aset.lebarM || aset.lebarMeter || smart.lebarM || 4,
+      nomorDokumenJalan: aset.nomorDokumenJalan || smart.nomorDokumenJalan || `BAST-JAL/${new Date().getFullYear()}/0001`,
+      // Field KIB E
+      jenisAsetLainnya: aset.jenisAsetLainnya || smart.jenisAsetLainnya || 'Buku Perpustakaan',
+      pengarangBuku: aset.pengarangBuku || aset.penciptaKesenian || smart.pengarangBuku || '-',
+      // Field KIB F
+      luasKdpM2: aset.luasKdpM2 || smart.luasKdpM2 || 144,
+      nilaiKontrakPembangunan: aset.nilaiKontrakPembangunan || aset.nilaiKontrakKdp || smart.nilaiKontrakPembangunan || 50000000,
+      persentaseFisikKdp: aset.persentaseFisikKdp !== undefined ? aset.persentaseFisikKdp : (aset.progressFisikPersen !== undefined ? aset.progressFisikPersen : (smart.persentaseFisikKdp ?? 50)),
+      tanggalMulaiPembangunan: aset.tanggalMulaiPembangunan || smart.tanggalMulaiPembangunan || new Date().toISOString().split('T')[0]
+    };
+
+    setCurrentAset(mergedAset);
+    setIsCustomRuangActive(!spaces.includes(mergedAset.ruangLokasi as any));
+    setIsCustomSatuanActive(!customSatuans.includes(mergedAset.satuan));
+    setIsCustomSumberDanaActive(!fundingSources.includes(mergedAset.sumberDana));
+    setIsCustomStatusTanahActive(!!mergedAset.statusTanahGedung && !standardStatusTanahOptions.includes(mergedAset.statusTanahGedung));
     const landAssets = asets.filter(a => getActiveKib(a.kategori) === 'A');
-    setIsCustomKodeTanahActive(!!aset.kodeTanahKibA && !landAssets.some(l => l.id === aset.kodeTanahKibA));
+    setIsCustomKodeTanahActive(!!mergedAset.kodeTanahKibA && !landAssets.some(l => l.id === mergedAset.kodeTanahKibA));
     setFormErrors({});
     setHasAttemptedSubmit(false);
     setIsModalOpen(true);
@@ -813,12 +875,20 @@ export default function AsetTab({
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <button
+            onClick={() => setIsImportExportModalOpen(true)}
+            className="flex-1 md:flex-none px-3.5 py-2.5 bg-slate-800 hover:bg-slate-900 active:bg-slate-950 text-white font-semibold text-sm rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-slate-900/10"
+            title="Download template CSV KIB A-F atau import massal ribuan data sarpras langsung dari Excel / CSV"
+          >
+            <FileSpreadsheet size={16} className="text-emerald-400" />
+            <span>Export / Import CSV</span>
+          </button>
+          <button
             onClick={() => handleQuickAddWithScan('id')}
             className="flex-1 md:flex-none px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-sm rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-emerald-600/10"
             title="Tambah aset baru dan langsung buka kamera scanner barcode untuk mengisi ID aset"
           >
             <Camera size={16} />
-            <span>Tambah via Scan Kamera</span>
+            <span>Tambah via Scan</span>
           </button>
           <button
             onClick={handleAddClick}
@@ -1120,20 +1190,20 @@ export default function AsetTab({
 
                           setCurrentAset(prev => {
                             // Pertahankan input nama, merek, jumlah, harga, foto yang sudah diinput
-                            const next = {
+                            const next: any = {
                               ...smart,
                               ...prev,
                               kategori: kib.fullCat,
                               // Jika aset baru atau belum diubah manual secara khusus, gunakan nomor otomatis KIB baru
                               id: isNew ? smart.id : (prev?.id || smart.id),
-                              nomorRegister: isNew ? smart.nomorRegister : (prev?.nomorRegister || smart.nomorRegister),
-                              nomorRegisterBmd: isNew ? smart.nomorRegister : (prev?.nomorRegisterBmd || smart.nomorRegister),
+                              nomorRegister: isNew ? smart.nomorRegister : (prev?.nomorRegister || prev?.nomorRegisterBmd || smart.nomorRegister),
+                              nomorRegisterBmd: isNew ? smart.nomorRegister : (prev?.nomorRegisterBmd || prev?.nomorRegister || smart.nomorRegister),
                               kodeBarangBmd: isNew ? smart.kodeBarangBmd : (prev?.kodeBarangBmd || smart.kodeBarangBmd),
-                              ruangLokasi: smart.ruangLokasi || prev?.ruangLokasi || spaces[0],
+                              ruangLokasi: prev?.ruangLokasi || smart.ruangLokasi || spaces[0],
                               nama: prev?.nama || '',
-                              merek: prev?.merek || '',
+                              merek: prev?.merek !== undefined ? prev.merek : (kib.id === 'B' ? '-' : ''),
                               spesifikasi: prev?.spesifikasi || '',
-                              jumlah: prev?.jumlah || 1,
+                              jumlah: prev?.jumlah !== undefined ? prev.jumlah : 1,
                               hargaPerolehan: prev?.hargaPerolehan ?? 0,
                               sumberDana: prev?.sumberDana || 'BOS Reguler',
                               tahunPerolehan: prev?.tahunPerolehan || new Date().getFullYear(),
@@ -1222,7 +1292,7 @@ export default function AsetTab({
                       </div>
                       <input
                         type="text"
-                        value={currentAset.kodeBarangBmd || currentKibObj.prefix}
+                        value={currentAset.kodeBarangBmd || ''}
                         onChange={(e) => {
                           const val = e.target.value;
                           setCurrentAset(prev => {
@@ -3201,6 +3271,24 @@ export default function AsetTab({
           </div>
         )}
       </AnimatePresence>
+
+      {/* Modal Export / Import Massal KIB CSV */}
+      <ImportExportModal
+        isOpen={isImportExportModalOpen}
+        onClose={() => setIsImportExportModalOpen(false)}
+        asets={asets}
+        pengaturan={pengaturan}
+        masterRuangs={masterRuangs}
+        onImportAsets={async (importedAsets) => {
+          if (onSaveMultipleAsets) {
+            await onSaveMultipleAsets(importedAsets);
+          } else {
+            for (const item of importedAsets) {
+              await onSaveAset(item);
+            }
+          }
+        }}
+      />
 
     </div>
   );

@@ -37,7 +37,8 @@ const PengaturanSchema = z.object({
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  // Support dynamic PORT assigned by Cloud Run / container environment, defaulting to 3000
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   // Trust first proxy (Cloud Run / Nginx) to handle X-Forwarded-For headers safely
   app.set('trust proxy', 1);
@@ -395,14 +396,22 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath, { index: false }));
+    app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[Server] running on http://localhost:${PORT}`);
+  const server = app.listen(PORT, "0.0.0.0", () => {
+    console.log(`[Server] running on http://0.0.0.0:${PORT}`);
+  });
+
+  process.on('SIGTERM', () => {
+    console.log('[Server] SIGTERM received, shutting down gracefully...');
+    server.close(() => {
+      console.log('[Server] Closed successfully.');
+      process.exit(0);
+    });
   });
 }
 

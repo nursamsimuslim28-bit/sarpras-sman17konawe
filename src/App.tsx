@@ -298,6 +298,38 @@ export default function App() {
     loadAllData(false);
   };
 
+  const handleSaveMultipleAsets = async (importedAsets: Aset[]) => {
+    if (!importedAsets || importedAsets.length === 0) return;
+    
+    setIsLoading(true);
+    try {
+      const updated = await api.saveMultipleAsets(importedAsets);
+      setAsets(updated);
+
+      const logDetails = `Import massal ${importedAsets.length} data inventaris sarpras baru ke dalam sistem`;
+      const newLogs = await api.recordAuditLog(
+        activeOperator,
+        'TAMBAH_ASET',
+        `Import Massal (${importedAsets.length} Aset)`,
+        logDetails
+      );
+      setAuditLogs(newLogs);
+
+      if (pengaturan.googleAppsScriptUrl) {
+        alert(`✓ Import Berhasil!\nSebanyak ${importedAsets.length} data sarpras telah berhasil diunggah dan disinkronkan ke database Google Sheets.`);
+      } else {
+        alert(`✓ Import Berhasil (Tersimpan Lokal)!\nSebanyak ${importedAsets.length} data sarpras telah berhasil ditambahkan ke memori aplikasi. Hubungkan Google Sheets di menu Pengaturan agar tersinkron ke semua perangkat.`);
+      }
+
+      loadAllData(false);
+    } catch (err: any) {
+      console.error('Error batch importing asets:', err);
+      alert('Gagal menyimpan beberapa data import: ' + (err.message || 'Terjadi kesalahan sistem.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleDeleteAset = async (id: string) => {
     const targetAset = asets.find(a => a.id === id);
     const updated = await api.deleteAset(id);
@@ -565,6 +597,7 @@ export default function App() {
             pengaturan={pengaturan}
             masterRuangs={masterRuangs}
             onSaveAset={handleSaveAset}
+            onSaveMultipleAsets={handleSaveMultipleAsets}
             onDeleteAset={handleDeleteAset}
             onLogPemusnahan={handleLogPemusnahan}
             onOpenScanner={handleOpenScanner}

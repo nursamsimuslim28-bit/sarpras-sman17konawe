@@ -602,6 +602,63 @@ export const api = {
     return local;
   },
 
+  // Save multiple asets at once (Bulk import massal)
+  async saveMultipleAsets(newAsets: Aset[]): Promise<Aset[]> {
+    if (!newAsets || newAsets.length === 0) {
+      return JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
+    }
+
+    const local: Aset[] = JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
+    const map = new Map<string, Aset>();
+    local.forEach(a => { if (a && a.id) map.set(a.id, a); });
+    newAsets.forEach(a => { if (a && a.id) map.set(a.id, a); });
+
+    const merged = Array.from(map.values());
+    safeSetStorage(KEY_ASETS, merged);
+
+    // Firebase Client SDK Sync
+    if (isFirebaseClientConfigured()) {
+      for (const aset of newAsets) {
+        try {
+          await saveDocumentClient('asets', aset.id, aset);
+        } catch (e) {
+          console.warn('[API] Gagal menyimpan aset batch ke Firebase Client:', e);
+        }
+      }
+    }
+
+    // Express backend sync
+    const isSupa = await isSupabaseActive();
+    if (isSupa) {
+      for (const aset of newAsets) {
+        try {
+          await fetch('/api/supabase/save_aset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(aset)
+          });
+        } catch (e) {}
+      }
+    }
+
+    // Google Apps Script batch or iterative sync
+    const url = getScriptUrl();
+    if (url) {
+      try {
+        await callProxy(url, 'POST', { action: 'save_multiple_asets', data: newAsets });
+      } catch (e) {
+        // Fallback simpan satu per satu jika script GAS belum update handler batch
+        for (const aset of newAsets) {
+          try {
+            await callProxy(url, 'POST', { action: 'save_aset', data: aset });
+          } catch (innerErr) {}
+        }
+      }
+    }
+
+    return merged;
+  },
+
   // Delete Aset
   async deleteAset(id: string): Promise<Aset[]> {
     const local: Aset[] = JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');

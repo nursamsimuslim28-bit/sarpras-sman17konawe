@@ -79,6 +79,7 @@ export interface Aset {
   tanggalSertifikatTanah?: string;
   tanggalSertifikat?: string; // Alias
   penggunaanTanah?: string; // e.g. Bangunan Sekolah, Lapangan Olahraga
+  penggunaan?: string; // Alias
   asalUsulTanah?: string; // e.g. Pembelian APBD, Hibah
   nomorRegister?: string; // Alias nomorRegisterBmd
 
@@ -96,6 +97,7 @@ export interface Aset {
   konstruksiBeton?: 'Beton' | 'Bukan Beton';
   kondisiFisikBangunan?: 'Permanen' | 'Semi Permanen' | 'Darurat';
   luasLantaiM2?: number;
+  luasBangunanM2?: number; // Alias
   lokasiGedung?: string;
   nomorDokumenGedung?: string; // IMB / PBG / SIP
   tanggalDokumenGedung?: string;
@@ -106,20 +108,24 @@ export interface Aset {
   // Spesifik KIB D (Jalan, Irigasi & Jaringan)
   konstruksiJaringan?: string; // Aspal, Rabat Beton, Pipa PVC, Fiber Optik
   panjangM?: number;
+  panjangMeter?: number; // Alias
   lebarM?: number;
+  lebarMeter?: number; // Alias
   luasJaringanM2?: number;
   lokasiJaringan?: string;
   nomorDokumenJaringan?: string;
+  nomorDokumenJalan?: string; // Alias
   statusTanahJaringan?: string;
 
   // Spesifik KIB E (Aset Tetap Lainnya - Buku, Kesenian, Olahraga, Peraga)
-  jenisAsetLainnya?: 'Buku/Perpustakaan' | 'Barang Bercorak Kesenian' | 'Hewan/Tumbuhan' | 'Alat Olahraga/Peraga';
+  jenisAsetLainnya?: 'Buku/Perpustakaan' | 'Barang Bercorak Kesenian' | 'Hewan/Tumbuhan' | 'Alat Olahraga/Peraga' | string;
   judulBuku?: string;
   pengarangBuku?: string;
   penerbitBuku?: string;
   tahunCetakBuku?: number;
   asalDaerahKesenian?: string;
   penciptaKesenian?: string;
+  penciptaSeni?: string; // Alias
   bahanKesenian?: string;
 
   // Spesifik KIB F (Konstruksi Dalam Pengerjaan / KDP)
@@ -128,9 +134,12 @@ export interface Aset {
   luasKdpM2?: number;
   lokasiKdp?: string;
   tanggalMulaiKdp?: string;
+  tanggalMulaiPembangunan?: string; // Alias
   statusTanahKdp?: string;
   nilaiKontrakKdp?: number;
+  nilaiKontrakPembangunan?: number; // Alias
   progressFisikPersen?: number;
+  persentaseFisikKdp?: number; // Alias
   updatedAt?: string;
 }
 
