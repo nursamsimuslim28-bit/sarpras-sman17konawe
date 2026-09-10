@@ -1,5 +1,6 @@
 import { Aset, Peminjaman, LogPemusnahan, PengaturanSekolah, SAMPLE_ASETS, SAMPLE_PEMINJAMANS, SAMPLE_PEMUSNAHANS, DEFAULT_PENGATURAN, BarangHabisPakai, PengambilanBHP, SAMPLE_BHP, SAMPLE_PENGAMBILAN_BHP, AuditLog, AUTHORIZED_USERS, MasterRuang, DEFAULT_MASTER_RUANGS, KeluhanSarpras } from './types';
 import { INITIAL_BOSP_2024_ASETS } from './dataBosp2024';
+import { INITIAL_BOSP_2025_ASETS } from './dataBosp2025';
 import { INITIAL_SIPLAH_BUKU_ASETS } from './dataSiplahBuku';
 import { 
   isFirebaseClientConfigured, 
@@ -116,11 +117,15 @@ function mergeById<T extends { id: string }>(remote: T[] | undefined, local: T[]
   return Array.from(map.values());
 }
 
-// Daftar seluruh data pengadaan BOSP 2024 & SIPLah Buku
-const DEFAULT_INVENTORY_DATA: Aset[] = [...INITIAL_BOSP_2024_ASETS, ...INITIAL_SIPLAH_BUKU_ASETS];
+// Daftar seluruh data pengadaan BOSP 2024, BOSP 2025 & SIPLah Buku
+const DEFAULT_INVENTORY_DATA: Aset[] = [
+  ...INITIAL_BOSP_2024_ASETS,
+  ...INITIAL_BOSP_2025_ASETS,
+  ...INITIAL_SIPLAH_BUKU_ASETS
+];
 
 const KEY_INITIALIZED = 'esarpras_app_initialized';
-const KEY_BOSP_SEEDED = 'esarpras_bosp2024_siplah_seeded_v1';
+const KEY_BOSP_SEEDED = 'esarpras_bosp2024_2025_siplah_seeded_v2';
 
 // Inisialisasi storage awal
 if (!localStorage.getItem(KEY_INITIALIZED)) {
@@ -138,7 +143,7 @@ if (!localStorage.getItem(KEY_INITIALIZED)) {
   if (!localStorage.getItem(KEY_MASTER_RUANGS)) {
     safeSetStorage(KEY_MASTER_RUANGS, DEFAULT_MASTER_RUANGS);
   }
-  // Pastikan data BOSP 2024 & Buku SIPLah otomatis tersuntikkan ke storage pengguna yang sudah ada
+  // Pastikan data BOSP 2024, 2025 & Buku SIPLah otomatis tersuntikkan ke storage pengguna yang sudah ada
   if (!localStorage.getItem(KEY_BOSP_SEEDED)) {
     try {
       const existingAsets: Aset[] = JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
@@ -146,7 +151,7 @@ if (!localStorage.getItem(KEY_INITIALIZED)) {
       safeSetStorage(KEY_ASETS, mergedAsets);
       localStorage.setItem(KEY_BOSP_SEEDED, 'true');
     } catch (e) {
-      console.warn('Gagal seeding data BOSP 2024:', e);
+      console.warn('Gagal seeding data BOSP 2024 & 2025:', e);
     }
   }
 }
