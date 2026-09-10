@@ -7,7 +7,7 @@ import {
   RefreshCw, X, AlertTriangle, AlertCircle, ShieldCheck, Lock, ZoomIn, ZoomOut, 
   RotateCw, Maximize2, Loader2, MapPin, Building, FileText, Layers, 
   Hash, DollarSign, BookOpen, Wrench, HardHat, FileSpreadsheet, Check, FolderOpen,
-  Sparkles, Wand2, Download, Upload
+  Sparkles, Wand2, Download, Upload, Scissors
 } from 'lucide-react';
 
 // Helper functions to handle multiple photo URLs stored as JSON array or single string inside 'fotoUrl'
@@ -133,6 +133,10 @@ export default function AsetTab({
   const [selectedAsetForDeleteChoice, setSelectedAsetForDeleteChoice] = useState<Aset | null>(null);
   const [isConfirmingPermanentDelete, setIsConfirmingPermanentDelete] = useState(false);
   const [isDeletingAset, setIsDeletingAset] = useState(false);
+
+  // State untuk Fitur Pecah Unit Aset (Split Asset)
+  const [selectedAsetForSplit, setSelectedAsetForSplit] = useState<Aset | null>(null);
+  const [isSplittingAset, setIsSplittingAset] = useState(false);
 
   // Form states for Disposal/Pemusnahan
   const [disposalForm, setDisposalForm] = useState<Partial<LogPemusnahan>>({
@@ -617,6 +621,69 @@ export default function AsetTab({
     return errors;
   };
 
+  const handleConfirmSplitAset = async (targetAset: Aset) => {
+    if (!targetAset || targetAset.jumlah <= 1) return;
+    setIsSplittingAset(true);
+
+    try {
+      const totalCount = targetAset.jumlah;
+      const baseId = targetAset.id;
+      const baseReg = targetAset.nomorRegister || targetAset.nomorRegisterBmd || '000001';
+      const regDigits = baseReg.replace(/\D/g, '');
+      const regNumRaw = parseInt(regDigits || '1', 10);
+      const regLength = regDigits.length > 0 ? regDigits.length : 6;
+
+      const newSplitAsets: Aset[] = [];
+      const snBase = targetAset.serialNumber || '';
+
+      for (let i = 1; i <= totalCount; i++) {
+        const subSuffix = String(i).padStart(2, '0');
+        const nextRegNum = String(regNumRaw + i - 1).padStart(regLength, '0');
+
+        let unitSn = snBase;
+        if (snBase.includes('/')) {
+          const parts = snBase.split('/');
+          unitSn = `${parts[0]}-${subSuffix}`;
+        } else if (snBase) {
+          unitSn = `${snBase}-${subSuffix}`;
+        }
+
+        const newUnit: Aset = {
+          ...targetAset,
+          id: `${baseId}-${subSuffix}`,
+          jumlah: 1, // Dibuat 1 unit per baris data!
+          nomorRegister: nextRegNum,
+          nomorRegisterBmd: nextRegNum,
+          serialNumber: unitSn,
+          catatan: targetAset.catatan
+            ? `${targetAset.catatan} (Unit ${i}/${totalCount})`
+            : `Hasil pemecahan unit dari koleksi ${targetAset.id} (Unit ${i} dari ${totalCount})`
+        };
+        newSplitAsets.push(newUnit);
+      }
+
+      // 1. Simpan semua unit baru secara masal
+      if (onSaveMultipleAsets) {
+        await onSaveMultipleAsets(newSplitAsets);
+      } else {
+        for (const item of newSplitAsets) {
+          await onSaveAset(item);
+        }
+      }
+
+      // 2. Hapus aset lama yang tadinya berisi kumpulan unit
+      await onDeleteAset(targetAset.id);
+
+      setSelectedAsetForSplit(null);
+      alert(`✓ Sukses!\nBerhasil memecah "${targetAset.nama}" (${totalCount} Unit) menjadi ${totalCount} baris data satuan individual.\n\nSekarang Anda dapat mengubah kondisi (Baik / Rusak Ringan / Rusak Berat) dari masing-masing unit secara mandiri.`);
+    } catch (err) {
+      console.error('Gagal memecah unit aset:', err);
+      alert('Terjadi kendala saat memecah unit aset. Silakan coba kembali.');
+    } finally {
+      setIsSplittingAset(false);
+    }
+  };
+
   const handleEditClick = (aset: Aset) => {
     const kibId = getActiveKib(aset.kategori);
     const smart = generateSmartAsetDefaults(kibId, asets, pengaturan, spaces);
@@ -1073,30 +1140,43 @@ export default function AsetTab({
 
                 {/* Bottom Actions */}
                 {aset.kondisi !== 'Dihapuskan' && (
-                  <div className="flex gap-2 pt-3 border-t border-slate-50">
-                    {userRole === 'admin' ? (
-                      <>
-                        <button
-                          onClick={() => handleEditClick(aset)}
-                          className="flex-1 py-2 border border-slate-200 hover:bg-slate-50 active:bg-slate-100 text-slate-600 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer"
-                        >
-                          <Edit size={12} />
-                          Ubah data
-                        </button>
-                        <button
-                          onClick={() => setSelectedAsetForDeleteChoice(aset)}
-                          className="px-3 py-2 border border-rose-200 hover:bg-rose-50 active:bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center transition cursor-pointer"
-                          title="Pilihan Hapus Data / Pemusnahan Aset"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </>
-                    ) : (
-                      <div className="w-full text-center text-[10px] font-bold text-slate-400 bg-slate-50 p-2 rounded-xl flex items-center justify-center gap-1">
-                        <Lock size={12} className="text-slate-300" />
-                        Akses Terbatas: Hanya Admin yang dapat edit/hapus
-                      </div>
+                  <div className="pt-3 border-t border-slate-50 space-y-2">
+                    {aset.jumlah > 1 && userRole === 'admin' && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedAsetForSplit(aset)}
+                        className="w-full py-1.5 bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-900 border border-amber-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs"
+                        title={`Klik untuk memecah ${aset.jumlah} unit barang ini menjadi ${aset.jumlah} data satuan terpisah`}
+                      >
+                        <Scissors size={13} className="text-amber-600 shrink-0" />
+                        <span>Pecah Menjadi {aset.jumlah} Unit Satuan</span>
+                      </button>
                     )}
+                    <div className="flex gap-2">
+                      {userRole === 'admin' ? (
+                        <>
+                          <button
+                            onClick={() => handleEditClick(aset)}
+                            className="flex-1 py-2 border border-slate-200 hover:bg-slate-50 active:bg-slate-100 text-slate-600 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer"
+                          >
+                            <Edit size={12} />
+                            Ubah data
+                          </button>
+                          <button
+                            onClick={() => setSelectedAsetForDeleteChoice(aset)}
+                            className="px-3 py-2 border border-rose-200 hover:bg-rose-50 active:bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center transition cursor-pointer"
+                            title="Pilihan Hapus Data / Pemusnahan Aset"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </>
+                      ) : (
+                        <div className="w-full text-center text-[10px] font-bold text-slate-400 bg-slate-50 p-2 rounded-xl flex items-center justify-center gap-1">
+                          <Lock size={12} className="text-slate-300" />
+                          Akses Terbatas: Hanya Admin yang dapat edit/hapus
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -2972,6 +3052,101 @@ export default function AsetTab({
                   </div>
                 </div>
               )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Konfirmasi Pecah Unit Aset (Split Asset) */}
+      <AnimatePresence>
+        {selectedAsetForSplit && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl max-w-lg w-full p-6 relative border border-slate-100 shadow-2xl"
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedAsetForSplit(null)}
+                className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-50 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-2 mb-2 text-amber-800 font-extrabold text-base">
+                <div className="p-2 bg-amber-100 text-amber-800 rounded-xl">
+                  <Scissors size={20} />
+                </div>
+                <h3>Pecah Unit Aset Menjadi Satuan</h3>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed mb-3">
+                Anda akan memecah data kolektif <strong className="text-slate-900 font-bold">{selectedAsetForSplit.nama}</strong> bertotal <span className="bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded text-[11px]">{selectedAsetForSplit.jumlah} {selectedAsetForSplit.satuan || 'Unit'}</span> menjadi <strong className="text-slate-900 font-bold">{selectedAsetForSplit.jumlah} baris data satuan individual</strong> (1 Unit per baris).
+              </p>
+
+              <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-3.5 mb-4 text-xs space-y-1.5">
+                <p className="font-bold text-amber-950 flex items-center gap-1.5">
+                  <Sparkles size={14} className="text-amber-600 shrink-0" />
+                  Manfaat Pemecahan Unit Satuan (Permendagri 47/2021):
+                </p>
+                <ul className="list-disc list-inside text-[11px] text-amber-900 space-y-1 font-medium pl-1 leading-relaxed">
+                  <li>Setiap unit mendapat NUP/Register & Stiker QR Code unik tersendiri.</li>
+                  <li>Anda dapat mengubah kondisi fisik (Baik, Rusak Ringan, Rusak Berat) dari <strong>1 unit saja tanpa mengganggu unit lainnya</strong>.</li>
+                  <li>Peminjaman & perbaikan dapat dicatat secara presisi per-unit.</li>
+                </ul>
+              </div>
+
+              {/* Pratinjau Unit Yang Akan Di-generate */}
+              <div className="mb-5">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                  Pratinjau {selectedAsetForSplit.jumlah} Unit Satuan Yang Akan Dihasilkan:
+                </span>
+                <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                  {Array.from({ length: Math.min(selectedAsetForSplit.jumlah, 10) }).map((_, idx) => {
+                    const subSuffix = String(idx + 1).padStart(2, '0');
+                    return (
+                      <div key={idx} className="p-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs flex items-center justify-between font-mono">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 bg-amber-200 text-amber-900 rounded-md flex items-center justify-center font-bold text-[10px]">
+                            #{idx + 1}
+                          </span>
+                          <span className="font-bold text-slate-800">{selectedAsetForSplit.id}-{subSuffix}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200 font-sans font-semibold">
+                          1 {selectedAsetForSplit.satuan || 'Unit'} • Kondisi: {selectedAsetForSplit.kondisi}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {selectedAsetForSplit.jumlah > 10 && (
+                    <p className="text-[10px] text-slate-400 text-center font-medium italic pt-1">
+                      ...dan {selectedAsetForSplit.jumlah - 10} unit lainnya.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={isSplittingAset}
+                  onClick={() => setSelectedAsetForSplit(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={isSplittingAset}
+                  onClick={() => handleConfirmSplitAset(selectedAsetForSplit)}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-2 shadow-md shadow-amber-600/15"
+                >
+                  {isSplittingAset ? <Loader2 size={14} className="animate-spin" /> : <Scissors size={14} />}
+                  <span>Ya, Pecah Menjadi {selectedAsetForSplit.jumlah} Unit Satuan</span>
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
