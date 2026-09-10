@@ -244,13 +244,46 @@ const generateQrDataUrl = (value: string, logoUrl?: string): Promise<string> => 
 };
 
 export default function BarcodeTab({ asets, logoUrl, namaSekolah = "SMA Negeri 17 Konawe" }: BarcodeTabProps) {
-  const activeAsets = asets.filter((a) => a.kondisi !== 'Dihapuskan');
+  const [kibFilter, setKibFilter] = useState<'PHYSICAL_ONLY' | 'ALL' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F'>('PHYSICAL_ONLY');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedAset, setSelectedAset] = useState<Aset | null>(null);
   const [codeType, setCodeType] = useState<'qr' | 'barcode'>('qr');
   const [labelPreset, setLabelPreset] = useState<LabelSizePreset>('compact');
   const [paperType, setPaperType] = useState<PaperType>('F4'); // Default to F4 / Folio (215 x 330 mm)
   const [isGeneratingPrint, setIsGeneratingPrint] = useState(false);
+
+  // Helper untuk mengecek apakah aset merupakan barang bergerak yang bisa ditempeli stiker label
+  const isPhysicalLabelAset = (a: Aset) => {
+    const cat = (a.kategori || '').toUpperCase();
+    // Pengecualian otomatis untuk Tanah (KIB A), Gedung (KIB C), Jaringan (KIB D), dan KDP (KIB F)
+    if (cat.includes('KIB A') || cat.includes('TANAH')) return false;
+    if (cat.includes('KIB C') || cat.includes('GEDUNG') || cat.includes('BANGUNAN') || cat.includes('PRASARANA')) return false;
+    if (cat.includes('KIB D') || cat.includes('JALAN') || cat.includes('JARINGAN') || cat.includes('IRIGASI')) return false;
+    if (cat.includes('KIB F') || cat.includes('KONSTRUKSI') || cat.includes('KDP')) return false;
+    return true;
+  };
+
+  const activeAsets = asets.filter((a) => {
+    if (a.kondisi === 'Dihapuskan') return false;
+    const cat = (a.kategori || '').toUpperCase();
+
+    if (kibFilter === 'PHYSICAL_ONLY') {
+      return isPhysicalLabelAset(a);
+    } else if (kibFilter === 'A') {
+      return cat.includes('KIB A') || cat.includes('TANAH');
+    } else if (kibFilter === 'B') {
+      return cat.includes('KIB B') || cat.includes('PERALATAN') || cat.includes('SARANA');
+    } else if (kibFilter === 'C') {
+      return cat.includes('KIB C') || cat.includes('GEDUNG') || cat.includes('BANGUNAN') || cat.includes('PRASARANA');
+    } else if (kibFilter === 'D') {
+      return cat.includes('KIB D') || cat.includes('JALAN') || cat.includes('JARINGAN');
+    } else if (kibFilter === 'E') {
+      return cat.includes('KIB E') || cat.includes('PERLENGKAPAN') || cat.includes('LAINNYA');
+    } else if (kibFilter === 'F') {
+      return cat.includes('KIB F') || cat.includes('KONSTRUKSI') || cat.includes('KDP');
+    }
+    return true; // 'ALL'
+  });
 
   const effectiveLogoUrl = logoUrl || SCHOOL_LOGO_BASE64;
   const currentSizeCfg = SIZE_CONFIGS[labelPreset];
@@ -600,38 +633,84 @@ export default function BarcodeTab({ asets, logoUrl, namaSekolah = "SMA Negeri 1
         </div>
       </div>
 
-      {/* Control Bar: Paper Size & Label Dimensions */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-2xs">
-        {/* Paper Size Selector */}
-        <div className="flex items-center gap-2.5">
-          <FileText size={16} className="text-sky-600 shrink-0" />
-          <span className="text-xs font-bold text-slate-700">Ukuran Kertas:</span>
-          <div className="flex bg-slate-100 p-1 rounded-xl">
-            <button
-              onClick={() => setPaperType('F4')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                paperType === 'F4' ? 'bg-white text-sky-700 shadow-2xs' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              F4 / Folio (215 x 330 mm)
-              <span className="text-[9px] bg-sky-100 text-sky-800 px-1.5 py-0.2 rounded font-extrabold">Utama</span>
-            </button>
-            <button
-              onClick={() => setPaperType('A4')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                paperType === 'A4' ? 'bg-white text-sky-700 shadow-2xs' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              A4 (210 x 297 mm)
-            </button>
+      {/* Control Bar: Paper Size, KIB Category Filter & Label Dimensions */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col gap-4 shadow-2xs">
+        {/* Top Row: Filter Categories & Paper Type */}
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5 shrink-0">
+              <Tag size={15} className="text-sky-600" />
+              Kategori KIB:
+            </span>
+            <div className="flex bg-slate-100 p-1 rounded-xl flex-wrap gap-1">
+              <button
+                onClick={() => setKibFilter('PHYSICAL_ONLY')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  kibFilter === 'PHYSICAL_ONLY' ? 'bg-sky-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-800'
+                }`}
+                title="Hanya barang bergerak / sarana fisik (KIB B Peralatan/Mesin & KIB E Perlengkapan)"
+              >
+                <span>📦 Barang Bergerak / Fisik</span>
+                <span className="text-[9px] bg-white/20 px-1.5 py-0.2 rounded font-extrabold">Rekomendasi</span>
+              </button>
+              <button
+                onClick={() => setKibFilter('B')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  kibFilter === 'B' ? 'bg-sky-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-800'
+                }`}
+              >
+                KIB B (Peralatan & Mesin)
+              </button>
+              <button
+                onClick={() => setKibFilter('E')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  kibFilter === 'E' ? 'bg-sky-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-800'
+                }`}
+              >
+                KIB E (Lainnya/Perlengkapan)
+              </button>
+              <button
+                onClick={() => setKibFilter('ALL')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  kibFilter === 'ALL' ? 'bg-sky-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-800'
+                }`}
+              >
+                Semua KIB
+              </button>
+            </div>
+          </div>
+
+          {/* Paper Size Selector */}
+          <div className="flex items-center gap-2">
+            <FileText size={15} className="text-sky-600 shrink-0" />
+            <span className="text-xs font-bold text-slate-700">Kertas:</span>
+            <div className="flex bg-slate-100 p-1 rounded-xl">
+              <button
+                onClick={() => setPaperType('F4')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                  paperType === 'F4' ? 'bg-white text-sky-700 shadow-2xs' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                F4 / Folio
+                <span className="text-[9px] bg-sky-100 text-sky-800 px-1 py-0.2 rounded font-extrabold">Utama</span>
+              </button>
+              <button
+                onClick={() => setPaperType('A4')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  paperType === 'A4' ? 'bg-white text-sky-700 shadow-2xs' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                A4
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Size Preset Buttons */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full lg:w-auto">
+        {/* Bottom Row: Size Preset Buttons */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 w-full">
           <div className="flex items-center gap-1.5 text-slate-700 text-xs font-bold shrink-0">
             <SlidersHorizontal size={15} className="text-sky-600" />
-            <span>Dimensi Stiker:</span>
+            <span>Dimensi Stiker Label:</span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full sm:w-auto">
@@ -657,12 +736,14 @@ export default function BarcodeTab({ asets, logoUrl, namaSekolah = "SMA Negeri 1
         </div>
       </div>
 
-      <div className="p-4 bg-sky-50 border border-sky-100 text-sky-800 text-xs rounded-2xl leading-relaxed flex gap-2.5 items-start">
+      <div className="p-4 bg-sky-50/80 border border-sky-100 text-sky-800 text-xs rounded-2xl leading-relaxed flex gap-2.5 items-start">
         <Info size={16} className="text-sky-600 shrink-0 mt-0.5" />
-        <div>
-          <p className="font-semibold text-sky-950">Petunjuk Cetak Kertas Stiker {paperType} (Folio 215 x 330 mm)</p>
-          <p className="text-[11px] text-slate-600 mt-1">
-            Mode <span className="font-semibold text-sky-900">{currentSizeCfg.label}</span> pada kertas <span className="font-bold text-sky-900">{paperType}</span> dapat memuat hingga <span className="font-bold text-sky-950">{approxText}</span> secara rapi tanpa terpotong margin. Saat dialog cetak printer muncul, pastikan ukuran kertas diatur ke <strong>"Folio / F4" (atau Custom 215 x 330 mm)</strong> dan margin diset ke <strong>"Default" / "Minimum"</strong>.
+        <div className="space-y-1">
+          <p className="font-semibold text-sky-950">
+            Pengecualian Otomatis Label Stiker (Permendagri No. 47/2021):
+          </p>
+          <p className="text-[11px] text-slate-600">
+            Aset seperti <strong>Tanah (KIB A)</strong>, <strong>Gedung/Bangunan (KIB C)</strong>, <strong>Jalan/Irigasi/Jaringan (KIB D)</strong>, dan <strong>Konstruksi KDP (KIB F)</strong> secara otomatis dikecualikan dari cetak label stiker QR Code karena tidak ditempeli stiker fisik kecil. Sistem secara otomatis menyaring hanya barang bergerak (peralatan, mesin, meja, laptop, & perlengkapan) untuk di-generate label kodenya.
           </p>
         </div>
       </div>

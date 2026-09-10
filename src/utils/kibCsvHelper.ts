@@ -743,7 +743,8 @@ export function processImportedKibRows(
       return isNaN(num) ? def : num;
     };
 
-    const tahunPerolehan = parseNum(rowObj.tahunPerolehan, yr);
+    const tahunPerolehanRaw = String(rowObj.tahunPerolehan || '').trim();
+    const tahunPerolehan = (tahunPerolehanRaw === '' || tahunPerolehanRaw === '-' || tahunPerolehanRaw === '0') ? 0 : parseNum(rowObj.tahunPerolehan, 0);
     const jumlah = Math.max(1, parseNum(rowObj.jumlah, 1));
     const hargaPerolehan = parseNum(rowObj.hargaPerolehan, 0);
 
@@ -776,7 +777,7 @@ export function processImportedKibRows(
       baseAset.hakTanah = rowObj.hakTanah || 'Hak Pakai';
       baseAset.nomorSertifikatTanah = rowObj.nomorSertifikatTanah || rowObj.nomorSertifikat || `HP-DIKBUD/${yr}/${String(currentMaxIdNum).padStart(4, '0')}`;
       baseAset.nomorSertifikat = baseAset.nomorSertifikatTanah;
-      baseAset.tanggalSertifikatTanah = rowObj.tanggalSertifikatTanah || rowObj.tanggalSertifikat || `${yr}-01-01`;
+      baseAset.tanggalSertifikatTanah = rowObj.tanggalSertifikatTanah || rowObj.tanggalSertifikat || '-';
       baseAset.tanggalSertifikat = baseAset.tanggalSertifikatTanah;
       baseAset.letakAlamatTanah = rowObj.letakAlamatTanah || rowObj.letakAlamat || pengaturan.alamat || 'Kec. Routa, Kab. Konawe, Sulawesi Tenggara';
       baseAset.letakAlamat = baseAset.letakAlamatTanah;
@@ -806,7 +807,7 @@ export function processImportedKibRows(
       baseAset.kodeTanahKibA = rowObj.kodeTanahKibA || rowObj.kodeTanahGedung || '';
       baseAset.kodeTanahGedung = baseAset.kodeTanahKibA;
       baseAset.nomorDokumenGedung = rowObj.nomorDokumenGedung || `IMB-GDG/${yr}/${String(currentMaxIdNum).padStart(4, '0')}`;
-      baseAset.tanggalDokumenGedung = rowObj.tanggalDokumenGedung || `${yr}-01-01`;
+      baseAset.tanggalDokumenGedung = rowObj.tanggalDokumenGedung || '-';
     }
 
     // Spesifik KIB D
@@ -833,7 +834,7 @@ export function processImportedKibRows(
       baseAset.bangunanKdp = rowObj.bangunanKdp || rowObj.nama;
       baseAset.konstruksiKdp = (rowObj.konstruksiKdp === 'Bertingkat') ? 'Bertingkat' : 'Tidak Bertingkat';
       baseAset.luasKdpM2 = parseNum(rowObj.luasKdpM2, 100);
-      baseAset.tanggalMulaiKdp = rowObj.tanggalMulaiKdp || rowObj.tanggalMulaiPembangunan || `${yr}-01-01`;
+      baseAset.tanggalMulaiKdp = rowObj.tanggalMulaiKdp || rowObj.tanggalMulaiPembangunan || '-';
       baseAset.tanggalMulaiPembangunan = baseAset.tanggalMulaiKdp;
       baseAset.statusTanahKdp = rowObj.statusTanahKdp || 'Tanah Hak Pakai Pemerintah Daerah';
       baseAset.nilaiKontrakKdp = parseNum(rowObj.nilaiKontrakKdp || rowObj.nilaiKontrakPembangunan, hargaPerolehan);
