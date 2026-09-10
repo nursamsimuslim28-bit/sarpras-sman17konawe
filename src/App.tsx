@@ -12,6 +12,7 @@ import SettingsTab from './components/SettingsTab';
 import DokumenSarprasHub from './components/documents/DokumenSarprasHub';
 import MasterRuangManager from './components/MasterRuangManager';
 import QRScanner from './components/QRScanner';
+import { SyncQueueBadge } from './components/SyncQueueBadge';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
@@ -724,54 +725,8 @@ export default function App() {
           </button>
         </div>
 
-        {/* Sync Health Badge */}
-        {!isSidebarCollapsed ? (
-          <div className="px-6 py-4 border-b border-slate-800/60 bg-slate-950/30">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Status Database</span>
-              <button
-                onClick={() => loadAllData(false, true)}
-                disabled={isRefreshing}
-                className="text-slate-400 hover:text-white transition p-1"
-                title="Perbarui Sinkronisasi"
-              >
-                <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
-              </button>
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <span className={`w-2.5 h-2.5 rounded-full inline-block ${
-                syncStatus === 'online' ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' :
-                syncStatus === 'offline' ? 'bg-amber-500 shadow-sm shadow-amber-500/50' :
-                'bg-rose-500 animate-pulse'
-              }`}></span>
-              <span className="text-xs font-bold text-slate-300">
-                {syncStatus === 'online' ? 'Google Sheet Aktif' :
-                 syncStatus === 'offline' ? 'Database Lokal (Demo)' :
-                 'Gangguan Koneksi'}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <div className="py-4 border-b border-slate-800/60 bg-slate-950/30 flex flex-col items-center gap-3" title={
-            syncStatus === 'online' ? 'Status: Google Sheet Aktif' :
-            syncStatus === 'offline' ? 'Status: Database Lokal (Demo)' :
-            'Status: Gangguan Koneksi'
-          }>
-            <span className={`w-3 h-3 rounded-full inline-block ${
-              syncStatus === 'online' ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' :
-              syncStatus === 'offline' ? 'bg-amber-500 shadow-sm shadow-amber-500/50' :
-              'bg-rose-500 animate-pulse'
-            }`}></span>
-            <button
-              onClick={() => loadAllData(false, true)}
-              disabled={isRefreshing}
-              className="text-slate-400 hover:text-white transition p-1"
-              title="Perbarui Sinkronisasi"
-            >
-              <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
-            </button>
-          </div>
-        )}
+        {/* Sync Health Badge & Queue Indicator */}
+        <SyncQueueBadge isSidebarCollapsed={isSidebarCollapsed} />
 
         {/* Active Peran Badge / Controller */}
         {!isSidebarCollapsed ? (

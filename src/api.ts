@@ -4,6 +4,7 @@ import { INITIAL_BOSP_2024_ASETS } from './dataBosp2024';
 import { INITIAL_BOSP_2025_ASETS } from './dataBosp2025';
 import { INITIAL_SIPLAH_BUKU_ASETS } from './dataSiplahBuku';
 import { INITIAL_BOSP_BHP_DATA } from './dataBospBhp';
+import { syncQueue } from './syncQueue';
 import { 
   isFirebaseClientConfigured, 
   saveDocumentClient, 
@@ -611,6 +612,9 @@ export const api = {
     
     safeSetStorage(KEY_ASETS, local);
 
+    // Enqueue to background Sync Queue (Offline-first resilient)
+    syncQueue.enqueue('save_aset', aset);
+
     // Firebase Client SDK Sync
     if (isFirebaseClientConfigured()) {
       try {
@@ -658,6 +662,9 @@ export const api = {
 
     const merged = Array.from(map.values());
     safeSetStorage(KEY_ASETS, merged);
+
+    // Enqueue to Sync Queue
+    syncQueue.enqueue('save_multiple_asets', newAsets);
 
     // Firebase Client SDK Sync
     if (isFirebaseClientConfigured()) {
@@ -708,6 +715,9 @@ export const api = {
     const filtered = local.filter(x => x.id !== id);
     safeSetStorage(KEY_ASETS, filtered);
 
+    // Enqueue to Sync Queue
+    syncQueue.enqueue('delete_aset', { id });
+
     if (isFirebaseClientConfigured()) {
       try {
         await deleteDocumentClient('asets', id);
@@ -752,6 +762,9 @@ export const api = {
     }
     safeSetStorage(KEY_PEMINJAMANS, local);
 
+    // Enqueue to Sync Queue
+    syncQueue.enqueue('save_peminjaman', pinjam);
+
     if (isFirebaseClientConfigured()) {
       try {
         await saveDocumentClient('peminjamans', pinjam.id, pinjam);
@@ -790,6 +803,9 @@ export const api = {
     const local: LogPemusnahan[] = JSON.parse(localStorage.getItem(KEY_PEMUSNAHANS) || '[]');
     local.push(log);
     localStorage.setItem(KEY_PEMUSNAHANS, JSON.stringify(local));
+
+    // Enqueue to Sync Queue
+    syncQueue.enqueue('save_pemusnahan', log);
 
     // Update target asset quantity or mark as 'Dihapuskan'
     const asets: Aset[] = JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
@@ -878,6 +894,9 @@ export const api = {
   async savePengaturan(cfg: PengaturanSekolah): Promise<PengaturanSekolah> {
     localStorage.setItem(KEY_PENGATURAN, JSON.stringify(cfg));
 
+    // Enqueue to Sync Queue
+    syncQueue.enqueue('save_pengaturan', cfg);
+
     if (isFirebaseClientConfigured()) {
       try {
         await saveDocumentClient('pengaturan', 'default', cfg);
@@ -957,6 +976,9 @@ export const api = {
     }
     safeSetStorage(KEY_BHP, local);
 
+    // Enqueue to Sync Queue
+    syncQueue.enqueue('save_bhp', item);
+
     if (isFirebaseClientConfigured()) {
       try {
         await saveDocumentClient('bhp', item.id, item);
@@ -995,6 +1017,9 @@ export const api = {
     const local: BarangHabisPakai[] = JSON.parse(localStorage.getItem(KEY_BHP) || '[]');
     const filtered = local.filter(x => x.id !== id);
     localStorage.setItem(KEY_BHP, JSON.stringify(filtered));
+
+    // Enqueue to Sync Queue
+    syncQueue.enqueue('delete_bhp', { id });
 
     if (isFirebaseClientConfigured()) {
       try {
@@ -1126,6 +1151,9 @@ export const api = {
     
     localStorage.setItem(KEY_PENGAMBILAN_BHP, JSON.stringify(local));
 
+    // Enqueue to Sync Queue
+    syncQueue.enqueue('save_pengambilan_bhp', pengambilan);
+
     if (isFirebaseClientConfigured()) {
       try {
         await saveDocumentClient('pengambilan_bhp', pengambilan.id, pengambilan);
@@ -1187,6 +1215,9 @@ export const api = {
     }
     safeSetStorage(KEY_MASTER_RUANGS, updated);
 
+    // Enqueue to Sync Queue
+    syncQueue.enqueue('save_ruang', ruang);
+
     // Record audit log
     await this.recordAuditLog(
       operator || 'Admin Sarpras',
@@ -1213,6 +1244,9 @@ export const api = {
     const target = list.find(r => r.id === id);
     const updated = list.filter(r => r.id !== id);
     safeSetStorage(KEY_MASTER_RUANGS, updated);
+
+    // Enqueue to Sync Queue
+    syncQueue.enqueue('delete_ruang', { id });
 
     if (target) {
       await this.recordAuditLog(
