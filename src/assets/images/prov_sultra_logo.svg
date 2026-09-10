@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 550" width="500" height="550">
+  <!-- Outer White / Silver Border -->
+  <polygon points="250,10 480,180 410,520 90,520 20,180" fill="#FFFFFF" stroke="#CCCCCC" stroke-width="3" />
+  <polygon points="250,18 470,182 403,512 97,512 30,182" fill="#E6E6E6" stroke="#AAAAAA" stroke-width="1.5" />
+
+  <!-- Inner Pentagonal Shield Divisions -->
+  <!-- Top Yellow Sector -->
+  <polygon points="250,25 462,185 38,185" fill="#FFE600" />
+  
+  <!-- Left Khaki/Tan Sector -->
+  <polygon points="38,185 250,330 97,505" fill="#C2A649" />
+  
+  <!-- Right Black Sector -->
+  <polygon points="462,185 250,330 403,505" fill="#1A1A1A" />
+  
+  <!-- Bottom Green Sector -->
+  <polygon points="97,505 250,330 403,505" fill="#008844" />
+  <polygon points="97,505 250,420 403,505" fill="#00A859" />
+
+  <!-- Shield Outline -->
+  <polygon points="250,25 462,185 398,505 102,505 38,185" fill="none" stroke="#222222" stroke-width="4" />
+
+  <!-- Arched Text "SULAWESI TENGGARA" -->
+  <path id="textArc" d="M 80,160 Q 250,60 420,160" fill="none" />
+  <text font-family="'Arial Black', sans-serif" font-weight="900" font-size="24" fill="#C8102E" text-anchor="middle">
+    <textPath href="#textArc" startOffset="50%">SULAWESI TENGGARA</textPath>
+  </text>
+
+  <!-- Center White Circle with Gold Chain -->
+  <circle cx="250" cy="290" r="85" fill="#FFFFFF" stroke="#DAA520" stroke-width="2" />
+  
+  <!-- Gold Chain Links Ring -->
+  <g fill="none" stroke="#DAA520" stroke-width="5">
+    <circle cx="250" cy="290" r="78" stroke-dasharray="12 6" />
+    <circle cx="250" cy="290" r="83" stroke="#B8860B" stroke-width="2" />
+    <circle cx="250" cy="290" r="73" stroke="#B8860B" stroke-width="2" />
+  </g>
+
+  <!-- Kepala Anoa (Anoa Head) in Center -->
+  <g transform="translate(250,290) scale(0.95)">
+    <!-- Horns -->
+    <path d="M -16,-10 C -22,-45 -28,-65 -18,-72 C -10,-75 -8,-50 -6,-25" fill="#111111" stroke="#111111" />
+    <path d="M 16,-10 C 22,-45 28,-65 18,-72 C 10,-75 8,-50 6,-25" fill="#111111" stroke="#111111" />
+    
+    <!-- Ears -->
+    <path d="M -22,-15 C -45,-20 -50,-5 -30,0 Z" fill="#111111" />
+    <path d="M 22,-15 C 45,-20 50,-5 30,0 Z" fill="#111111" />
+
+    <!-- Head & Muzzle -->
+    <path d="M -22,-20 L 22,-20 L 28,5 L 20,40 L 12,50 L -12,50 L -20,40 L -28,5 Z" fill="#111111" />
+    
+    <!-- White Forehead / Face Markings -->
+    <path d="M 0,-15 L 6,0 L 14,-5 L 8,10 L 12,25 L 0,20 L -12,25 L -8,10 L -14,-5 L -6,0 Z" fill="#FFFFFF" />
+    
+    <!-- Eyes -->
+    <ellipse cx="-16" cy="-2" rx="4" ry="2.5" fill="#FFFFFF" />
+    <ellipse cx="16" cy="-2" rx="4" ry="2.5" fill="#FFFFFF" />
+    
+    <!-- Nostrils -->
+    <ellipse cx="-5" cy="42" rx="2.5" ry="1.5" fill="#FFFFFF" />
+    <ellipse cx="5" cy="42" rx="2.5" ry="1.5" fill="#FFFFFF" />
+  </g>
+
+  <!-- Left Side Cotton Branch (Kapas) -->
+  <g fill="#00A859" stroke="#005522" stroke-width="1.5">
+    <path d="M 100,480 Q 120,380 180,310" fill="none" stroke="#007733" stroke-width="4" />
+    <!-- Cotton Bolls (White with green base) -->
+    <g transform="translate(110,460)"><circle cx="0" cy="0" r="10" fill="#FFFFFF" /><path d="M-6,4 Q0,12 6,4 Q0,-2 -6,4" fill="#008844" /></g>
+    <g transform="translate(122,425)"><circle cx="0" cy="0" r="10" fill="#FFFFFF" /><path d="M-6,4 Q0,12 6,4 Q0,-2 -6,4" fill="#008844" /></g>
+    <g transform="translate(138,390)"><circle cx="0" cy="0" r="10" fill="#FFFFFF" /><path d="M-6,4 Q0,12 6,4 Q0,-2 -6,4" fill="#008844" /></g>
+    <g transform="translate(155,355)"><circle cx="0" cy="0" r="10" fill="#FFFFFF" /><path d="M-6,4 Q0,12 6,4 Q0,-2 -6,4" fill="#008844" /></g>
+    <g transform="translate(175,325)"><circle cx="0" cy="0" r="10" fill="#FFFFFF" /><path d="M-6,4 Q0,12 6,4 Q0,-2 -6,4" fill="#008844" /></g>
+  </g>
+
+  <!-- Right Side Rice Stalk (Padi) -->
+  <g fill="#FFD700" stroke="#B8860B" stroke-width="1.5">
+    <path d="M 400,480 Q 380,380 320,310" fill="none" stroke="#B8860B" stroke-width="4" />
+    <!-- Rice Grains -->
+    <g transform="translate(390,460)"><path d="M0,0 C10,-8 15,2 0,10 C-15,2 -10,-8 0,0" fill="#FFC72C" /></g>
+    <g transform="translate(378,425)"><path d="M0,0 C10,-8 15,2 0,10 C-15,2 -10,-8 0,0" fill="#FFC72C" /></g>
+    <g transform="translate(362,390)"><path d="M0,0 C10,-8 15,2 0,10 C-15,2 -10,-8 0,0" fill="#FFC72C" /></g>
+    <g transform="translate(345,355)"><path d="M0,0 C10,-8 15,2 0,10 C-15,2 -10,-8 0,0" fill="#FFC72C" /></g>
+    <g transform="translate(325,325)"><path d="M0,0 C10,-8 15,2 0,10 C-15,2 -10,-8 0,0" fill="#FFC72C" /></g>
+  </g>
+</svg>

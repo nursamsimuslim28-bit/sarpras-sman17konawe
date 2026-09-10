@@ -1,0 +1,147 @@
+{
+  "entities": {
+    "Aset": {
+      "title": "Aset",
+      "description": "Informasi aset sarana prasarana sekolah SMAN 1 AMONGGEDO",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Barcode / Kode Aset" },
+        "nama": { "type": "string", "maxLength": 200 },
+        "merek": { "type": "string", "maxLength": 100 },
+        "spesifikasi": { "type": "string", "maxLength": 1000 },
+        "kategori": { "type": "string", "maxLength": 100 },
+        "ruangLokasi": { "type": "string", "maxLength": 100 },
+        "jumlah": { "type": "integer" },
+        "satuan": { "type": "string", "maxLength": 50 },
+        "kondisi": { "type": "string", "enum": ["Baik", "Rusak Ringan", "Rusak Berat", "Dihapuskan"] },
+        "sumberDana": { "type": "string", "maxLength": 100 },
+        "tahunPerolehan": { "type": "integer" },
+        "fotoUrl": { "type": "string" },
+        "catatan": { "type": "string", "maxLength": 1000 },
+        "tanggalRegister": { "type": "string", "maxLength": 20 },
+        "serialNumber": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "nama", "kategori", "ruangLokasi", "jumlah", "satuan", "kondisi", "tanggalRegister"]
+    },
+    "Peminjaman": {
+      "title": "Peminjaman",
+      "description": "Log peminjaman barang sarpras oleh guru, staf, atau siswa",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "asetId": { "type": "string" },
+        "namaAset": { "type": "string", "maxLength": 200 },
+        "namaPeminjam": { "type": "string", "maxLength": 150 },
+        "jabatanPeminjam": { "type": "string", "enum": ["Siswa", "Guru", "Staf TU", "Lainnya"] },
+        "tanggalPinjam": { "type": "string", "maxLength": 20 },
+        "tanggalTargetKembali": { "type": "string", "maxLength": 20 },
+        "tanggalKembaliAktual": { "type": "string", "maxLength": 20 },
+        "jumlahPinjam": { "type": "integer" },
+        "status": { "type": "string", "enum": ["Dipinjam", "Kembali"] },
+        "keterangan": { "type": "string", "maxLength": 1000 }
+      },
+      "required": ["id", "asetId", "namaAset", "namaPeminjam", "jabatanPeminjam", "tanggalPinjam", "tanggalTargetKembali", "jumlahPinjam", "status"]
+    },
+    "LogPemusnahan": {
+      "title": "LogPemusnahan",
+      "description": "Catatan resmi penghapusan atau pemusnahan aset dari inventaris",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "asetId": { "type": "string" },
+        "namaAset": { "type": "string", "maxLength": 200 },
+        "jumlah": { "type": "integer" },
+        "tanggalPemusnahan": { "type": "string", "maxLength": 20 },
+        "metode": { "type": "string", "enum": ["Penjualan/Lelang", "Pemusnahan Fisik", "Hibah", "Transfer Satuan Lain"] },
+        "alasan": { "type": "string", "maxLength": 1000 },
+        "noSkPenghapusan": { "type": "string", "maxLength": 100 },
+        "petugasEksekusi": { "type": "string", "maxLength": 150 },
+        "catatan": { "type": "string", "maxLength": 1000 }
+      },
+      "required": ["id", "asetId", "namaAset", "jumlah", "tanggalPemusnahan", "metode", "alasan", "noSkPenghapusan", "petugasEksekusi"]
+    },
+    "PengaturanSekolah": {
+      "title": "PengaturanSekolah",
+      "description": "Data profil instansi sekolah dan kata sandi admin",
+      "type": "object",
+      "properties": {
+        "namaSekolah": { "type": "string", "maxLength": 200 },
+        "npsn": { "type": "string", "maxLength": 20 },
+        "alamat": { "type": "string", "maxLength": 500 },
+        "kepalaSekolah": { "type": "string", "maxLength": 150 },
+        "nipKepalaSekolah": { "type": "string", "maxLength": 50 },
+        "namaPetugasSarpras": { "type": "string", "maxLength": 150 },
+        "nipPetugasSarpras: ": { "type": "string", "maxLength": 50 },
+        "targetKapasitasSiswa": { "type": "integer" },
+        "jumlahRombel": { "type": "integer" },
+        "jumlahSiswaAktif": { "type": "integer" },
+        "googleAppsScriptUrl": { "type": "string" },
+        "googleDriveFolderId": { "type": "string" },
+        "adminPassword": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["namaSekolah", "adminPassword"]
+    },
+    "BarangHabisPakai": {
+      "title": "BarangHabisPakai",
+      "description": "Aset operasional sekolah yang habis dipakai atau memiliki masa pakai singkat",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nama": { "type": "string", "maxLength": 200 },
+        "merek": { "type": "string", "maxLength": 100 },
+        "kategori": { "type": "string", "enum": ["Alat Tulis Kantor (ATK)", "Bahan Kebersihan & Sanitasi", "Kebutuhan Dapur & Konsumsi", "Alat Pertanian & Taman", "Kesehatan (UKS/Obat-obatan)", "Lainnya"] },
+        "stokAwal": { "type": "integer" },
+        "stokSekarang": { "type": "integer" },
+        "satuan": { "type": "string", "maxLength": 50 },
+        "lokasiPenyimpanan": { "type": "string", "maxLength": 200 },
+        "catatan": { "type": "string", "maxLength": 1000 },
+        "fotoUrl": { "type": "string" }
+      },
+      "required": ["id", "nama", "kategori", "stokAwal", "stokSekarang", "satuan"]
+    },
+    "PengambilanBHP": {
+      "title": "PengambilanBHP",
+      "description": "Log serah terima pengambilan barang habis pakai oleh guru atau staf",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "bhpId": { "type": "string" },
+        "namaBhp": { "type": "string", "maxLength": 200 },
+        "namaPenerima": { "type": "string", "maxLength": 150 },
+        "jabatanPenerima": { "type": "string", "enum": ["Guru", "Staf TU", "Lainnya"] },
+        "tanggalAmbil": { "type": "string", "maxLength": 20 },
+        "jumlahDiambil": { "type": "integer" },
+        "satuan": { "type": "string", "maxLength": 50 },
+        "keterangan": { "type": "string", "maxLength": 1000 },
+        "buktiFisik": { "type": "string" }
+      },
+      "required": ["id", "bhpId", "namaBhp", "namaPenerima", "jabatanPenerima", "tanggalAmbil", "jumlahDiambil", "satuan"]
+    }
+  },
+  "firestore": {
+    "asets/{asetId}": {
+      "schema": "Aset",
+      "description": "Data inventaris sarana prasarana sekolah"
+    },
+    "peminjamans/{peminjamanId}": {
+      "schema": "Peminjaman",
+      "description": "Transaksi peminjaman sarana prasarana"
+    },
+    "pemusnahans/{pemusnahanId}": {
+      "schema": "LogPemusnahan",
+      "description": "Arsip penghapusan atau pemusnahan sarana prasarana"
+    },
+    "pengaturan/{pengaturanId}": {
+      "schema": "PengaturanSekolah",
+      "description": "Pengaturan instansi dan profil sekolah"
+    },
+    "bhp/{bhpId}": {
+      "schema": "BarangHabisPakai",
+      "description": "Data stok barang habis pakai sekolah"
+    },
+    "pengambilan_bhp/{pengambilanBhpId}": {
+      "schema": "PengambilanBHP",
+      "description": "Pemberian barang habis pakai kepada guru/staf"
+    }
+  }
+}

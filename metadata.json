@@ -1,0 +1,6 @@
+{
+  "name": "E-Sarpras Sekolah",
+  "description": "Sistem Informasi Sarana dan Prasarana (E-Sarpras) Sekolah berbasis web. Memiliki fitur pendataan aset, peminjaman, pelaporan kepatuhan Permendikbudristek 22/2023, cetak barcode, dan scanner kamera, terintegrasi dengan Google Sheets.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
