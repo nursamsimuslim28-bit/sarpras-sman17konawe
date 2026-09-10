@@ -129,7 +129,7 @@ const DEFAULT_INVENTORY_DATA: Aset[] = [
 
 const KEY_INITIALIZED = 'esarpras_app_initialized';
 const KEY_BOSP_SEEDED = 'esarpras_bosp2023_2024_2025_siplah_seeded_v3';
-const KEY_BHP_SEEDED = 'esarpras_bhp_2023_2024_2025_seeded_v2';
+const KEY_BHP_SEEDED = 'esarpras_bhp_2023_2024_2025_seeded_v3';
 
 // Inisialisasi storage awal
 if (!localStorage.getItem(KEY_INITIALIZED)) {
@@ -159,11 +159,15 @@ if (!localStorage.getItem(KEY_INITIALIZED)) {
       console.warn('Gagal seeding data BOSP 2023, 2024 & 2025:', e);
     }
   }
-  // Pastikan master data BHP 2023/2024/2025 tersuntikkan ke storage
+  // Pastikan master data BHP 2023/2024/2025 tersuntikkan ke storage dan diset stok utuh 100%
   if (!localStorage.getItem(KEY_BHP_SEEDED)) {
     try {
       const existingBhp: BarangHabisPakai[] = JSON.parse(localStorage.getItem(KEY_BHP) || '[]');
-      const mergedBhp = mergeById(INITIAL_BOSP_BHP_DATA, existingBhp);
+      // Prioritaskan data resmi INITIAL_BOSP_BHP_DATA untuk memastikan stok sekarang utuh 100%
+      const mergedBhp = mergeById(INITIAL_BOSP_BHP_DATA, existingBhp.map(b => ({
+        ...b,
+        stokSekarang: b.stokAwal // Pastikan stok awal utuh 100% saat baru input data
+      })));
       safeSetStorage(KEY_BHP, mergedBhp);
       localStorage.setItem(KEY_BHP_SEEDED, 'true');
     } catch (e) {
