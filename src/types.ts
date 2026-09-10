@@ -48,8 +48,8 @@ export const DEFAULT_MASTER_RUANGS: MasterRuang[] = [
 export interface Aset {
   id: string; // Barcode / Kode Aset (e.g. SAR-2026-001)
   nama: string;
-  merek: string;
-  spesifikasi: string;
+  merek?: string;
+  spesifikasi?: string;
   kategori: KategoriAset;
   ruangLokasi: StandardRuang;
   jumlah: number;
@@ -57,9 +57,9 @@ export interface Aset {
   kondisi: KondisiAset;
   sumberDana: string;
   tahunPerolehan: number;
-  fotoUrl: string; // URL Google Drive or Base64
+  fotoUrl?: string; // URL Google Drive or Base64
   catatan?: string;
-  tanggalRegister: string;
+  tanggalRegister?: string;
   serialNumber?: string;
   hargaPerolehan?: number;
   nomorBuktiPerolehan?: string;
