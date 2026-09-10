@@ -246,6 +246,7 @@ export interface BarangHabisPakai {
   kategori: KategoriBHP;
   stokAwal: number;
   stokSekarang: number;
+  stokMinimum?: number; // Batas peringatan restock minimum (default 20-30% atau 5)
   satuan: string; // e.g. Rim, Pcs, Botol, Tabung, Pak
   lokasiPenyimpanan: string; // e.g. Lemari TU, Gudang Sekolah, dll.
   catatan?: string;

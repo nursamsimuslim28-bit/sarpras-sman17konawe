@@ -2,6 +2,7 @@ import { Aset, Peminjaman, LogPemusnahan, PengaturanSekolah, SAMPLE_ASETS, SAMPL
 import { INITIAL_BOSP_2024_ASETS } from './dataBosp2024';
 import { INITIAL_BOSP_2025_ASETS } from './dataBosp2025';
 import { INITIAL_SIPLAH_BUKU_ASETS } from './dataSiplahBuku';
+import { INITIAL_BOSP_BHP_DATA } from './dataBospBhp';
 import { 
   isFirebaseClientConfigured, 
   saveDocumentClient, 
@@ -126,19 +127,21 @@ const DEFAULT_INVENTORY_DATA: Aset[] = [
 
 const KEY_INITIALIZED = 'esarpras_app_initialized';
 const KEY_BOSP_SEEDED = 'esarpras_bosp2024_2025_siplah_seeded_v2';
+const KEY_BHP_SEEDED = 'esarpras_bhp_2024_2025_seeded_v1';
 
 // Inisialisasi storage awal
 if (!localStorage.getItem(KEY_INITIALIZED)) {
   if (!localStorage.getItem(KEY_ASETS)) safeSetStorage(KEY_ASETS, DEFAULT_INVENTORY_DATA);
   if (!localStorage.getItem(KEY_PEMINJAMANS)) safeSetStorage(KEY_PEMINJAMANS, []);
   if (!localStorage.getItem(KEY_PEMUSNAHANS)) safeSetStorage(KEY_PEMUSNAHANS, []);
-  if (!localStorage.getItem(KEY_BHP)) safeSetStorage(KEY_BHP, []);
+  if (!localStorage.getItem(KEY_BHP)) safeSetStorage(KEY_BHP, INITIAL_BOSP_BHP_DATA);
   if (!localStorage.getItem(KEY_PENGAMBILAN_BHP)) safeSetStorage(KEY_PENGAMBILAN_BHP, []);
   if (!localStorage.getItem(KEY_AUDIT_LOGS)) safeSetStorage(KEY_AUDIT_LOGS, []);
   if (!localStorage.getItem(KEY_MASTER_RUANGS)) safeSetStorage(KEY_MASTER_RUANGS, DEFAULT_MASTER_RUANGS);
   if (!localStorage.getItem(KEY_KELUHAN)) safeSetStorage(KEY_KELUHAN, []);
   localStorage.setItem(KEY_INITIALIZED, 'true');
   localStorage.setItem(KEY_BOSP_SEEDED, 'true');
+  localStorage.setItem(KEY_BHP_SEEDED, 'true');
 } else {
   if (!localStorage.getItem(KEY_MASTER_RUANGS)) {
     safeSetStorage(KEY_MASTER_RUANGS, DEFAULT_MASTER_RUANGS);
@@ -152,6 +155,17 @@ if (!localStorage.getItem(KEY_INITIALIZED)) {
       localStorage.setItem(KEY_BOSP_SEEDED, 'true');
     } catch (e) {
       console.warn('Gagal seeding data BOSP 2024 & 2025:', e);
+    }
+  }
+  // Pastikan master data BHP 2024/2025 tersuntikkan ke storage
+  if (!localStorage.getItem(KEY_BHP_SEEDED)) {
+    try {
+      const existingBhp: BarangHabisPakai[] = JSON.parse(localStorage.getItem(KEY_BHP) || '[]');
+      const mergedBhp = mergeById(INITIAL_BOSP_BHP_DATA, existingBhp);
+      safeSetStorage(KEY_BHP, mergedBhp);
+      localStorage.setItem(KEY_BHP_SEEDED, 'true');
+    } catch (e) {
+      console.warn('Gagal seeding data BHP:', e);
     }
   }
 }

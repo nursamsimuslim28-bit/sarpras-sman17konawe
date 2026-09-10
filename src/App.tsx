@@ -586,6 +586,7 @@ export default function App() {
             asets={asets}
             peminjamans={peminjamans}
             pemusnahans={pemusnahans}
+            bhp={bhp}
             pengaturan={pengaturan}
             onNavigateToTab={(tab) => setActiveTab(tab)}
           />

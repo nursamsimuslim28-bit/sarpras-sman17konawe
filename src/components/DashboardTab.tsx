@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Aset, Peminjaman, LogPemusnahan, PengaturanSekolah } from '../types';
+import { Aset, Peminjaman, LogPemusnahan, PengaturanSekolah, BarangHabisPakai } from '../types';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
-import { AlertTriangle, Archive, Award, BookOpen, CheckCircle, Clock, Database, MapPin, Users, Smartphone, Download, ExternalLink, Chrome, Compass, Laptop, Info, ArrowUpRight, X, Search, FileText, FileCheck2, Scale } from 'lucide-react';
+import { AlertTriangle, Archive, Award, BookOpen, CheckCircle, Clock, Database, MapPin, Users, Smartphone, Download, ExternalLink, Chrome, Compass, Laptop, Info, ArrowUpRight, X, Search, FileText, FileCheck2, Scale, Package, ShoppingCart, ArrowRight, BellRing } from 'lucide-react';
 
 interface DashboardTabProps {
   asets: Aset[];
   peminjamans: Peminjaman[];
   pemusnahans: LogPemusnahan[];
+  bhp?: BarangHabisPakai[];
   pengaturan: PengaturanSekolah;
   onNavigateToTab: (tab: string) => void;
 }
@@ -16,6 +17,7 @@ export default function DashboardTab({
   asets,
   peminjamans,
   pemusnahans,
+  bhp = [],
   pengaturan,
   onNavigateToTab
 }: DashboardTabProps) {
@@ -143,6 +145,17 @@ export default function DashboardTab({
     Math.round((estimatedCapacity / pengaturan.targetKapasitasSiswa) * 100)
   );
 
+  // 5. BHP Low Stock & Critical Restock Detection
+  const bhpLowStockItems = bhp.filter(item => {
+    const minThreshold = (item.stokMinimum !== undefined && item.stokMinimum > 0)
+      ? item.stokMinimum
+      : Math.max(2, Math.ceil(item.stokAwal * 0.25)); // Default ambang batas 25% stok awal atau min 2
+    return item.stokSekarang <= minThreshold;
+  });
+
+  const bhpOutOfStockCount = bhpLowStockItems.filter(item => item.stokSekarang === 0).length;
+  const bhpWarningStockCount = bhpLowStockItems.filter(item => item.stokSekarang > 0).length;
+
   return (
     <div className="space-y-8" id="dashboard-tab">
       
@@ -170,6 +183,109 @@ export default function DashboardTab({
           <Database size={240} className="text-white" />
         </div>
       </motion.div>
+
+      {/* NOTIFIKASI OTOMATIS: PERINGATAN RESTOCK STOK BHP MINIMUM */}
+      {bhpLowStockItems.length > 0 && (
+        <motion.div
+          id="alert-bhp-minimum"
+          initial={{ opacity: 0, y: -10, scale: 0.99 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className={`rounded-3xl border p-5 md:p-6 relative overflow-hidden shadow-sm transition-all ${
+            bhpOutOfStockCount > 0 
+              ? 'bg-rose-50/90 border-rose-200 text-rose-950' 
+              : 'bg-amber-50/90 border-amber-200 text-amber-950'
+          }`}
+        >
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className={`p-3.5 rounded-2xl shrink-0 shadow-md ${
+                bhpOutOfStockCount > 0 
+                  ? 'bg-rose-600 text-white shadow-rose-600/20' 
+                  : 'bg-amber-500 text-white shadow-amber-500/20'
+              }`}>
+                <BellRing size={24} className="animate-pulse" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full flex items-center gap-1 ${
+                    bhpOutOfStockCount > 0 
+                      ? 'bg-rose-200 text-rose-800' 
+                      : 'bg-amber-200 text-amber-800'
+                  }`}>
+                    <AlertTriangle size={11} />
+                    Peringatan Stok BHP Kritis
+                  </span>
+                  <span className="text-xs font-bold text-slate-500">
+                    • {bhpLowStockItems.length} barang persediaan mencapai batas minimum
+                  </span>
+                </div>
+
+                <h3 className="text-base font-bold tracking-tight">
+                  {bhpOutOfStockCount > 0
+                    ? `Perhatian: Ada ${bhpOutOfStockCount} barang habis dan ${bhpWarningStockCount} barang menipis!`
+                    : `Perhatian: Ada ${bhpWarningStockCount} barang habis pakai yang harus segera di-restock!`}
+                </h3>
+
+                <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
+                  Stok barang habis pakai (ATK / Bahan Praktik / Sanitasi) berikut telah mencapai batas minimum. Segera rencanakan pengadaan kembali agar operasional sekolah tetap berjalan lancar:
+                </p>
+
+                {/* Tag/Pills daftar barang yang kritis */}
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {bhpLowStockItems.slice(0, 6).map((item) => {
+                    const threshold = (item.stokMinimum !== undefined && item.stokMinimum > 0)
+                      ? item.stokMinimum
+                      : Math.max(2, Math.ceil(item.stokAwal * 0.25));
+                    const isZero = item.stokSekarang === 0;
+
+                    return (
+                      <span
+                        key={item.id}
+                        id={`badge-bhp-${item.id}`}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold border shadow-2xs ${
+                          isZero
+                            ? 'bg-rose-100/90 text-rose-900 border-rose-300'
+                            : 'bg-white text-amber-900 border-amber-300'
+                        }`}
+                      >
+                        <Package size={13} className={isZero ? 'text-rose-600' : 'text-amber-600'} />
+                        <span>{item.nama}</span>
+                        <span className={`px-1.5 py-0.2 text-[10px] font-mono rounded-md ${
+                          isZero ? 'bg-rose-600 text-white' : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          Sisa: {item.stokSekarang} {item.satuan} (Min: {threshold})
+                        </span>
+                      </span>
+                    );
+                  })}
+                  {bhpLowStockItems.length > 6 && (
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-bold bg-white/70 text-slate-600 border border-slate-200">
+                      +{bhpLowStockItems.length - 6} barang lainnya...
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 w-full lg:w-auto shrink-0 pt-2 lg:pt-0">
+              <button
+                id="btn-nav-bhp-alert"
+                onClick={() => onNavigateToTab('bhp')}
+                className={`w-full lg:w-auto px-5 py-2.5 text-white text-xs font-extrabold rounded-xl transition shadow-md flex items-center justify-center gap-2 cursor-pointer ${
+                  bhpOutOfStockCount > 0
+                    ? 'bg-rose-600 hover:bg-rose-700 active:bg-rose-800 shadow-rose-600/20'
+                    : 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800 shadow-amber-600/20'
+                }`}
+              >
+                <ShoppingCart size={15} />
+                <span>Buka Persediaan BHP</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Quick Banner: Dokumen Standar BMD Permendagri 47/2021 */}
       <motion.div

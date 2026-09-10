@@ -168,6 +168,7 @@ export default function BhpTab({
     merek: '',
     kategori: 'Alat Tulis Kantor (ATK)' as KategoriBHP,
     stokAwal: 10,
+    stokMinimum: 3,
     satuan: 'Rim',
     lokasiPenyimpanan: '',
     catatan: '',
@@ -200,9 +201,15 @@ export default function BhpTab({
     const matchesCategory = categoryFilter === 'Semua' || item.kategori === categoryFilter;
     
     let matchesStatus = true;
-    const ratio = item.stokSekarang / item.stokAwal;
+    const ratio = item.stokAwal > 0 ? (item.stokSekarang / item.stokAwal) : 0;
+    const minThreshold = (item.stokMinimum !== undefined && item.stokMinimum > 0)
+      ? item.stokMinimum
+      : Math.max(2, Math.ceil(item.stokAwal * 0.25));
+
     if (stockStatusFilter === 'Aman') {
-      matchesStatus = item.stokSekarang > 0 && ratio > 0.5;
+      matchesStatus = item.stokSekarang > minThreshold && ratio > 0.5;
+    } else if (stockStatusFilter === 'Kritis') {
+      matchesStatus = item.stokSekarang <= minThreshold;
     } else if (stockStatusFilter === 'Hampir Habis') {
       matchesStatus = item.stokSekarang > 0 && ratio <= 0.5;
     } else if (stockStatusFilter === 'Habis') {
@@ -239,6 +246,7 @@ export default function BhpTab({
         merek: item.merek,
         kategori: item.kategori,
         stokAwal: item.stokAwal,
+        stokMinimum: item.stokMinimum ?? Math.max(1, Math.ceil(item.stokAwal * 0.25)),
         satuan: item.satuan,
         lokasiPenyimpanan: item.lokasiPenyimpanan,
         catatan: item.catatan || '',
@@ -258,6 +266,7 @@ export default function BhpTab({
         merek: '',
         kategori: 'Alat Tulis Kantor (ATK)',
         stokAwal: 10,
+        stokMinimum: 3,
         satuan: 'Rim',
         lokasiPenyimpanan: '',
         catatan: '',
@@ -291,6 +300,7 @@ export default function BhpTab({
         kategori: bhpForm.kategori,
         stokAwal: Number(bhpForm.stokAwal),
         stokSekarang: editingBhp ? Math.min(Number(bhpForm.stokAwal), editingBhp.stokSekarang + (Number(bhpForm.stokAwal) - editingBhp.stokAwal)) : Number(bhpForm.stokAwal),
+        stokMinimum: Number(bhpForm.stokMinimum || 2),
         satuan: bhpForm.satuan,
         lokasiPenyimpanan: bhpForm.lokasiPenyimpanan,
         catatan: bhpForm.catatan,
@@ -1066,7 +1076,8 @@ export default function BhpTab({
                   className="bg-transparent border-none text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
                 >
                   <option value="Semua">Semua Tingkat</option>
-                  <option value="Aman">Stok Aman (&gt;50%)</option>
+                  <option value="Aman">Stok Aman</option>
+                  <option value="Kritis">Kritis / Batas Minimum (Restock)</option>
                   <option value="Hampir Habis">Hampir Habis (&le;50%)</option>
                   <option value="Habis">Habis (0)</option>
                 </select>
@@ -1078,9 +1089,13 @@ export default function BhpTab({
           {filteredBhp.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {filteredBhp.map((item) => {
-                const ratio = item.stokSekarang / item.stokAwal;
+                const ratio = item.stokAwal > 0 ? (item.stokSekarang / item.stokAwal) : 0;
+                const minThreshold = (item.stokMinimum !== undefined && item.stokMinimum > 0)
+                  ? item.stokMinimum
+                  : Math.max(2, Math.ceil(item.stokAwal * 0.25));
                 const isOutOfStock = item.stokSekarang === 0;
-                const isLowStock = ratio > 0 && ratio <= 0.5;
+                const isCriticalStock = !isOutOfStock && item.stokSekarang <= minThreshold;
+                const isLowStock = !isOutOfStock && !isCriticalStock && ratio <= 0.5;
 
                 return (
                   <motion.div
@@ -1088,7 +1103,11 @@ export default function BhpTab({
                     layout
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-xs flex flex-col justify-between hover:shadow-md hover:border-slate-200 transition-all duration-200"
+                    className={`bg-white rounded-2xl border overflow-hidden shadow-xs flex flex-col justify-between hover:shadow-md transition-all duration-200 ${
+                      isOutOfStock ? 'border-rose-200 ring-1 ring-rose-300/30' :
+                      isCriticalStock ? 'border-amber-200 ring-1 ring-amber-300/30' :
+                      'border-slate-100 hover:border-slate-200'
+                    }`}
                   >
                     {/* Card Image section */}
                     <div className="relative h-40 bg-slate-50 flex items-center justify-center overflow-hidden border-b border-slate-100">
@@ -1112,11 +1131,12 @@ export default function BhpTab({
                       </span>
                       
                       <span className={`absolute top-3 right-3 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-xs ${
-                        isOutOfStock ? 'text-rose-600 bg-white/90' :
+                        isOutOfStock ? 'text-rose-600 bg-rose-50 border border-rose-200' :
+                        isCriticalStock ? 'text-rose-700 bg-amber-50 border border-amber-200 animate-pulse' :
                         isLowStock ? 'text-amber-600 bg-white/90' :
                         'text-emerald-600 bg-white/90'
                       }`}>
-                        {isOutOfStock ? 'Habis' : isLowStock ? 'Hampir Habis' : 'Stok Aman'}
+                        {isOutOfStock ? 'Habis (0)' : isCriticalStock ? `Mencapai Min (${item.stokSekarang}/${minThreshold})` : isLowStock ? 'Hampir Habis' : 'Stok Aman'}
                       </span>
 
                       {/* Category Pill */}
@@ -1141,8 +1161,10 @@ export default function BhpTab({
                       {/* Stock Progress Indicators */}
                       <div className="mt-5 space-y-2">
                         <div className="flex items-baseline justify-between text-xs">
-                          <span className="text-slate-400 font-medium">Tingkat Persediaan</span>
-                          <span className="font-bold text-slate-700">
+                          <span className="text-slate-400 font-medium">
+                            Tingkat Persediaan {item.stokMinimum !== undefined ? `(Min: ${item.stokMinimum})` : ''}
+                          </span>
+                          <span className={`font-bold ${isOutOfStock ? 'text-rose-600' : isCriticalStock ? 'text-rose-600' : 'text-slate-700'}`}>
                             {item.stokSekarang} / {item.stokAwal} <span className="text-[10px] text-slate-400 font-medium">{item.satuan}</span>
                           </span>
                         </div>
@@ -1151,7 +1173,8 @@ export default function BhpTab({
                         <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                           <div 
                             className={`h-full rounded-full transition-all duration-500 ${
-                              isOutOfStock ? 'w-0' :
+                              isOutOfStock ? 'w-0 bg-rose-500' :
+                              isCriticalStock ? 'bg-rose-500' :
                               isLowStock ? 'bg-amber-500' :
                               'bg-emerald-500'
                             }`}
@@ -1159,6 +1182,13 @@ export default function BhpTab({
                           />
                         </div>
                         
+                        {isCriticalStock && (
+                          <p className="text-[10px] text-rose-600 font-bold flex items-center gap-1 mt-1">
+                            <AlertCircle size={11} />
+                            <span>Stok sudah di bawah batas minimum ({minThreshold} {item.satuan})!</span>
+                          </p>
+                        )}
+
                         {item.catatan && (
                           <p className="text-[10px] text-slate-400 italic line-clamp-1 mt-2">
                             * {item.catatan}
@@ -1491,19 +1521,20 @@ export default function BhpTab({
                 </div>
               </div>
 
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kategori Barang *</label>
+                <select
+                  value={bhpForm.kategori}
+                  onChange={(e) => setBhpForm({ ...bhpForm, kategori: e.target.value as KategoriBHP })}
+                  className="w-full px-3.5 py-2 border border-slate-200 bg-white rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  {KATEGORI_LIST.map((kat) => (
+                    <option key={kat} value={kat}>{kat}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kategori Barang *</label>
-                  <select
-                    value={bhpForm.kategori}
-                    onChange={(e) => setBhpForm({ ...bhpForm, kategori: e.target.value as KategoriBHP })}
-                    className="w-full px-3.5 py-2 border border-slate-200 bg-white rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                  >
-                    {KATEGORI_LIST.map((kat) => (
-                      <option key={kat} value={kat}>{kat}</option>
-                    ))}
-                  </select>
-                </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Stok Awal Semester *</label>
                   <input
@@ -1513,6 +1544,20 @@ export default function BhpTab({
                     value={bhpForm.stokAwal}
                     onChange={(e) => setBhpForm({ ...bhpForm, stokAwal: Number(e.target.value) })}
                     className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-rose-500 uppercase tracking-wider flex items-center justify-between">
+                    <span>Batas Minimum *</span>
+                    <span className="text-[9px] text-slate-400 font-normal">Peringatan restock</span>
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    value={bhpForm.stokMinimum}
+                    onChange={(e) => setBhpForm({ ...bhpForm, stokMinimum: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2 border border-rose-200 bg-rose-50/20 rounded-xl text-xs font-medium focus:outline-none focus:border-rose-500"
                   />
                 </div>
               </div>
