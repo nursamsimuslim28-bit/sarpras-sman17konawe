@@ -181,6 +181,16 @@ export default function AsetTab({
   const [isCustomRuangActive, setIsCustomRuangActive] = useState(false);
   const [isCustomSatuanActive, setIsCustomSatuanActive] = useState(false);
   const [isCustomSumberDanaActive, setIsCustomSumberDanaActive] = useState(false);
+  const [isCustomStatusTanahActive, setIsCustomStatusTanahActive] = useState(false);
+  const [isCustomKodeTanahActive, setIsCustomKodeTanahActive] = useState(false);
+
+  const standardStatusTanahOptions = [
+    'Tanah Hak Pakai Pemerintah Daerah',
+    'Tanah Hak Milik (SHM)',
+    'Tanah Hak Guna Bangunan (HGB)',
+    'Tanah Wakaf / Hibah',
+    'Tanah Milik Pihak Lain / Pinjam Pakai'
+  ];
 
   // Standard KIB Categories Permendagri No. 47 Tahun 2021
   const kibCategories = [
@@ -608,6 +618,9 @@ export default function AsetTab({
     setIsCustomRuangActive(!spaces.includes(aset.ruangLokasi as any));
     setIsCustomSatuanActive(!customSatuans.includes(aset.satuan));
     setIsCustomSumberDanaActive(!fundingSources.includes(aset.sumberDana));
+    setIsCustomStatusTanahActive(!!aset.statusTanahGedung && !standardStatusTanahOptions.includes(aset.statusTanahGedung));
+    const landAssets = asets.filter(a => getActiveKib(a.kategori) === 'A');
+    setIsCustomKodeTanahActive(!!aset.kodeTanahKibA && !landAssets.some(l => l.id === aset.kodeTanahKibA));
     setFormErrors({});
     setHasAttemptedSubmit(false);
     setIsModalOpen(true);
@@ -619,6 +632,8 @@ export default function AsetTab({
     setIsCustomRuangActive(false);
     setIsCustomSatuanActive(false);
     setIsCustomSumberDanaActive(false);
+    setIsCustomStatusTanahActive(false);
+    setIsCustomKodeTanahActive(false);
     setFormErrors({});
     setHasAttemptedSubmit(false);
     setIsModalOpen(true);
@@ -1938,24 +1953,83 @@ export default function AsetTab({
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Status Tanah Tempat Gedung Berdiri */}
                         <div>
-                          <label className="block text-xs font-semibold text-slate-700 mb-1">
-                            Status Tanah Tempat Gedung Berdiri <span className="text-rose-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={currentAset.statusTanahGedung || ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setCurrentAset(prev => {
-                                const next = { ...prev, statusTanahGedung: val };
-                                if (hasAttemptedSubmit) setFormErrors(validateAsetForm(next, activeKib));
-                                return next;
-                              });
-                            }}
-                            className={`w-full text-xs px-3 py-2 bg-white border ${formErrors.statusTanahGedung ? 'border-rose-500 ring-2 ring-rose-200 bg-rose-50/30' : 'border-slate-200'} rounded-lg focus:outline-none`}
-                            placeholder="Tanah Hak Pakai Pemerintah Daerah"
-                          />
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-semibold text-slate-700">
+                              Status Tanah Tempat Gedung Berdiri <span className="text-rose-500">*</span>
+                            </label>
+                            {isCustomStatusTanahActive && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsCustomStatusTanahActive(false);
+                                  setCurrentAset(prev => {
+                                    const next = { ...prev, statusTanahGedung: standardStatusTanahOptions[0] };
+                                    if (hasAttemptedSubmit) setFormErrors(validateAsetForm(next, activeKib));
+                                    return next;
+                                  });
+                                }}
+                                className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+                              >
+                                Pilih dari Daftar
+                              </button>
+                            )}
+                          </div>
+
+                          {!isCustomStatusTanahActive ? (
+                            <select
+                              value={standardStatusTanahOptions.includes(currentAset.statusTanahGedung || '') ? currentAset.statusTanahGedung : '__custom__'}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '__custom__') {
+                                  setIsCustomStatusTanahActive(true);
+                                } else {
+                                  setCurrentAset(prev => {
+                                    const next = { ...prev, statusTanahGedung: val };
+                                    if (hasAttemptedSubmit) setFormErrors(validateAsetForm(next, activeKib));
+                                    return next;
+                                  });
+                                }
+                              }}
+                              className={`w-full text-xs px-3 py-2 bg-white border ${formErrors.statusTanahGedung ? 'border-rose-500 ring-2 ring-rose-200 bg-rose-50/30' : 'border-slate-200'} rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500`}
+                            >
+                              {standardStatusTanahOptions.map((st) => (
+                                <option key={st} value={st}>{st}</option>
+                              ))}
+                              <option value="__custom__">+ Ketik Status Lainnya / Kustom...</option>
+                            </select>
+                          ) : (
+                            <div className="flex gap-1.5">
+                              <input
+                                type="text"
+                                value={currentAset.statusTanahGedung || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setCurrentAset(prev => {
+                                    const next = { ...prev, statusTanahGedung: val };
+                                    if (hasAttemptedSubmit) setFormErrors(validateAsetForm(next, activeKib));
+                                    return next;
+                                  });
+                                }}
+                                className={`w-full text-xs px-3 py-2 bg-white border ${formErrors.statusTanahGedung ? 'border-rose-500 ring-2 ring-rose-200 bg-rose-50/30' : 'border-slate-200'} rounded-lg focus:outline-none`}
+                                placeholder="Contoh: Tanah Pinjam Pakai Yayasan"
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsCustomStatusTanahActive(false);
+                                  setCurrentAset(prev => ({ ...prev, statusTanahGedung: standardStatusTanahOptions[0] }));
+                                }}
+                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold cursor-pointer transition shrink-0"
+                                title="Kembali ke Pilihan Dropdown"
+                              >
+                                Batal
+                              </button>
+                            </div>
+                          )}
+
                           {formErrors.statusTanahGedung && (
                             <p className="text-[10px] text-rose-600 font-semibold mt-1 flex items-center gap-1">
                               <AlertCircle size={12} className="shrink-0" />
@@ -1963,15 +2037,104 @@ export default function AsetTab({
                             </p>
                           )}
                         </div>
+
+                        {/* Kode Aset Tanah KIB A Terkait */}
                         <div>
-                          <label className="block text-xs font-semibold text-slate-700 mb-1">Kode Aset Tanah KIB A Terkait (Opsional)</label>
-                          <input
-                            type="text"
-                            value={currentAset.kodeTanahKibA || ''}
-                            onChange={(e) => setCurrentAset(prev => ({ ...prev, kodeTanahKibA: e.target.value }))}
-                            className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none font-mono"
-                            placeholder="ID / Kode Barang Tanah KIB A"
-                          />
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-semibold text-slate-700">
+                              Kode Aset Tanah KIB A Terkait (Opsional)
+                            </label>
+                            {isCustomKodeTanahActive && (
+                              <button
+                                type="button"
+                                onClick={() => setIsCustomKodeTanahActive(false)}
+                                className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+                              >
+                                Pilih dari Data KIB A
+                              </button>
+                            )}
+                          </div>
+
+                          {(() => {
+                            const landAssets = asets.filter(a => getActiveKib(a.kategori) === 'A');
+
+                            if (!isCustomKodeTanahActive && landAssets.length > 0) {
+                              return (
+                                <div className="space-y-1">
+                                  <select
+                                    value={currentAset.kodeTanahKibA || ''}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === '__custom__') {
+                                        setIsCustomKodeTanahActive(true);
+                                      } else {
+                                        const selectedLand = landAssets.find(l => l.id === val);
+                                        setCurrentAset(prev => {
+                                          const next = { 
+                                            ...prev, 
+                                            kodeTanahKibA: val,
+                                            kodeTanahGedung: val
+                                          };
+                                          // Otomatis sinkronkan status tanah jika aset tanah memiliki data hakTanah
+                                          if (selectedLand && selectedLand.hakTanah) {
+                                            const matchedStatus = standardStatusTanahOptions.find(s => s.toLowerCase().includes((selectedLand.hakTanah || '').toLowerCase()));
+                                            if (matchedStatus) {
+                                              next.statusTanahGedung = matchedStatus;
+                                            } else {
+                                              next.statusTanahGedung = `Tanah ${selectedLand.hakTanah}`;
+                                            }
+                                          }
+                                          if (hasAttemptedSubmit) setFormErrors(validateAsetForm(next, activeKib));
+                                          return next;
+                                        });
+                                      }
+                                    }}
+                                    className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                                  >
+                                    <option value="">-- Tidak Terhubung / Belum Dipilih --</option>
+                                    {landAssets.map(land => (
+                                      <option key={land.id} value={land.id}>
+                                        {land.id} — {land.nama || 'Lahan Sekolah'} ({land.luasTanahM2 || land.luasM2 || 0} m²{land.nomorSertifikat || land.nomorSertifikatTanah ? ` • ${land.nomorSertifikat || land.nomorSertifikatTanah}` : ''})
+                                      </option>
+                                    ))}
+                                    <option value="__custom__">+ Ketik Manual Kode Lain...</option>
+                                  </select>
+                                  <p className="text-[10px] text-slate-500 flex items-center gap-1">
+                                    <span className="text-emerald-600 font-bold">✓</span>
+                                    <span>Otomatis terhubung dengan Master Tanah KIB A</span>
+                                  </p>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div className="space-y-1">
+                                <div className="flex gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={currentAset.kodeTanahKibA || ''}
+                                    onChange={(e) => setCurrentAset(prev => ({ ...prev, kodeTanahKibA: e.target.value, kodeTanahGedung: e.target.value }))}
+                                    className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none font-mono"
+                                    placeholder="Contoh: TNH-2026-0001"
+                                  />
+                                  {landAssets.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setIsCustomKodeTanahActive(false)}
+                                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold cursor-pointer transition shrink-0"
+                                    >
+                                      Pilih
+                                    </button>
+                                  )}
+                                </div>
+                                {landAssets.length === 0 && (
+                                  <p className="text-[10px] text-amber-600 bg-amber-50 p-1.5 rounded border border-amber-200">
+                                    💡 Belum ada data KIB A (Tanah) terdaftar. Anda bisa mendaftarkan tanah di KIB A atau mengisi manual.
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>

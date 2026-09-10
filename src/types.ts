@@ -70,12 +70,17 @@ export interface Aset {
 
   // Spesifik KIB A (Tanah)
   luasTanahM2?: number;
+  luasM2?: number; // Alias
   letakAlamatTanah?: string;
+  letakAlamat?: string; // Alias
   hakTanah?: string; // Hak Pakai, Hak Milik, Hak Pengelolaan
   nomorSertifikatTanah?: string;
+  nomorSertifikat?: string; // Alias
   tanggalSertifikatTanah?: string;
+  tanggalSertifikat?: string; // Alias
   penggunaanTanah?: string; // e.g. Bangunan Sekolah, Lapangan Olahraga
   asalUsulTanah?: string; // e.g. Pembelian APBD, Hibah
+  nomorRegister?: string; // Alias nomorRegisterBmd
 
   // Spesifik KIB B (Peralatan & Mesin)
   ukuranCc?: string; // Dimensi / Kapasitas / CC
@@ -96,6 +101,7 @@ export interface Aset {
   tanggalDokumenGedung?: string;
   statusTanahGedung?: string; // Tanah Milik Pemda, Hak Pakai
   kodeTanahGedung?: string; // Kode Tanah KIB A tempat gedung berdiri
+  kodeTanahKibA?: string; // Alias kodeTanahGedung
 
   // Spesifik KIB D (Jalan, Irigasi & Jaringan)
   konstruksiJaringan?: string; // Aspal, Rabat Beton, Pipa PVC, Fiber Optik
