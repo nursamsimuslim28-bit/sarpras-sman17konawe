@@ -101,6 +101,7 @@ interface AsetTabProps {
   onSaveAset: (aset: Aset) => Promise<void>;
   onSaveMultipleAsets?: (asets: Aset[]) => Promise<void>;
   onDeleteAset: (id: string) => Promise<void>;
+  onSplitAset?: (oldId: string, newAsets: Aset[]) => Promise<void>;
   onLogPemusnahan: (log: LogPemusnahan) => Promise<void>;
   onOpenScanner: (actionType: 'search' | 'aset_form', callback?: (code: string) => void) => void;
   userRole?: 'admin' | 'guest';
@@ -113,6 +114,7 @@ export default function AsetTab({
   onSaveAset,
   onSaveMultipleAsets,
   onDeleteAset,
+  onSplitAset,
   onLogPemusnahan,
   onOpenScanner,
   userRole = 'guest'
@@ -662,20 +664,21 @@ export default function AsetTab({
         newSplitAsets.push(newUnit);
       }
 
-      // 1. Simpan semua unit baru secara masal
-      if (onSaveMultipleAsets) {
-        await onSaveMultipleAsets(newSplitAsets);
+      // 1. Eksekusi pemecahan unit secara atomik
+      if (onSplitAset) {
+        await onSplitAset(targetAset.id, newSplitAsets);
       } else {
-        for (const item of newSplitAsets) {
-          await onSaveAset(item);
+        await onDeleteAset(targetAset.id);
+        if (onSaveMultipleAsets) {
+          await onSaveMultipleAsets(newSplitAsets);
+        } else {
+          for (const item of newSplitAsets) {
+            await onSaveAset(item);
+          }
         }
       }
 
-      // 2. Hapus aset lama yang tadinya berisi kumpulan unit
-      await onDeleteAset(targetAset.id);
-
       setSelectedAsetForSplit(null);
-      alert(`✓ Sukses!\nBerhasil memecah "${targetAset.nama}" (${totalCount} Unit) menjadi ${totalCount} baris data satuan individual.\n\nSekarang Anda dapat mengubah kondisi (Baik / Rusak Ringan / Rusak Berat) dari masing-masing unit secara mandiri.`);
     } catch (err) {
       console.error('Gagal memecah unit aset:', err);
       alert('Terjadi kendala saat memecah unit aset. Silakan coba kembali.');

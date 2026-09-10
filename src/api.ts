@@ -751,6 +751,66 @@ export const api = {
     return filtered;
   },
 
+  // Split single bulk aset into individual 1-unit asets atomically
+  async splitAset(oldId: string, newAsets: Aset[]): Promise<Aset[]> {
+    const local: Aset[] = JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
+    
+    // 1. Hapus aset lama (misal SAR-2025-0002)
+    const filtered = local.filter(x => x && x.id !== oldId);
+    
+    // 2. Tambahkan unit-unit baru
+    newAsets.forEach(a => {
+      if (a && a.id) {
+        filtered.push(a);
+      }
+    });
+
+    // 3. Simpan state bersih ke localStorage secara langsung
+    safeSetStorage(KEY_ASETS, filtered);
+
+    // 4. Enqueue aksi delete & batch save ke SyncQueue
+    syncQueue.enqueue('delete_aset', { id: oldId });
+    syncQueue.enqueue('save_multiple_asets', newAsets);
+
+    // 5. Firebase / Express / GAS Sync
+    if (isFirebaseClientConfigured()) {
+      try {
+        await deleteDocumentClient('asets', oldId);
+        for (const aset of newAsets) {
+          await saveDocumentClient('asets', aset.id, aset);
+        }
+      } catch (e) {}
+    }
+
+    const isSupa = await isSupabaseActive();
+    if (isSupa) {
+      try {
+        await fetch('/api/supabase/delete_aset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: oldId })
+        });
+        for (const aset of newAsets) {
+          await fetch('/api/supabase/save_aset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(aset)
+          });
+        }
+      } catch (e) {}
+    }
+
+    const url = getScriptUrl();
+    if (url) {
+      try {
+        await callProxy(url, 'POST', { action: 'delete_aset', id: oldId });
+        await callProxy(url, 'POST', { action: 'save_multiple_asets', data: newAsets });
+      } catch (e) {}
+    }
+
+    return filtered;
+  },
+
   // Save/Update Peminjaman
   async savePeminjaman(pinjam: Peminjaman): Promise<Peminjaman[]> {
     const local: Peminjaman[] = JSON.parse(localStorage.getItem(KEY_PEMINJAMANS) || '[]');

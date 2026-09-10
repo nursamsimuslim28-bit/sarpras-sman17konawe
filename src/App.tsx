@@ -351,6 +351,31 @@ export default function App() {
     }
   };
 
+  const handleSplitAset = async (oldId: string, newAsets: Aset[]) => {
+    setIsLoading(true);
+    try {
+      const updated = await api.splitAset(oldId, newAsets);
+      setAsets(updated);
+
+      const targetAset = asets.find(a => a.id === oldId);
+      const logDetails = `Pecah unit aset ${targetAset?.nama || oldId} (${newAsets.length} Unit) menjadi ${newAsets.length} baris data satuan`;
+      const newLogs = await api.recordAuditLog(
+        activeOperator,
+        'EDIT_ASET',
+        `${targetAset?.nama || oldId} (${oldId})`,
+        logDetails
+      );
+      setAuditLogs(newLogs);
+
+      alert(`✓ Berhasil Memecah Unit!\nData "${targetAset?.nama || 'Aset'}" (${newAsets.length} Unit) telah dipecah menjadi ${newAsets.length} unit data terpisah secara presisi.`);
+    } catch (err: any) {
+      console.error('Error splitting aset:', err);
+      alert('Gagal memecah unit aset: ' + (err.message || 'Terjadi kesalahan sistem.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSavePeminjaman = async (pinjam: Peminjaman) => {
     const isReturn = pinjam.status === 'Kembali';
     const updated = await api.savePeminjaman(pinjam);
@@ -601,6 +626,7 @@ export default function App() {
             onSaveAset={handleSaveAset}
             onSaveMultipleAsets={handleSaveMultipleAsets}
             onDeleteAset={handleDeleteAset}
+            onSplitAset={handleSplitAset}
             onLogPemusnahan={handleLogPemusnahan}
             onOpenScanner={handleOpenScanner}
             userRole={userRole}
