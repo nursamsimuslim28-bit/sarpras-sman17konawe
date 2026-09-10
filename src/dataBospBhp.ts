@@ -345,6 +345,94 @@ export const INITIAL_BOSP_BHP_DATA: BarangHabisPakai[] = [
     satuan: 'Botol',
     lokasiPenyimpanan: 'Ruang UKS & Lab IPA',
     catatan: 'Antiseptik Pembersih Luka & Higienitas Medis'
+  },
+
+  // --- 6. KATEGORI PERALATAN OLAHRAGA & PORSENI SISWA (RKAS 2023) ---
+  {
+    id: 'BHP-2023-001',
+    nama: 'Bola Basket Molten / Mikasa Original',
+    merek: 'Molten / Mikasa',
+    kategori: 'Lainnya',
+    stokAwal: 4,
+    stokSekarang: 4,
+    stokMinimum: 1,
+    satuan: 'Buah',
+    lokasiPenyimpanan: 'Ruang Olahraga / OSIS',
+    catatan: 'Penyelenggaraan PORSENI & Pembelajaran PJOK (RKAS 2023 No. 129)'
+  },
+  {
+    id: 'BHP-2023-002',
+    nama: 'Bola Kaki / Sepak Bola Standar FIFA',
+    merek: 'Specs / Mikasa Size 5',
+    kategori: 'Lainnya',
+    stokAwal: 8,
+    stokSekarang: 6,
+    stokMinimum: 2,
+    satuan: 'Buah',
+    lokasiPenyimpanan: 'Ruang Olahraga / OSIS',
+    catatan: 'Penyelenggaraan PORSENI & Ekskul Sepak Bola (RKAS 2023 No. 130)'
+  },
+  {
+    id: 'BHP-2023-003',
+    nama: 'Bola Voli & Net Voli Standar Pertandingan',
+    merek: 'Mikasa / Molten V300W',
+    kategori: 'Lainnya',
+    stokAwal: 6,
+    stokSekarang: 5,
+    stokMinimum: 2,
+    satuan: 'Buah',
+    lokasiPenyimpanan: 'Ruang Olahraga / OSIS',
+    catatan: 'Penyelenggaraan PORSENI & PJOK Bola Voli (RKAS 2023 No. 131-132)'
+  },
+  {
+    id: 'BHP-2023-004',
+    nama: 'Bola Takraw Rotan/Sintetis & Net Takraw',
+    merek: 'Marathon Gajah Emas',
+    kategori: 'Lainnya',
+    stokAwal: 8,
+    stokSekarang: 7,
+    stokMinimum: 2,
+    satuan: 'Buah',
+    lokasiPenyimpanan: 'Ruang Olahraga / OSIS',
+    catatan: 'PORSENI & Ekskul Sepak Takraw (RKAS 2023 No. 133-134)'
+  },
+  {
+    id: 'BHP-2023-005',
+    nama: 'Shuttlecock Bulutangkis & Raket Badminton',
+    merek: 'Samurai / Garuda / Yonex',
+    kategori: 'Lainnya',
+    stokAwal: 15,
+    stokSekarang: 10,
+    stokMinimum: 3,
+    satuan: 'Slop/Buah',
+    lokasiPenyimpanan: 'Ruang Olahraga / OSIS',
+    catatan: 'PORSENI & Praktik Bulutangkis Siswa (RKAS 2023 No. 136-137)'
+  },
+
+  // --- 7. KATEGORI TAMAN, PERTANIAN & PEMELIHARAAN LAPANGAN (RKAS 2023) ---
+  {
+    id: 'BHP-2023-006',
+    nama: 'Herbisida Pembasmi Rumput Liar (Rondap & Ramuska)',
+    merek: 'Roundup / Ramuska 486 SL',
+    kategori: 'Alat Pertanian & Taman',
+    stokAwal: 20,
+    stokSekarang: 12,
+    stokMinimum: 4,
+    satuan: 'Liter',
+    lokasiPenyimpanan: 'Gudang Sarpras / Kebersihan',
+    catatan: 'Pemeliharaan Taman & Halaman Upacara (RKAS 2023 No. 75-76)'
+  },
+  {
+    id: 'BHP-2023-007',
+    nama: 'Bahan Bakar Bensin & Oli Mesin Rumput Sekolah',
+    merek: 'Pertalite & Castrol/Mesran 2T/4T',
+    kategori: 'Alat Pertanian & Taman',
+    stokAwal: 50,
+    stokSekarang: 35,
+    stokMinimum: 10,
+    satuan: 'Liter',
+    lokasiPenyimpanan: 'Gudang Sarpras',
+    catatan: 'Operasional Pemotongan Rumput Lapangan & Kebun (RKAS 2023 No. 77-78)'
   }
 ];
 
