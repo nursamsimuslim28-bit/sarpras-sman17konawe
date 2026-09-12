@@ -433,5 +433,79 @@ export const INITIAL_BOSP_BHP_DATA: BarangHabisPakai[] = [
     satuan: 'Liter',
     lokasiPenyimpanan: 'Gudang Sarpras',
     catatan: 'Operasional Pemotongan Rumput Lapangan & Kebun (RKAS 2023 No. 77-78)'
+  },
+
+  // --- 8. KATEGORI BHP & ATK PENGADAAN RKAS 2026 ---
+  {
+    id: 'BHP-2026-001',
+    nama: 'Kertas HVS Folio / F4 75 GSM (RKAS 2026)',
+    merek: 'SiDU / Bola Dunia 75 GSM',
+    kategori: 'Alat Tulis Kantor (ATK)',
+    stokAwal: 150,
+    stokSekarang: 150,
+    stokMinimum: 25,
+    satuan: 'Rim',
+    lokasiPenyimpanan: 'Lemari Persediaan TU',
+    catatan: 'Belanja Kertas Administrasi, P5, Asesmen & Ujian Sekolah (RKAS 2026)'
+  },
+  {
+    id: 'BHP-2026-002',
+    nama: 'Tinta Printer Epson Original Hitam 65 ml (003)',
+    merek: 'Epson 003 Black',
+    kategori: 'Alat Tulis Kantor (ATK)',
+    stokAwal: 30,
+    stokSekarang: 30,
+    stokMinimum: 5,
+    satuan: 'Botol',
+    lokasiPenyimpanan: 'Ruang Tata Usaha (TU)',
+    catatan: 'Tinta Printer EcoTank Cetak Dokumen Sekolah (RKAS 2026)'
+  },
+  {
+    id: 'BHP-2026-003',
+    nama: 'Tinta Printer Epson Original Warna 65 ml (Cyan/Magenta/Yellow)',
+    merek: 'Epson 003 Color',
+    kategori: 'Alat Tulis Kantor (ATK)',
+    stokAwal: 80,
+    stokSekarang: 80,
+    stokMinimum: 15,
+    satuan: 'Botol',
+    lokasiPenyimpanan: 'Ruang Tata Usaha (TU)',
+    catatan: 'Tinta Warna Cetak Piagam, Rapor & Brosur PPDB (RKAS 2026)'
+  },
+  {
+    id: 'BHP-2026-004',
+    nama: 'Benda Pos - Materai Tempel 10.000',
+    merek: 'Pos Indonesia / DJP 10.000',
+    kategori: 'Alat Tulis Kantor (ATK)',
+    stokAwal: 600,
+    stokSekarang: 600,
+    stokMinimum: 50,
+    satuan: 'Lembar',
+    lokasiPenyimpanan: 'Brankas / Lemari Bendahara',
+    catatan: 'Bea Materai Laporan Pertanggungjawaban & Administrasi Bank (RKAS 2026 No. 348)'
+  },
+  {
+    id: 'BHP-2026-005',
+    nama: 'Paket Alat Kebersihan & Sanitasi Lingkungan (Sapu, Pel, Tong Sampah)',
+    merek: 'Nagoya / Lion Star',
+    kategori: 'Bahan Kebersihan & Sanitasi',
+    stokAwal: 60,
+    stokSekarang: 60,
+    stokMinimum: 10,
+    satuan: 'Buah',
+    lokasiPenyimpanan: 'Gudang Kebersihan Sarpras',
+    catatan: 'Penunjang Sanitasi & Kebersihan Seluruh Kelas (RKAS 2026 No. 326-330)'
+  },
+  {
+    id: 'BHP-2026-006',
+    nama: 'Obat & Perlengkapan Kesehatan Penunjang UKS',
+    merek: 'Betadine, Alkohol 70%, Masker Medis',
+    kategori: 'Kesehatan (UKS/Obat-obatan)',
+    stokAwal: 25,
+    stokSekarang: 25,
+    stokMinimum: 5,
+    satuan: 'Paket',
+    lokasiPenyimpanan: 'Ruang UKS Sekolah',
+    catatan: 'Penyelenggaraan & Pertolongan Pertama Siswa UKS (RKAS 2026 No. 90-96)'
   }
 ];

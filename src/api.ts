@@ -2,6 +2,7 @@ import { Aset, Peminjaman, LogPemusnahan, PengaturanSekolah, SAMPLE_ASETS, SAMPL
 import { INITIAL_BOSP_2023_ASETS } from './dataBosp2023';
 import { INITIAL_BOSP_2024_ASETS } from './dataBosp2024';
 import { INITIAL_BOSP_2025_ASETS } from './dataBosp2025';
+import { INITIAL_BOSP_2026_ASETS } from './dataBosp2026';
 import { INITIAL_SIPLAH_BUKU_ASETS } from './dataSiplahBuku';
 import { INITIAL_BOSP_BHP_DATA } from './dataBospBhp';
 import { syncQueue } from './syncQueue';
@@ -120,17 +121,20 @@ function mergeById<T extends { id: string }>(remote: T[] | undefined, local: T[]
   return Array.from(map.values());
 }
 
-// Daftar seluruh data pengadaan BOSP 2023, BOSP 2024, BOSP 2025 & SIPLah Buku
+// Daftar seluruh data pengadaan BOSP 2023, BOSP 2024, BOSP 2025, BOSP 2026 & SIPLah Buku
 const DEFAULT_INVENTORY_DATA: Aset[] = [
   ...INITIAL_BOSP_2023_ASETS,
   ...INITIAL_BOSP_2024_ASETS,
   ...INITIAL_BOSP_2025_ASETS,
+  ...INITIAL_BOSP_2026_ASETS,
   ...INITIAL_SIPLAH_BUKU_ASETS
 ];
 
 const KEY_INITIALIZED = 'esarpras_app_initialized';
 const KEY_BOSP_SEEDED = 'esarpras_bosp2023_2024_2025_siplah_seeded_v3';
 const KEY_BHP_SEEDED = 'esarpras_bhp_2023_2024_2025_seeded_v3';
+const KEY_BOSP_2026_SEEDED = 'esarpras_bosp2026_seeded_v1';
+const KEY_BHP_2026_SEEDED = 'esarpras_bhp2026_seeded_v1';
 
 // Inisialisasi storage awal
 if (!localStorage.getItem(KEY_INITIALIZED)) {
@@ -145,6 +149,8 @@ if (!localStorage.getItem(KEY_INITIALIZED)) {
   localStorage.setItem(KEY_INITIALIZED, 'true');
   localStorage.setItem(KEY_BOSP_SEEDED, 'true');
   localStorage.setItem(KEY_BHP_SEEDED, 'true');
+  localStorage.setItem(KEY_BOSP_2026_SEEDED, 'true');
+  localStorage.setItem(KEY_BHP_2026_SEEDED, 'true');
 } else {
   if (!localStorage.getItem(KEY_MASTER_RUANGS)) {
     safeSetStorage(KEY_MASTER_RUANGS, DEFAULT_MASTER_RUANGS);
@@ -158,6 +164,28 @@ if (!localStorage.getItem(KEY_INITIALIZED)) {
       localStorage.setItem(KEY_BOSP_SEEDED, 'true');
     } catch (e) {
       console.warn('Gagal seeding data BOSP 2023, 2024 & 2025:', e);
+    }
+  }
+  // Pastikan data Sarpras BOSP 2026 otomatis tersuntikkan ke storage pengguna yang sudah ada
+  if (!localStorage.getItem(KEY_BOSP_2026_SEEDED)) {
+    try {
+      const existingAsets: Aset[] = JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
+      const mergedAsets = mergeById(INITIAL_BOSP_2026_ASETS, existingAsets);
+      safeSetStorage(KEY_ASETS, mergedAsets);
+      localStorage.setItem(KEY_BOSP_2026_SEEDED, 'true');
+    } catch (e) {
+      console.warn('Gagal seeding data BOSP 2026:', e);
+    }
+  }
+  // Pastikan data BHP 2026 otomatis tersuntikkan ke storage pengguna yang sudah ada
+  if (!localStorage.getItem(KEY_BHP_2026_SEEDED)) {
+    try {
+      const existingBhp: BarangHabisPakai[] = JSON.parse(localStorage.getItem(KEY_BHP) || '[]');
+      const mergedBhp = mergeById(INITIAL_BOSP_BHP_DATA, existingBhp);
+      safeSetStorage(KEY_BHP, mergedBhp);
+      localStorage.setItem(KEY_BHP_2026_SEEDED, 'true');
+    } catch (e) {
+      console.warn('Gagal seeding data BHP 2026:', e);
     }
   }
   // Pastikan master data BHP 2023/2024/2025 tersuntikkan ke storage dan diset stok utuh 100%
