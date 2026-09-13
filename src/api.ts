@@ -248,23 +248,6 @@ async function callProxy(url: string, method: 'GET' | 'POST', payload?: any): Pr
   }
 }
 
-// Check if Supabase or Firebase is configured and reachable
-async function isSupabaseActive(): Promise<boolean> {
-  if (isFirebaseClientConfigured()) {
-    return true;
-  }
-  try {
-    const res = await fetch('/api/supabase/status');
-    if (res.ok) {
-      const data = await res.json();
-      return !!data.configured;
-    }
-  } catch (e) {
-    console.warn('[API] Gagal memeriksa status backend proxy:', e);
-  }
-  return false;
-}
-
 // Dynamic API client that handles syncs
 export const api = {
   // Get all data
@@ -349,57 +332,7 @@ export const api = {
       }
     }
 
-    // 2. Fallback Cloud: Server-Side API Proxy (Firebase Firestore / Cloud Storage)
-    try {
-      const response = await fetch('/api/supabase/get_all');
-      if (response.ok) {
-        const body = await response.json();
-        if (body && body.status === 'success' && body.data) {
-          const data = body.data;
-
-          const localPengaturanStr = localStorage.getItem(KEY_PENGATURAN);
-          let mergedPengaturan = { ...DEFAULT_PENGATURAN };
-          if (localPengaturanStr) {
-            try {
-              mergedPengaturan = { ...mergedPengaturan, ...JSON.parse(localPengaturanStr) };
-            } catch (e) {}
-          }
-
-          if (data.pengaturan && Object.keys(data.pengaturan).length > 0) {
-            mergedPengaturan = { ...mergedPengaturan, ...data.pengaturan };
-          }
-
-          const mergedAsets = mergeById(data.asets, localAsets);
-          const mergedPeminjamans = mergeById(data.peminjamans, localPeminjamans);
-          const mergedPemusnahans = mergeById(data.pemusnahans, localPemusnahans);
-          const mergedBhp = mergeById(data.bhp, localBhp);
-          const mergedPengambilanBhp = mergeById(data.pengambilanBhp, localPengambilanBhp);
-          const mergedKeluhan = mergeById(data.keluhan, localKeluhan);
-
-          safeSetStorage(KEY_ASETS, mergedAsets);
-          safeSetStorage(KEY_PEMINJAMANS, mergedPeminjamans);
-          safeSetStorage(KEY_PEMUSNAHANS, mergedPemusnahans);
-          safeSetStorage(KEY_PENGATURAN, mergedPengaturan);
-          safeSetStorage(KEY_BHP, mergedBhp);
-          safeSetStorage(KEY_PENGAMBILAN_BHP, mergedPengambilanBhp);
-          safeSetStorage(KEY_KELUHAN, mergedKeluhan);
-
-          return {
-            asets: mergedAsets,
-            peminjamans: mergedPeminjamans,
-            pemusnahans: mergedPemusnahans,
-            pengaturan: mergedPengaturan,
-            bhp: mergedBhp,
-            pengambilanBhp: mergedPengambilanBhp,
-            keluhan: mergedKeluhan
-          };
-        }
-      }
-    } catch (err) {
-      console.warn('[API] Gagal memuat data via Express Proxy Server:', err);
-    }
-
-    // 3. Fallback Cloud: Firebase Web Client SDK
+    // 2. Fallback Cloud: Firebase Web Client SDK
     if (isFirebaseClientConfigured()) {
       try {
         const clientData = await getAllDataFromClientFirebase();
@@ -581,18 +514,6 @@ export const api = {
       }
     }
 
-    const isSupa = await isSupabaseActive();
-    if (isSupa) {
-      try {
-        await fetch('/api/supabase/save_aset', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(aset)
-        });
-      } catch (e) {
-        console.error('[API] Gagal menyimpan aset ke Express Proxy:', e);
-      }
-    }
 
     const url = getScriptUrl();
     if (url) {
@@ -635,18 +556,6 @@ export const api = {
     }
 
     // Express backend sync
-    const isSupa = await isSupabaseActive();
-    if (isSupa) {
-      for (const aset of newAsets) {
-        try {
-          await fetch('/api/supabase/save_aset', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(aset)
-          });
-        } catch (e) {}
-      }
-    }
 
     // Google Apps Script batch or iterative sync
     const url = getScriptUrl();
@@ -683,18 +592,6 @@ export const api = {
       }
     }
 
-    const isSupa = await isSupabaseActive();
-    if (isSupa) {
-      try {
-        await fetch('/api/supabase/delete_aset', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id })
-        });
-      } catch (e) {
-        console.error('[API] Gagal menghapus aset di Express Proxy:', e);
-      }
-    }
 
     const url = getScriptUrl();
     if (url) {
@@ -739,23 +636,6 @@ export const api = {
       } catch (e) {}
     }
 
-    const isSupa = await isSupabaseActive();
-    if (isSupa) {
-      try {
-        await fetch('/api/supabase/delete_aset', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: oldId })
-        });
-        for (const aset of newAsets) {
-          await fetch('/api/supabase/save_aset', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(aset)
-          });
-        }
-      } catch (e) {}
-    }
 
     const url = getScriptUrl();
     if (url) {
@@ -790,18 +670,6 @@ export const api = {
       }
     }
 
-    const isSupa = await isSupabaseActive();
-    if (isSupa) {
-      try {
-        await fetch('/api/supabase/save_peminjaman', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(pinjam)
-        });
-      } catch (e) {
-        console.error('[API] Gagal menyimpan peminjaman ke Express Proxy:', e);
-      }
-    }
 
     const url = getScriptUrl();
     if (url) {
@@ -851,18 +719,6 @@ export const api = {
         }
       }
 
-      const isSupa = await isSupabaseActive();
-      if (isSupa) {
-        try {
-          await fetch('/api/supabase/save_aset', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(currentAset)
-          });
-        } catch (e) {
-          console.error('[API] Gagal memperbarui kondisi aset di Express Proxy:', e);
-        }
-      }
 
       const url = getScriptUrl();
       if (url) {
@@ -882,18 +738,6 @@ export const api = {
       }
     }
 
-    const isSupa = await isSupabaseActive();
-    if (isSupa) {
-      try {
-        await fetch('/api/supabase/save_pemusnahan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(log)
-        });
-      } catch (e) {
-        console.error('[API] Gagal menyimpan pemusnahan ke Express Proxy:', e);
-      }
-    }
 
     const url = getScriptUrl();
     if (url) {
@@ -922,18 +766,6 @@ export const api = {
       }
     }
 
-    const isSupa = await isSupabaseActive();
-    if (isSupa) {
-      try {
-        await fetch('/api/supabase/save_pengaturan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(cfg)
-        });
-      } catch (e) {
-        console.error('[API] Gagal menyimpan pengaturan ke Express Proxy:', e);
-      }
-    }
 
     const url = cfg.googleAppsScriptUrl || getScriptUrl();
     if (url) {
@@ -1004,18 +836,6 @@ export const api = {
       }
     }
 
-    const isSupa = await isSupabaseActive();
-    if (isSupa) {
-      try {
-        await fetch('/api/supabase/save_bhp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(item)
-        });
-      } catch (e) {
-        console.error('[API] Gagal menyimpan BHP ke Express Proxy:', e);
-      }
-    }
 
     const url = getScriptUrl();
     if (url) {
@@ -1046,18 +866,6 @@ export const api = {
       }
     }
 
-    const isSupa = await isSupabaseActive();
-    if (isSupa) {
-      try {
-        await fetch('/api/supabase/delete_bhp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id })
-        });
-      } catch (e) {
-        console.error('[API] Gagal menghapus BHP di Express Proxy:', e);
-      }
-    }
 
     const url = getScriptUrl();
     if (url) {
@@ -1098,18 +906,6 @@ export const api = {
           }
         }
 
-        const isSupa = await isSupabaseActive();
-        if (isSupa) {
-          try {
-            await fetch('/api/supabase/save_bhp', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(bhpList[bhpIndex])
-            });
-          } catch (e) {
-            console.error('[API] Gagal menyelaraskan stok BHP ke Express Proxy:', e);
-          }
-        }
 
         const url = getScriptUrl();
         if (url) {
@@ -1141,18 +937,6 @@ export const api = {
             }
           }
 
-          const isSupa = await isSupabaseActive();
-          if (isSupa) {
-            try {
-              await fetch('/api/supabase/save_bhp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(bhpList[bhpIndex])
-              });
-            } catch (e) {
-              console.error('[API] Gagal menyelaraskan penyesuaian stok BHP ke Express Proxy:', e);
-            }
-          }
 
           const url = getScriptUrl();
           if (url) {
@@ -1179,18 +963,6 @@ export const api = {
       }
     }
 
-    const isSupa = await isSupabaseActive();
-    if (isSupa) {
-      try {
-        await fetch('/api/supabase/save_pengambilan_bhp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(pengambilan)
-        });
-      } catch (e) {
-        console.error('[API] Gagal menyimpan pengambilan BHP ke Supabase:', e);
-      }
-    }
 
     const url = getScriptUrl();
     if (url) {

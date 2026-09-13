@@ -53,35 +53,16 @@ export default function SettingsTab({ pengaturan, onSave, onNavigateToTab }: Set
       return;
     }
 
-    fetch('/api/supabase/status')
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.configured) {
-          setSupabaseConfig({
-            configured: true,
-            url: 'Firebase Firestore Enterprise (Server-Side Proxy)'
-          });
-        } else if (isFirebaseClientConfigured()) {
-          const cfg = getFirebaseClientConfig();
-          setSupabaseConfig({
-            configured: true,
-            url: `Firebase Firestore Client SDK (Project: ${cfg?.projectId || 'Terkonfigurasi'})`
-          });
-        } else {
-          setSupabaseConfig({ configured: false });
-        }
-      })
-      .catch(() => {
-        if (isFirebaseClientConfigured()) {
-          const cfg = getFirebaseClientConfig();
-          setSupabaseConfig({
-            configured: true,
-            url: `Firebase Firestore Client SDK (Project: ${cfg?.projectId || 'Terkonfigurasi'})`
-          });
-        } else {
-          setSupabaseConfig({ configured: false });
-        }
+    // 2. Cek Firebase Client SDK (satu-satunya backend cloud yang didukung selain Google Sheets)
+    if (isFirebaseClientConfigured()) {
+      const cfg = getFirebaseClientConfig();
+      setSupabaseConfig({
+        configured: true,
+        url: `Firebase Firestore Client SDK (Project: ${cfg?.projectId || 'Terkonfigurasi'})`
       });
+    } else {
+      setSupabaseConfig({ configured: false });
+    }
   };
 
   React.useEffect(() => {
