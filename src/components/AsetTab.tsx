@@ -10,6 +10,57 @@ import {
   Sparkles, Wand2, Download, Upload, Scissors
 } from 'lucide-react';
 
+// Referensi Jenis Barang & Kodefikasi BMD (Permendagri No. 108 Tahun 2016 - Golongan.Bidang.Kelompok
+// terverifikasi dari lampiran resmi; 2 segmen terakhir/SubKelompok mengikuti Permendagri 47/2021 Pasal 3
+// ayat (2) yang memperbolehkan penambahan kode lokal via SK Kepala Daerah bila belum tersedia di pusat).
+export interface JenisBarangOption {
+  label: string;
+  kode: string;
+}
+
+export const JENIS_BARANG_BMD: Record<'A' | 'B' | 'C' | 'D' | 'E' | 'F', JenisBarangOption[]> = {
+  A: [
+    { label: 'Tanah Untuk Bangunan Gedung (area gedung sekolah)', kode: '01.01.11.01.001' },
+    { label: 'Tanah Untuk Bangunan Bukan Gedung (lapangan/area terbuka)', kode: '01.01.13.01.001' },
+  ],
+  B: [
+    { label: 'Alat Kantor', kode: '02.06.01.01.001' },
+    { label: 'Alat Rumah Tangga', kode: '02.06.02.01.001' },
+    { label: 'Komputer / Perangkat Jaringan IT', kode: '02.06.03.01.001' },
+    { label: 'Meja dan Kursi Kerja/Rapat', kode: '02.06.04.01.001' },
+    { label: 'Alat Studio & Komunikasi (Sound System, Mic, dsb)', kode: '02.07.01.01.001' },
+    { label: 'Alat Kedokteran/Kesehatan (UKS)', kode: '02.08.02.01.001' },
+    { label: 'Alat Peraga / Praktek Sekolah (Laboratorium)', kode: '02.09.02.01.001' },
+    { label: 'Alat Pemeliharaan Tanaman (mesin potong rumput, dsb)', kode: '02.05.02.01.001' },
+    { label: 'Alat Bengkel & Alat Ukur', kode: '02.04.03.01.001' },
+    { label: 'Alat Angkutan (kendaraan dinas)', kode: '02.03.01.01.001' },
+  ],
+  C: [
+    { label: 'Bangunan Gedung Tempat Kerja (ruang kelas/kantor/lab)', kode: '03.11.01.01.001' },
+    { label: 'Bangunan Gedung Tempat Tinggal (rumah dinas)', kode: '03.11.02.01.001' },
+  ],
+  D: [
+    { label: 'Jalan', kode: '04.13.01.01.001' },
+    { label: 'Bangunan Air / Irigasi', kode: '04.14.01.01.001' },
+    { label: 'Instalasi (listrik, air, dsb)', kode: '04.15.01.01.001' },
+    { label: 'Jaringan', kode: '04.16.01.01.001' },
+  ],
+  E: [
+    { label: 'Buku - Umum', kode: '05.17.01.01.001' },
+    { label: 'Buku - Agama', kode: '05.17.01.03.001' },
+    { label: 'Buku - Ilmu Sosial', kode: '05.17.01.04.001' },
+    { label: 'Buku - Bahasa', kode: '05.17.01.05.001' },
+    { label: 'Buku - Matematika & Pengetahuan Alam', kode: '05.17.01.06.001' },
+    { label: 'Buku - Arsitektur, Kesenian, Olahraga', kode: '05.17.01.08.001' },
+    { label: 'Buku - Geografi, Biografi, Sejarah', kode: '05.17.01.09.001' },
+    { label: 'Alat Olahraga', kode: '05.18.02.04.001' },
+    { label: 'Barang Bercorak Kesenian / Kebudayaan', kode: '05.18.01.01.001' },
+  ],
+  F: [
+    { label: 'Konstruksi Dalam Pengerjaan', kode: '06.20.01.01.001' },
+  ],
+};
+
 // Helper functions to handle multiple photo URLs stored as JSON array or single string inside 'fotoUrl'
 const parsePhotos = (fotoUrl: string | undefined): string[] => {
   if (!fotoUrl) return ['', '', ''];
@@ -363,14 +414,14 @@ export default function AsetTab({
     }, 0);
     const autoRegister = String(Math.max(kibAsets.length + 1, maxRegSeq + 1)).padStart(6, '0');
 
-    // Kode Barang BMD Permendagri 47/2021
+    // Kode Barang BMD (Permendagri 108/2016) - default ke opsi Jenis Barang pertama untuk KIB terkait
     const bmdMap: Record<'A' | 'B' | 'C' | 'D' | 'E' | 'F', string> = {
-      'A': '01.01.01.01.001',
-      'B': '02.06.01.01.001',
-      'C': '03.11.01.01.001',
-      'D': '04.14.01.01.001',
-      'E': '05.17.01.01.001',
-      'F': '06.20.01.01.001'
+      'A': JENIS_BARANG_BMD.A[0].kode,
+      'B': JENIS_BARANG_BMD.B[0].kode,
+      'C': JENIS_BARANG_BMD.C[0].kode,
+      'D': JENIS_BARANG_BMD.D[0].kode,
+      'E': JENIS_BARANG_BMD.E[0].kode,
+      'F': JENIS_BARANG_BMD.F[0].kode
     };
 
     const fullCatMap: Record<'A' | 'B' | 'C' | 'D' | 'E' | 'F', KategoriAset> = {
@@ -917,10 +968,11 @@ export default function AsetTab({
 
   // Filtered dataset
   const filteredAsets = asets.filter(item => {
+    const q = searchTerm.toLowerCase();
     const matchSearch =
-      item.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.merek.toLowerCase().includes(searchTerm.toLowerCase());
+      (item.nama || '').toLowerCase().includes(q) ||
+      (item.id || '').toLowerCase().includes(q) ||
+      (item.merek || '').toLowerCase().includes(q);
       
     const matchRuang = filterRuang === 'Semua' || item.ruangLokasi === filterRuang;
     const matchKondisi = filterKondisi === 'Semua' || item.kondisi === filterKondisi;
@@ -1355,6 +1407,32 @@ export default function AsetTab({
                     </button>
                   </div>
 
+                  <div className="mb-3">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Jenis Barang (Kategori BMD) <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={JENIS_BARANG_BMD[activeKib].find(o => o.kode === currentAset.kodeBarangBmd)?.kode || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCurrentAset(prev => {
+                          const next = { ...prev, kodeBarangBmd: val };
+                          if (hasAttemptedSubmit) setFormErrors(validateAsetForm(next, activeKib));
+                          return next;
+                        });
+                      }}
+                      className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option value="" disabled>— Pilih jenis barang —</option>
+                      {JENIS_BARANG_BMD[activeKib].map(opt => (
+                        <option key={opt.kode} value={opt.kode}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <p className="text-[9px] text-slate-400 mt-0.5">
+                      Kode BMD terisi otomatis sesuai pilihan (Permendagri 108/2016). Kalau jenis barang Anda tidak ada di daftar, pilih yang paling mendekati lalu sesuaikan manual di kolom Kodefikasi BMD di bawah.
+                    </p>
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <div className="flex items-center justify-between mb-1">
@@ -1538,7 +1616,7 @@ export default function AsetTab({
                             onChange={(e) => {
                               const val = parseFloat(e.target.value) || 0;
                               setCurrentAset(prev => {
-                                const next = { ...prev, luasM2: val };
+                                const next = { ...prev, luasM2: val, luasTanahM2: val };
                                 if (hasAttemptedSubmit) setFormErrors(validateAsetForm(next, activeKib));
                                 return next;
                               });
@@ -2332,8 +2410,11 @@ export default function AsetTab({
                             <input
                               type="number"
                               step="any"
-                              value={currentAset.luasM2 || ''}
-                              onChange={(e) => setCurrentAset(prev => ({ ...prev, luasM2: parseFloat(e.target.value) || 0 }))}
+                              value={currentAset.luasJaringanM2 ?? currentAset.luasM2 ?? ''}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setCurrentAset(prev => ({ ...prev, luasM2: val, luasJaringanM2: val }));
+                              }}
                               className="w-full text-xs px-2 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none"
                               placeholder="Luas m²"
                             />
@@ -2346,8 +2427,8 @@ export default function AsetTab({
                           <label className="block text-xs font-semibold text-slate-700 mb-1">Lokasi / Letak Jaringan</label>
                           <input
                             type="text"
-                            value={currentAset.letakAlamat || ''}
-                            onChange={(e) => setCurrentAset(prev => ({ ...prev, letakAlamat: e.target.value }))}
+                            value={currentAset.lokasiJaringan ?? currentAset.letakAlamat ?? ''}
+                            onChange={(e) => setCurrentAset(prev => ({ ...prev, letakAlamat: e.target.value, lokasiJaringan: e.target.value }))}
                             className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none"
                             placeholder="Area Halaman Depan & Jalur Lapangan"
                           />

@@ -195,9 +195,10 @@ export default function BhpTab({
 
   // Filtered BHP
   const filteredBhp = bhp.filter(item => {
-    const matchesSearch = item.nama.toLowerCase().includes(searchBhp.toLowerCase()) || 
-                          item.merek.toLowerCase().includes(searchBhp.toLowerCase()) ||
-                          item.id.toLowerCase().includes(searchBhp.toLowerCase());
+    const qBhp = searchBhp.toLowerCase();
+    const matchesSearch = (item.nama || '').toLowerCase().includes(qBhp) ||
+                          (item.merek || '').toLowerCase().includes(qBhp) ||
+                          (item.id || '').toLowerCase().includes(qBhp);
     const matchesCategory = categoryFilter === 'Semua' || item.kategori === categoryFilter;
     
     let matchesStatus = true;
@@ -221,9 +222,10 @@ export default function BhpTab({
 
   // Filtered Logs
   const filteredLogs = pengambilanBhp.filter(log => {
-    const matchesSearch = log.namaPenerima.toLowerCase().includes(searchLog.toLowerCase()) ||
-                          log.namaBhp.toLowerCase().includes(searchLog.toLowerCase()) ||
-                          log.keterangan.toLowerCase().includes(searchLog.toLowerCase());
+    const qLog = searchLog.toLowerCase();
+    const matchesSearch = (log.namaPenerima || '').toLowerCase().includes(qLog) ||
+                          (log.namaBhp || '').toLowerCase().includes(qLog) ||
+                          (log.keterangan || '').toLowerCase().includes(qLog);
     
     // Date checks
     const logDate = new Date(log.tanggalAmbil);

@@ -487,10 +487,32 @@ export function generateKibCsvTemplate(kibId: KibType, includeSampleData: boolea
 }
 
 /**
+ * Gabungan seluruh kolom dari KIB A-F (dedup berdasarkan key), dipakai khusus
+ * saat export "Semua Data" agar field spesifik tiap KIB (mis. luasTanahM2 milik
+ * KIB A, judulBuku milik KIB E) tidak hilang ketika kategori bercampur.
+ */
+function buildUnionColumns(): KibColumnDef[] {
+  const seen = new Set<string>();
+  const union: KibColumnDef[] = [
+    { key: 'kategori', label: 'Kategori KIB', example: 'KIB A (Tanah)' }
+  ];
+  seen.add('kategori');
+  (Object.keys(KIB_CONFIGS) as KibType[]).forEach(kibId => {
+    KIB_CONFIGS[kibId].columns.forEach(col => {
+      if (!seen.has(col.key)) {
+        seen.add(col.key);
+        union.push(col);
+      }
+    });
+  });
+  return union;
+}
+
+/**
  * Export seluruh data aset yang ada saat ini ke format CSV
  */
 export function exportExistingAsetsToCsv(asets: Aset[], filterKib?: KibType): string {
-  const targetAsets = filterKib 
+  const targetAsets = filterKib
     ? asets.filter(a => {
         const cat = (a.kategori || '').toUpperCase();
         if (filterKib === 'A') return cat.includes('KIB A') || cat.includes('TANAH');
@@ -503,8 +525,10 @@ export function exportExistingAsetsToCsv(asets: Aset[], filterKib?: KibType): st
       })
     : asets;
 
-  const config = filterKib ? KIB_CONFIGS[filterKib] : KIB_CONFIGS.B;
-  const cols = config.columns;
+  // Saat export gabungan (tanpa filterKib), pakai union seluruh kolom KIB A-F
+  // supaya field spesifik tiap kategori (mis. KIB A/C/E) tidak hilang - lihat
+  // buildUnionColumns(). Saat export per-KIB, tetap pakai kolom KIB tersebut.
+  const cols = filterKib ? KIB_CONFIGS[filterKib].columns : buildUnionColumns();
 
   const headerLabels = cols.map(c => escapeCsvCell(c.label)).join(',');
   const headerKeys = cols.map(c => escapeCsvCell(c.key)).join(',');

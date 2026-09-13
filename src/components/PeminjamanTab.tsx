@@ -139,10 +139,11 @@ export default function PeminjamanTab({
 
   // Filtered list
   const filteredLoans = peminjamans.filter(p => {
+    const q = searchTerm.toLowerCase();
     const matchSearch =
-      p.namaAset.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.namaPeminjam.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.asetId.toLowerCase().includes(searchTerm.toLowerCase());
+      (p.namaAset || '').toLowerCase().includes(q) ||
+      (p.namaPeminjam || '').toLowerCase().includes(q) ||
+      (p.asetId || '').toLowerCase().includes(q);
 
     const matchStatus = filterStatus === 'Semua' || p.status === filterStatus;
 
