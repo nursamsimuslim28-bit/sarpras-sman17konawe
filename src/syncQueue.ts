@@ -1,6 +1,6 @@
 /**
  * syncQueue.ts
- * Background synchronization queue system for e-Sarpras SMAN 1 Amonggedo / SMA Negeri 17 Konawe.
+ * Background synchronization queue system for e-Sarpras SMA Negeri 17 Konawe.
  * - Stores all CRUD actions locally first (localStorage/IndexedDB resilient).
  * - Background worker handles queue retries with exponential backoff.
  * - Offline-first design prevents data loss on network drops.

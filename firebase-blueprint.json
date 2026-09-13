@@ -2,7 +2,7 @@
   "entities": {
     "Aset": {
       "title": "Aset",
-      "description": "Informasi aset sarana prasarana sekolah SMAN 1 AMONGGEDO",
+      "description": "Informasi aset sarana prasarana sekolah SMA Negeri 17 Konawe",
       "type": "object",
       "properties": {
         "id": { "type": "string", "description": "Barcode / Kode Aset" },

@@ -70,7 +70,7 @@ function createKopSurat(pengaturan: PengaturanSekolah): Paragraph[] {
       alignment: AlignmentType.CENTER,
       children: [
         new TextRun({
-          text: `Alamat: ${pengaturan.alamat || 'Jl. Poros Kendari-Kolaka No. 17, Amonggedo, Kec. Amonggedo, Kab. Konawe'} | NPSN: ${pengaturan.npsn || '69888999'}`,
+          text: `Alamat: ${pengaturan.alamat || 'Jl. Poros Amonggedo - Meluhu'} | NPSN: ${pengaturan.npsn || '40404643'}`,
           italics: true,
           size: 18, // 9pt
           font: 'Times New Roman'

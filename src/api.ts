@@ -156,7 +156,8 @@ if (!localPengaturan) {
     }
 
     // Pastikan nama sekolah resmi terformat SMA Negeri 17 Konawe jika ada nama lama atau typo
-    if (!merged.namaSekolah || merged.namaSekolah.includes("AMONGGED") || merged.namaSekolah === "SMAN 17 Konawe") {
+    // (mencakup varian lama "SMAN 1 Amonggedo" dalam berbagai huruf besar/kecil)
+    if (!merged.namaSekolah || /amonggedo/i.test(merged.namaSekolah) || merged.namaSekolah === "SMAN 17 Konawe") {
       merged.namaSekolah = "SMA Negeri 17 Konawe";
     }
 
@@ -381,7 +382,7 @@ export const api = {
 
     // Offline local storage fallback
     const offlinePengaturan = JSON.parse(localStorage.getItem(KEY_PENGATURAN) || '{}');
-    if (!offlinePengaturan.namaSekolah || offlinePengaturan.namaSekolah.includes("AMONGGED") || offlinePengaturan.namaSekolah === "SMAN 17 Konawe") {
+    if (!offlinePengaturan.namaSekolah || /amonggedo/i.test(offlinePengaturan.namaSekolah) || offlinePengaturan.namaSekolah === "SMAN 17 Konawe") {
       offlinePengaturan.namaSekolah = "SMA Negeri 17 Konawe";
     }
     return {
