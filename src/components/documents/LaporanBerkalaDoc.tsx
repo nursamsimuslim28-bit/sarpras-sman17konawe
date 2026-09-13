@@ -66,7 +66,7 @@ export default function LaporanBerkalaDoc({ pengaturan, initialData, asets }: Pr
 
     asets.forEach(aset => {
       let cat = 'Sarana Ruang Kelas & Guru';
-      const namaLower = aset.nama.toLowerCase();
+      const namaLower = (aset.nama || '').toLowerCase();
       if (namaLower.includes('meja') || namaLower.includes('kursi')) {
         cat = 'Meja & Kursi Siswa';
       } else if (namaLower.includes('komputer') || namaLower.includes('laptop') || namaLower.includes('printer') || namaLower.includes('proyektor') || namaLower.includes('pc')) {

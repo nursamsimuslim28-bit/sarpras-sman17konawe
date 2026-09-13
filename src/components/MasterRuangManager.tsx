@@ -51,9 +51,9 @@ export default function MasterRuangManager({
   ];
 
   const filteredRuangs = masterRuangs.filter(r => {
-    const matchSearch = r.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchSearch = (r.nama || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (r.penanggungJawab && r.penanggungJawab.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      r.id.toLowerCase().includes(searchTerm.toLowerCase());
+      (r.id || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchCat = filterKategori === 'Semua' || r.kategori === filterKategori;
     return matchSearch && matchCat;
   });

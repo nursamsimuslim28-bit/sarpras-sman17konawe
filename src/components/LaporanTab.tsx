@@ -205,11 +205,11 @@ export default function LaporanTab({ asets, pemusnahans, pengaturan, auditLogs =
     // 5. Pencarian Kata Kunci
     if (kibSearch.trim()) {
       const q = kibSearch.toLowerCase();
-      const match = a.nama.toLowerCase().includes(q) ||
-                    a.id.toLowerCase().includes(q) ||
+      const match = (a.nama || '').toLowerCase().includes(q) ||
+                    (a.id || '').toLowerCase().includes(q) ||
                     (a.merek && a.merek.toLowerCase().includes(q)) ||
                     (a.spesifikasi && a.spesifikasi.toLowerCase().includes(q)) ||
-                    a.ruangLokasi.toLowerCase().includes(q);
+                    (a.ruangLokasi || '').toLowerCase().includes(q);
       if (!match) return false;
     }
 
@@ -265,11 +265,11 @@ export default function LaporanTab({ asets, pemusnahans, pengaturan, auditLogs =
     if (bibiFilterSumber !== 'Semua' && a.sumberDana !== bibiFilterSumber) return false;
     if (bibiSearch.trim()) {
       const q = bibiSearch.toLowerCase();
-      const match = a.nama.toLowerCase().includes(q) ||
-                    a.id.toLowerCase().includes(q) ||
+      const match = (a.nama || '').toLowerCase().includes(q) ||
+                    (a.id || '').toLowerCase().includes(q) ||
                     (a.merek && a.merek.toLowerCase().includes(q)) ||
                     (a.spesifikasi && a.spesifikasi.toLowerCase().includes(q)) ||
-                    a.ruangLokasi.toLowerCase().includes(q);
+                    (a.ruangLokasi || '').toLowerCase().includes(q);
       if (!match) return false;
     }
     return true;
@@ -1273,11 +1273,11 @@ export default function LaporanTab({ asets, pemusnahans, pengaturan, auditLogs =
   const filteredAuditLogs = auditLogs.filter(log => {
     const matchesOperator = filterOperator === 'Semua' || log.operator === filterOperator;
     const matchesAction = filterAction === 'Semua' || log.action === filterAction;
-    const matchesSearch = searchAuditQuery === '' || 
-      log.target.toLowerCase().includes(searchAuditQuery.toLowerCase()) ||
-      log.details.toLowerCase().includes(searchAuditQuery.toLowerCase()) ||
-      log.id.toLowerCase().includes(searchAuditQuery.toLowerCase()) ||
-      log.operator.toLowerCase().includes(searchAuditQuery.toLowerCase());
+    const matchesSearch = searchAuditQuery === '' ||
+      (log.target || '').toLowerCase().includes(searchAuditQuery.toLowerCase()) ||
+      (log.details || '').toLowerCase().includes(searchAuditQuery.toLowerCase()) ||
+      (log.id || '').toLowerCase().includes(searchAuditQuery.toLowerCase()) ||
+      (log.operator || '').toLowerCase().includes(searchAuditQuery.toLowerCase());
     return matchesOperator && matchesAction && matchesSearch;
   });
 

@@ -71,11 +71,11 @@ export default function KeluhanDoc({ pengaturan, keluhanList, onRefresh }: Props
 
   // Filtered List
   const filteredList = keluhanList.filter(item => {
-    const matchSearch = 
-      item.namaPelapor.toLowerCase().includes(search.toLowerCase()) ||
-      item.namaBarangFasilitas.toLowerCase().includes(search.toLowerCase()) ||
-      item.lokasiRuang.toLowerCase().includes(search.toLowerCase()) ||
-      item.deskripsiKerusakan.toLowerCase().includes(search.toLowerCase());
+    const matchSearch =
+      (item.namaPelapor || '').toLowerCase().includes(search.toLowerCase()) ||
+      (item.namaBarangFasilitas || '').toLowerCase().includes(search.toLowerCase()) ||
+      (item.lokasiRuang || '').toLowerCase().includes(search.toLowerCase()) ||
+      (item.deskripsiKerusakan || '').toLowerCase().includes(search.toLowerCase());
     
     const matchStatus = filterStatus === 'Semua' || item.status === filterStatus;
     const matchUrgensi = filterUrgensi === 'Semua' || item.urgensi === filterUrgensi;

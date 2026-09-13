@@ -1222,7 +1222,7 @@ export const api = {
 
   async saveMasterRuang(ruang: MasterRuang, operator?: string): Promise<MasterRuang[]> {
     const list = this.getMasterRuangs();
-    const index = list.findIndex(r => r.id === ruang.id || r.nama.toLowerCase().trim() === ruang.nama.toLowerCase().trim());
+    const index = list.findIndex(r => r.id === ruang.id || (r.nama || '').toLowerCase().trim() === (ruang.nama || '').toLowerCase().trim());
     let updated: MasterRuang[];
     if (index >= 0) {
       updated = [...list];

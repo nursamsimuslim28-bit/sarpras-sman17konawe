@@ -75,28 +75,29 @@ export default function DashboardTab({
   const dihapuskanCount = pemusnahans.reduce((sum, p) => sum + p.jumlah, 0);
 
   // Details Modal Filtering
-  const filteredActiveAsets = activeAsets.filter(aset => 
-    aset.nama.toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
-    aset.id.toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
-    aset.ruangLokasi.toLowerCase().includes(modalSearchQuery.toLowerCase())
+  const modalQ = modalSearchQuery.toLowerCase();
+  const filteredActiveAsets = activeAsets.filter(aset =>
+    (aset.nama || '').toLowerCase().includes(modalQ) ||
+    (aset.id || '').toLowerCase().includes(modalQ) ||
+    (aset.ruangLokasi || '').toLowerCase().includes(modalQ)
   );
 
   const filteredActiveLoans = peminjamans.filter(p => p.status === 'Dipinjam' && (
-    p.namaPeminjam.toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
-    p.namaAset.toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
-    p.asetId.toLowerCase().includes(modalSearchQuery.toLowerCase())
+    (p.namaPeminjam || '').toLowerCase().includes(modalQ) ||
+    (p.namaAset || '').toLowerCase().includes(modalQ) ||
+    (p.asetId || '').toLowerCase().includes(modalQ)
   ));
 
   const filteredRusakAsets = activeAsets.filter(aset => aset.kondisi === 'Rusak Berat' && (
-    aset.nama.toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
-    aset.id.toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
-    aset.ruangLokasi.toLowerCase().includes(modalSearchQuery.toLowerCase())
+    (aset.nama || '').toLowerCase().includes(modalQ) ||
+    (aset.id || '').toLowerCase().includes(modalQ) ||
+    (aset.ruangLokasi || '').toLowerCase().includes(modalQ)
   ));
 
-  const filteredDisposals = pemusnahans.filter(p => 
-    p.namaAset.toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
-    p.asetId.toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
-    p.noSkPenghapusan.toLowerCase().includes(modalSearchQuery.toLowerCase())
+  const filteredDisposals = pemusnahans.filter(p =>
+    (p.namaAset || '').toLowerCase().includes(modalQ) ||
+    (p.asetId || '').toLowerCase().includes(modalQ) ||
+    (p.noSkPenghapusan || '').toLowerCase().includes(modalQ)
   );
 
   // 2. Data preparation for Condition Pie Chart (Mendukung filter cepat per ruangan)
@@ -133,8 +134,8 @@ export default function DashboardTab({
   // Juknis specifies that a student needs standard furniture (Meja/Kursi).
   // Total classroom seats in Meja/Kursi must be >= target student capacity.
   const furnitureSiswa = activeAsets.filter(
-    a => a.ruangLokasi === 'Ruang Kelas' && 
-         (a.nama.toLowerCase().includes('meja') || a.nama.toLowerCase().includes('kursi'))
+    a => a.ruangLokasi === 'Ruang Kelas' &&
+         ((a.nama || '').toLowerCase().includes('meja') || (a.nama || '').toLowerCase().includes('kursi'))
   );
   
   const totalFurnitureSiswa = furnitureSiswa.reduce((sum, a) => sum + a.jumlah, 0);
