@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Aset, KategoriAset, KondisiAset, StandardRuang, LogPemusnahan, PengaturanSekolah, MasterRuang } from '../types';
+import { searchMasterKodeBmd, MasterKodeBmd } from '../data/masterKodeBmd';
 import ImportExportModal from './ImportExportModal';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -180,6 +181,9 @@ export default function AsetTab({
   
   // Current editing aset
   const [currentAset, setCurrentAset] = useState<Partial<Aset> | null>(null);
+  // Saran autocomplete Kode BMD resmi berdasarkan nama barang yang diketik
+  const [bmdSuggestions, setBmdSuggestions] = useState<MasterKodeBmd[]>([]);
+  const [showBmdSuggestions, setShowBmdSuggestions] = useState(false);
   // Current aset to destroy
   const [selectedAsetToDestroy, setSelectedAsetToDestroy] = useState<Aset | null>(null);
   // Current aset selected for delete choice modal
@@ -518,6 +522,33 @@ export default function AsetTab({
     }
 
     return baseResult;
+  };
+
+  // Cari nomor register berikutnya untuk kode BMD tertentu (per jenis barang resmi, bukan per-KIB saja)
+  const getNextRegisterForKode = (kode: string): string => {
+    const sameCode = asets.filter(a => a.kodeBarangBmd === kode);
+    const maxSeq = sameCode.reduce((max, a) => {
+      const raw = ((a as any).nomorRegister || a.nomorRegisterBmd || '').replace(/\D/g, '');
+      const num = parseInt(raw || '0', 10);
+      return !isNaN(num) && num > max ? num : max;
+    }, 0);
+    return String(Math.max(sameCode.length + 1, maxSeq + 1)).padStart(4, '0');
+  };
+
+  // Terapkan saran Kode BMD resmi (dari Master Kode Provinsi) ke form yang sedang diisi
+  const handleSelectBmdSuggestion = (suggestion: MasterKodeBmd) => {
+    const targetKibId = getActiveKib(suggestion.kategori);
+    const nextRegister = getNextRegisterForKode(suggestion.kode);
+    setCurrentAset(prev => ({
+      ...prev,
+      kategori: suggestion.kategori,
+      kodeBarangBmd: suggestion.kode,
+      nomorRegister: nextRegister,
+      nomorRegisterBmd: nextRegister,
+      satuan: prev?.satuan || (targetKibId === 'A' ? 'Bidang' : targetKibId === 'C' ? 'Unit Gedung' : 'Unit'),
+    }));
+    setShowBmdSuggestions(false);
+    setBmdSuggestions([]);
   };
 
   // Photo handlers for multiple photo slots
@@ -1589,7 +1620,7 @@ export default function AsetTab({
                     </div>
                   </div>
 
-                  <div>
+                  <div className="relative">
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Nama Barang / Aset <span className="text-rose-500">*</span>
                     </label>
@@ -1603,6 +1634,16 @@ export default function AsetTab({
                           if (hasAttemptedSubmit) setFormErrors(validateAsetForm(next, activeKib));
                           return next;
                         });
+                        const matches = searchMasterKodeBmd(val);
+                        setBmdSuggestions(matches);
+                        setShowBmdSuggestions(matches.length > 0);
+                      }}
+                      onFocus={() => {
+                        if (bmdSuggestions.length > 0) setShowBmdSuggestions(true);
+                      }}
+                      onBlur={() => {
+                        // Delay agar klik pada item saran sempat terdaftar sebelum dropdown ditutup
+                        setTimeout(() => setShowBmdSuggestions(false), 150);
                       }}
                       className={`w-full text-xs px-3 py-2 bg-white border ${formErrors.nama ? 'border-rose-500 ring-2 ring-rose-200 bg-rose-50/30' : 'border-slate-200'} rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 font-semibold text-slate-800`}
                       placeholder={
@@ -1620,6 +1661,29 @@ export default function AsetTab({
                         <AlertCircle size={12} className="shrink-0" />
                         <span>{formErrors.nama}</span>
                       </p>
+                    )}
+
+                    {showBmdSuggestions && bmdSuggestions.length > 0 && (
+                      <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-emerald-200 rounded-xl shadow-lg overflow-hidden">
+                        <div className="px-3 py-1.5 bg-emerald-50 text-emerald-800 text-[10px] font-bold flex items-center gap-1.5 border-b border-emerald-100">
+                          <ShieldCheck size={11} className="shrink-0" />
+                          <span>Kode BMD Resmi Provinsi Ditemukan — Klik untuk Isi Otomatis</span>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {bmdSuggestions.map((s) => (
+                            <button
+                              key={s.kode}
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => handleSelectBmdSuggestion(s)}
+                              className="w-full text-left px-3 py-2 hover:bg-emerald-50 transition border-b border-slate-50 last:border-b-0 cursor-pointer"
+                            >
+                              <p className="text-xs font-bold text-slate-800">{s.nama}</p>
+                              <p className="text-[10px] text-slate-500 font-mono">{s.kode} &bull; {s.kategori} &bull; {s.frekuensi} unit resmi terdaftar</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
