@@ -12,7 +12,6 @@ import SettingsTab from './components/SettingsTab';
 import DokumenSarprasHub from './components/documents/DokumenSarprasHub';
 import MasterRuangManager from './components/MasterRuangManager';
 import QRScanner from './components/QRScanner';
-import { SyncQueueBadge } from './components/SyncQueueBadge';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
@@ -750,9 +749,6 @@ export default function App() {
             {isSidebarCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
           </button>
         </div>
-
-        {/* Sync Health Badge & Queue Indicator */}
-        <SyncQueueBadge isSidebarCollapsed={isSidebarCollapsed} />
 
         {/* Active Peran Badge / Controller */}
         {!isSidebarCollapsed ? (

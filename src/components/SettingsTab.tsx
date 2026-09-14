@@ -51,6 +51,7 @@ export default function SettingsTab({ pengaturan, onSave, onNavigateToTab }: Set
 
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [syncAllResult, setSyncAllResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [syncProgress, setSyncProgress] = useState<{ done: number; total: number; label: string } | null>(null);
 
   const [backupNotice, setBackupNotice] = useState<{ success: boolean; message: string } | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -78,10 +79,24 @@ export default function SettingsTab({ pengaturan, onSave, onNavigateToTab }: Set
   }, []);
 
   const handleSyncAllToCloud = async () => {
+    if (isSyncingAll) return;
+    if (!confirm('Proses ini akan mengunggah seluruh data di browser ini ke Cloud dan bisa memakan waktu beberapa menit untuk data yang banyak. JANGAN tutup halaman ini atau pindah ke menu lain selama proses berjalan. Lanjutkan?')) {
+      return;
+    }
     setIsSyncingAll(true);
     setSyncAllResult(null);
+    setSyncProgress({ done: 0, total: 1, label: 'Mempersiapkan...' });
+
+    const beforeUnloadHandler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', beforeUnloadHandler);
+
     try {
-      const res = await api.syncAllLocalToCloud();
+      const res = await api.syncAllLocalToCloud((done, total, label) => {
+        setSyncProgress({ done, total, label });
+      });
       setSyncAllResult(res);
       checkDbStatus();
     } catch (e: any) {
@@ -90,7 +105,9 @@ export default function SettingsTab({ pengaturan, onSave, onNavigateToTab }: Set
         message: e?.message || 'Gagal menyinkronkan data ke Cloud.'
       });
     } finally {
+      window.removeEventListener('beforeunload', beforeUnloadHandler);
       setIsSyncingAll(false);
+      setSyncProgress(null);
     }
   };
 
@@ -641,6 +658,36 @@ VITE_FIREBASE_APP_ID=${cfg?.appId || ''}`;
           )}
         </motion.form>
       </div>
+
+      {/* Overlay Proses Unggah ke Cloud — mencegah pengguna berpindah menu di tengah proses */}
+      {isSyncingAll && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+            <div className="w-14 h-14 mx-auto rounded-full bg-indigo-50 flex items-center justify-center">
+              <Loader2 size={28} className="text-indigo-600 animate-spin" />
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold text-slate-800">Sedang Mengunggah Data ke Cloud</h3>
+              <p className="text-xs text-rose-600 font-bold mt-1">JANGAN tutup atau pindah halaman sampai proses ini selesai!</p>
+            </div>
+
+            {syncProgress && (
+              <div className="space-y-1.5">
+                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-indigo-600 transition-all duration-200"
+                    style={{ width: `${Math.min(100, Math.round((syncProgress.done / Math.max(1, syncProgress.total)) * 100))}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {syncProgress.done} dari {syncProgress.total} data &bull; {Math.round((syncProgress.done / Math.max(1, syncProgress.total)) * 100)}%
+                </p>
+                <p className="text-[10px] text-slate-400 truncate">{syncProgress.label}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

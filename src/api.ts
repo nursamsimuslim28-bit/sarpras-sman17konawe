@@ -1,5 +1,4 @@
 import { Aset, Peminjaman, LogPemusnahan, PengaturanSekolah, SAMPLE_ASETS, SAMPLE_PEMINJAMANS, SAMPLE_PEMUSNAHANS, DEFAULT_PENGATURAN, BarangHabisPakai, PengambilanBHP, SAMPLE_BHP, SAMPLE_PENGAMBILAN_BHP, AuditLog, AUTHORIZED_USERS, MasterRuang, DEFAULT_MASTER_RUANGS, KeluhanSarpras } from './types';
-import { syncQueue } from './syncQueue';
 import { 
   isFirebaseClientConfigured, 
   saveDocumentClient, 
@@ -503,9 +502,6 @@ export const api = {
     
     safeSetStorage(KEY_ASETS, local);
 
-    // Enqueue to background Sync Queue (Offline-first resilient)
-    syncQueue.enqueue('save_aset', aset);
-
     // Firebase Client SDK Sync
     if (isFirebaseClientConfigured()) {
       try {
@@ -541,9 +537,6 @@ export const api = {
 
     const merged = Array.from(map.values());
     safeSetStorage(KEY_ASETS, merged);
-
-    // Enqueue to Sync Queue
-    syncQueue.enqueue('save_multiple_asets', newAsets);
 
     // Firebase Client SDK Sync
     if (isFirebaseClientConfigured()) {
@@ -581,9 +574,6 @@ export const api = {
     const local: Aset[] = JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
     const filtered = local.filter(x => x.id !== id);
     safeSetStorage(KEY_ASETS, filtered);
-
-    // Enqueue to Sync Queue
-    syncQueue.enqueue('delete_aset', { id });
 
     if (isFirebaseClientConfigured()) {
       try {
@@ -623,11 +613,7 @@ export const api = {
     // 3. Simpan state bersih ke localStorage secara langsung
     safeSetStorage(KEY_ASETS, filtered);
 
-    // 4. Enqueue aksi delete & batch save ke SyncQueue
-    syncQueue.enqueue('delete_aset', { id: oldId });
-    syncQueue.enqueue('save_multiple_asets', newAsets);
-
-    // 5. Firebase / Express / GAS Sync
+    // 4. Firebase / Express / GAS Sync
     if (isFirebaseClientConfigured()) {
       try {
         await deleteDocumentClient('asets', oldId);
@@ -660,9 +646,6 @@ export const api = {
     }
     safeSetStorage(KEY_PEMINJAMANS, local);
 
-    // Enqueue to Sync Queue
-    syncQueue.enqueue('save_peminjaman', pinjam);
-
     if (isFirebaseClientConfigured()) {
       try {
         await saveDocumentClient('peminjamans', pinjam.id, pinjam);
@@ -689,9 +672,6 @@ export const api = {
     const local: LogPemusnahan[] = JSON.parse(localStorage.getItem(KEY_PEMUSNAHANS) || '[]');
     local.push(log);
     localStorage.setItem(KEY_PEMUSNAHANS, JSON.stringify(local));
-
-    // Enqueue to Sync Queue
-    syncQueue.enqueue('save_pemusnahan', log);
 
     // Update target asset quantity or mark as 'Dihapuskan'
     const asets: Aset[] = JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
@@ -755,9 +735,6 @@ export const api = {
   // Save/Update Pengaturan
   async savePengaturan(cfg: PengaturanSekolah): Promise<PengaturanSekolah> {
     localStorage.setItem(KEY_PENGATURAN, JSON.stringify(cfg));
-
-    // Enqueue to Sync Queue
-    syncQueue.enqueue('save_pengaturan', cfg);
 
     if (isFirebaseClientConfigured()) {
       try {
@@ -826,9 +803,6 @@ export const api = {
     }
     safeSetStorage(KEY_BHP, local);
 
-    // Enqueue to Sync Queue
-    syncQueue.enqueue('save_bhp', item);
-
     if (isFirebaseClientConfigured()) {
       try {
         await saveDocumentClient('bhp', item.id, item);
@@ -855,9 +829,6 @@ export const api = {
     const local: BarangHabisPakai[] = JSON.parse(localStorage.getItem(KEY_BHP) || '[]');
     const filtered = local.filter(x => x.id !== id);
     localStorage.setItem(KEY_BHP, JSON.stringify(filtered));
-
-    // Enqueue to Sync Queue
-    syncQueue.enqueue('delete_bhp', { id });
 
     if (isFirebaseClientConfigured()) {
       try {
@@ -953,9 +924,6 @@ export const api = {
     
     localStorage.setItem(KEY_PENGAMBILAN_BHP, JSON.stringify(local));
 
-    // Enqueue to Sync Queue
-    syncQueue.enqueue('save_pengambilan_bhp', pengambilan);
-
     if (isFirebaseClientConfigured()) {
       try {
         await saveDocumentClient('pengambilan_bhp', pengambilan.id, pengambilan);
@@ -1005,9 +973,6 @@ export const api = {
     }
     safeSetStorage(KEY_MASTER_RUANGS, updated);
 
-    // Enqueue to Sync Queue
-    syncQueue.enqueue('save_ruang', ruang);
-
     // Record audit log
     await this.recordAuditLog(
       operator || 'Admin Sarpras',
@@ -1034,9 +999,6 @@ export const api = {
     const target = list.find(r => r.id === id);
     const updated = list.filter(r => r.id !== id);
     safeSetStorage(KEY_MASTER_RUANGS, updated);
-
-    // Enqueue to Sync Queue
-    syncQueue.enqueue('delete_ruang', { id });
 
     if (target) {
       await this.recordAuditLog(
@@ -1089,7 +1051,9 @@ export const api = {
   },
 
   // Sinkronkan seluruh data lokal (Aset, Peminjaman, Pemusnahan, BHP, Pengaturan) ke Google Sheets & Firebase Cloud
-  async syncAllLocalToCloud(): Promise<{ success: boolean; message: string; syncedCount: number }> {
+  async syncAllLocalToCloud(
+    onProgress?: (done: number, total: number, label: string) => void
+  ): Promise<{ success: boolean; message: string; syncedCount: number }> {
     const asets: Aset[] = JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
     const peminjamans: Peminjaman[] = JSON.parse(localStorage.getItem(KEY_PEMINJAMANS) || '[]');
     const pemusnahans: LogPemusnahan[] = JSON.parse(localStorage.getItem(KEY_PEMUSNAHANS) || '[]');
@@ -1102,12 +1066,21 @@ export const api = {
     let syncedCount = 0;
     const errors: string[] = [];
 
+    const totalItems = 1 + asets.length + peminjamans.length + pemusnahans.length
+      + bhp.length + pengambilanBhp.length + masterRuangs.length;
+    let doneItems = 0;
+    const tick = (label: string) => {
+      doneItems++;
+      onProgress?.(doneItems, totalItems, label);
+    };
+
     // 1. Simpan Pengaturan
     try {
       await this.savePengaturan(pengaturan);
     } catch (e: any) {
       errors.push(`Pengaturan: ${e?.message}`);
     }
+    tick('Pengaturan Sekolah');
 
     // 2. Simpan Semua Aset
     for (const aset of asets) {
@@ -1117,6 +1090,7 @@ export const api = {
       } catch (e: any) {
         errors.push(`Aset ${aset.id}: ${e?.message}`);
       }
+      tick(`Aset: ${aset.nama || aset.id}`);
     }
 
     // 3. Simpan Peminjaman
@@ -1126,6 +1100,7 @@ export const api = {
       } catch (e: any) {
         errors.push(`Peminjaman ${p.id}: ${e?.message}`);
       }
+      tick('Data Peminjaman');
     }
 
     // 4. Simpan Pemusnahan
@@ -1135,6 +1110,7 @@ export const api = {
       } catch (e: any) {
         errors.push(`Pemusnahan ${log.id}: ${e?.message}`);
       }
+      tick('Log Pemusnahan');
     }
 
     // 5. Simpan BHP
@@ -1144,6 +1120,7 @@ export const api = {
       } catch (e: any) {
         errors.push(`BHP ${item.id}: ${e?.message}`);
       }
+      tick(`BHP: ${item.nama || item.id}`);
     }
 
     // 6. Simpan Pengambilan BHP
@@ -1153,6 +1130,7 @@ export const api = {
       } catch (e: any) {
         errors.push(`Pengambilan BHP ${item.id}: ${e?.message}`);
       }
+      tick('Pengambilan BHP');
     }
 
     // 7. Simpan Master Ruangan
@@ -1163,6 +1141,7 @@ export const api = {
       } catch (e: any) {
         errors.push(`Ruang ${r.nama}: ${e?.message}`);
       }
+      tick(`Ruang: ${r.nama}`);
     }
 
     if (errors.length > 0 && syncedCount === 0) {
