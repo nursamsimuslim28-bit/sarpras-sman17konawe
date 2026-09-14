@@ -220,9 +220,9 @@ export const DEFAULT_PENGATURAN: PengaturanSekolah = {
   targetKapasitasSiswa: 596,
   jumlahRombel: 16,
   jumlahSiswaAktif: 400,
-  googleAppsScriptUrl: (import.meta as any).env?.VITE_GOOGLE_APPS_SCRIPT_URL || "",
+  googleAppsScriptUrl: "",
   googleSpreadsheetUrl: "",
-  googleDriveFolderId: (import.meta as any).env?.VITE_GOOGLE_DRIVE_FOLDER_ID || "",
+  googleDriveFolderId: "",
   adminPassword: (import.meta as any).env?.VITE_ADMIN_PASSWORD || "admin123"
 };
 

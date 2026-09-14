@@ -143,16 +143,11 @@ if (!localPengaturan) {
     // Gabungkan dengan DEFAULT_PENGATURAN agar jika ada properti baru tetap terisi
     const merged = { ...DEFAULT_PENGATURAN, ...parsed };
 
-    // Selalu pastikan googleAppsScriptUrl dan googleDriveFolderId terisi dari DEFAULT_PENGATURAN jika kosong
-    if (!merged.googleAppsScriptUrl || !merged.googleAppsScriptUrl.trim()) {
-      merged.googleAppsScriptUrl = DEFAULT_PENGATURAN.googleAppsScriptUrl;
-    }
-    if (!merged.googleSpreadsheetUrl || !merged.googleSpreadsheetUrl.trim()) {
-      merged.googleSpreadsheetUrl = DEFAULT_PENGATURAN.googleSpreadsheetUrl;
-    }
-    if (!merged.googleDriveFolderId || !merged.googleDriveFolderId.trim()) {
-      merged.googleDriveFolderId = DEFAULT_PENGATURAN.googleDriveFolderId;
-    }
+    // Bersihkan sisa konfigurasi Google Sheets/Apps Script lama (fitur ini sudah dihapus,
+    // Firebase Firestore adalah satu-satunya backend cloud) agar tidak salah terbaca di tempat lain
+    merged.googleAppsScriptUrl = '';
+    merged.googleSpreadsheetUrl = '';
+    merged.googleDriveFolderId = '';
 
     // Pastikan nama sekolah resmi terformat SMA Negeri 17 Konawe jika ada nama lama atau typo
     // (mencakup varian lama "SMAN 1 Amonggedo" dalam berbagai huruf besar/kecil)
@@ -166,87 +161,6 @@ if (!localPengaturan) {
   }
 }
 
-// Utility to verify if dynamic URL is configured - always fallback to hardcoded default
-const getScriptUrl = (): string => {
-  try {
-    const local = localStorage.getItem(KEY_PENGATURAN);
-    if (local) {
-      const parsed = JSON.parse(local);
-      if (parsed.googleAppsScriptUrl && parsed.googleAppsScriptUrl.trim()) {
-        return parsed.googleAppsScriptUrl.trim();
-      }
-    }
-  } catch (e) {
-    console.error('Error reading script URL from local storage:', e);
-  }
-  return DEFAULT_PENGATURAN.googleAppsScriptUrl || "";
-};
-
-// Helper function to call Google Apps Script directly from the browser (no-preflight simple POST requests to bypass CORS)
-async function callDirectGAS(url: string, method: 'GET' | 'POST', payload?: any): Promise<Response> {
-  if (method === 'GET') {
-    const fetchUrl = `${url}?action=${payload?.action || 'get_all'}`;
-    return await fetch(fetchUrl, {
-      method: 'GET',
-      mode: 'cors'
-    });
-  } else {
-    // We send without custom Content-Type header to keep it as a "simple request"
-    // which bypasses CORS preflight (OPTIONS) checks that Google Apps Script Web Apps don't support well.
-    return await fetch(url, {
-      method: 'POST',
-      mode: 'cors',
-      body: JSON.stringify(payload)
-    });
-  }
-}
-
-// Helper function to call GAS via local server proxy with automatic client-side direct fallback
-async function callProxy(url: string, method: 'GET' | 'POST', payload?: any): Promise<Response> {
-  try {
-    if (method === 'GET') {
-      const proxyUrl = `/api/gas-proxy?url=${encodeURIComponent(url)}&action=${payload?.action || 'get_all'}`;
-      const response = await fetch(proxyUrl);
-      
-      // If 404 is returned, the Express proxy backend does not exist (static deployment on Vercel)
-      if (response.status === 404) {
-        console.log('[API] Proxy tidak ditemukan (404), beralih ke koneksi langsung browser...');
-        return await callDirectGAS(url, method, payload);
-      }
-      
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        throw new Error(errJson.message || `HTTP ${response.status}`);
-      }
-      return response;
-    } else {
-      const response = await fetch(`/api/gas-proxy`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url,
-          ...payload
-        })
-      });
-      
-      if (response.status === 404) {
-        console.log('[API] Proxy tidak ditemukan (404), beralih ke koneksi langsung browser...');
-        return await callDirectGAS(url, method, payload);
-      }
-      
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        throw new Error(errJson.message || `HTTP ${response.status}`);
-      }
-      return response;
-    }
-  } catch (err: any) {
-    console.warn('[API] Gagal menghubungi proxy, mencoba koneksi langsung ke Google Apps Script:', err.message);
-    return await callDirectGAS(url, method, payload);
-  }
-}
 
 // Dynamic API client that handles syncs
 export const api = {
@@ -260,79 +174,7 @@ export const api = {
     const localPengambilanBhp: PengambilanBHP[] = JSON.parse(localStorage.getItem(KEY_PENGAMBILAN_BHP) || '[]');
     const localKeluhan: KeluhanSarpras[] = JSON.parse(localStorage.getItem(KEY_KELUHAN) || '[]');
 
-    // 1. UTAMA (Remote-First): Ambil data dari Google Apps Script / Google Sheets
-    const url = getScriptUrl();
-    if (url) {
-      try {
-        const response = await callProxy(url, 'GET', { action: 'get_all' });
-        if (response.ok) {
-          const remoteData = await response.json();
-          if (remoteData && remoteData.status === 'success' && remoteData.data) {
-            const data = remoteData.data;
-
-            const localPengaturanStr = localStorage.getItem(KEY_PENGATURAN);
-            let mergedPengaturan = { ...DEFAULT_PENGATURAN };
-            if (localPengaturanStr) {
-              try {
-                mergedPengaturan = { ...mergedPengaturan, ...JSON.parse(localPengaturanStr) };
-              } catch (e) {}
-            }
-
-            if (data.pengaturan && Object.keys(data.pengaturan).length > 0) {
-              const remote = data.pengaturan;
-              mergedPengaturan = {
-                namaSekolah: remote.namaSekolah || mergedPengaturan.namaSekolah || '',
-                npsn: remote.npsn || mergedPengaturan.npsn || '',
-                alamat: remote.alamat || mergedPengaturan.alamat || '',
-                kepalaSekolah: remote.kepalaSekolah || mergedPengaturan.kepalaSekolah || '',
-                nipKepalaSekolah: remote.nipKepalaSekolah || mergedPengaturan.nipKepalaSekolah || '',
-                namaPetugasSarpras: remote.namaPetugasSarpras || mergedPengaturan.namaPetugasSarpras || '',
-                nipPetugasSarpras: remote.nipPetugasSarpras || mergedPengaturan.nipPetugasSarpras || '',
-                targetKapasitasSiswa: remote.targetKapasitasSiswa ? parseInt(remote.targetKapasitasSiswa) : mergedPengaturan.targetKapasitasSiswa || 596,
-                jumlahRombel: remote.jumlahRombel ? parseInt(remote.jumlahRombel) : mergedPengaturan.jumlahRombel || 16,
-                jumlahSiswaAktif: remote.jumlahSiswaAktif ? parseInt(remote.jumlahSiswaAktif) : mergedPengaturan.jumlahSiswaAktif || 400,
-                googleAppsScriptUrl: mergedPengaturan.googleAppsScriptUrl || remote.googleAppsScriptUrl || DEFAULT_PENGATURAN.googleAppsScriptUrl,
-                googleDriveFolderId: remote.googleDriveFolderId || mergedPengaturan.googleDriveFolderId || DEFAULT_PENGATURAN.googleDriveFolderId
-              };
-            }
-
-            const mergedAsets = mergeById(data.asets, localAsets);
-            const mergedPeminjamans = mergeById(data.peminjamans, localPeminjamans);
-            const mergedPemusnahans = mergeById(data.pemusnahans, localPemusnahans);
-            const mergedBhp = mergeById(data.bhp, localBhp);
-            const mergedPengambilanBhp = mergeById(data.pengambilanBhp, localPengambilanBhp);
-            const mergedKeluhan = mergeById(data.keluhan, localKeluhan);
-            if (data.masterRuangs && Array.isArray(data.masterRuangs) && data.masterRuangs.length > 0) {
-              const localRuangs = this.getMasterRuangs();
-              const mergedRuangs = mergeById(data.masterRuangs, localRuangs);
-              safeSetStorage(KEY_MASTER_RUANGS, mergedRuangs);
-            }
-
-            safeSetStorage(KEY_ASETS, mergedAsets);
-            safeSetStorage(KEY_PEMINJAMANS, mergedPeminjamans);
-            safeSetStorage(KEY_PEMUSNAHANS, mergedPemusnahans);
-            safeSetStorage(KEY_PENGATURAN, mergedPengaturan);
-            safeSetStorage(KEY_BHP, mergedBhp);
-            safeSetStorage(KEY_PENGAMBILAN_BHP, mergedPengambilanBhp);
-            safeSetStorage(KEY_KELUHAN, mergedKeluhan);
-
-            return {
-              asets: mergedAsets,
-              peminjamans: mergedPeminjamans,
-              pemusnahans: mergedPemusnahans,
-              pengaturan: mergedPengaturan,
-              bhp: mergedBhp,
-              pengambilanBhp: mergedPengambilanBhp,
-              keluhan: mergedKeluhan
-            };
-          }
-        }
-      } catch (err) {
-        console.warn('[API] Gagal memuat data dari Google Sheets, mencoba cloud/fallback lainnya...', err);
-      }
-    }
-
-    // 2. Fallback Cloud: Firebase Web Client SDK
+    // 1. Cloud: Firebase Web Client SDK (satu-satunya sumber remote)
     if (isFirebaseClientConfigured()) {
       try {
         const clientData = await getAllDataFromClientFirebase();
@@ -395,100 +237,6 @@ export const api = {
     };
   },
 
-  // Test Connection to Google Apps Script URL
-  async testConnection(url: string): Promise<{ success: boolean; message: string }> {
-    if (!url) {
-      return { success: false, message: 'URL Google Apps Script tidak boleh kosong.' };
-    }
-
-    const trimmedUrl = url.trim();
-
-    if (trimmedUrl.includes('docs.google.com/spreadsheets')) {
-      return {
-        success: false,
-        message: 'Koneksi gagal: URL yang Anda masukkan adalah URL Google Spreadsheet. Anda harus memasukkan URL Web App Google Apps Script (yang didapatkan dari hasil Deploy Script berakhiran "/exec"), bukan URL Spreadsheet.'
-      };
-    }
-
-    if (trimmedUrl.includes('/edit') || !trimmedUrl.includes('/macros/s/')) {
-      return {
-        success: false,
-        message: 'Koneksi gagal: URL yang Anda masukkan tampaknya adalah URL Editor Apps Script. Anda harus memasukkan URL Web App yang didapatkan setelah mengklik tombol "Deploy" -> "New deployment" -> pilih tipe "Web app", lalu salin URL Web App yang berakhiran dengan "/exec".'
-      };
-    }
-
-    if (trimmedUrl.includes('/dev')) {
-      return {
-        success: false,
-        message: 'Koneksi gagal: Anda memasukkan URL Apps Script yang berakhiran "/dev". URL "/dev" memerlukan login akun pengembang dan tidak dapat diakses secara publik oleh server proxy. Silakan lakukan Deploy Ulang (Deploy -> New deployment), pastikan tipe "Web app" dan pilih "Who has access: Anyone", lalu salin URL Web App yang berakhiran "/exec".'
-      };
-    }
-
-    if (!trimmedUrl.startsWith('https://script.google.com/')) {
-      return { success: false, message: 'Format URL salah. URL harus dimulai dengan https://script.google.com/' };
-    }
-
-    try {
-      // Menggunakan proxy lokal untuk menghindari masalah CORS / Sandbox iframe di browser
-      const response = await callProxy(trimmedUrl, 'GET', { action: 'get_all' });
-      
-      if (response.ok) {
-        const responseText = await response.text();
-        let json;
-        try {
-          json = JSON.parse(responseText);
-        } catch (jsonErr) {
-          console.warn("GAS Non-JSON Response:", responseText);
-
-          if (responseText.includes('Google Accounts') || 
-              responseText.includes('Sign in') || 
-              responseText.includes('accounts.google.com') || 
-              responseText.includes('login') ||
-              responseText.includes('Sign-in') ||
-              responseText.includes('Service Login')) {
-            return {
-              success: false,
-              message: 'Koneksi gagal: Google Apps Script meminta Login Google. Ini terjadi karena setelan akses "Who has access" belum diatur ke "Anyone" (Siapa saja, bahkan anonim). Silakan lakukan "Deploy" -> "New deployment" di Apps Script, pilih tipe "Web app", ubah akses ke "Anyone", lalu deploy dan gunakan URL yang baru.'
-            };
-          }
-
-          if (responseText.includes('Exception:') || 
-              responseText.includes('Error:') || 
-              responseText.includes('TypeError:') || 
-              responseText.includes('ReferenceError:')) {
-            const match = responseText.match(/(Exception|Error|TypeError|ReferenceError):[^<]+/);
-            const detailError = match ? match[0] : 'Error internal pada kode Google Apps Script Anda.';
-            return {
-              success: false,
-              message: `Koneksi gagal: Google Apps Script Anda mengembalikan error saat dijalankan: "${detailError}". Silakan buka Editor Apps Script Anda, klik tombol "Run/Jalankan" untuk menguji fungsi doGet, dan pastikan Anda sudah memberikan izin akses (otorisasi) ke Google Sheets / Drive.`
-            };
-          }
-
-          // Bersihkan tag HTML untuk pesan error teks murni yang ringkas
-          const cleanText = responseText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 150);
-          return {
-            success: false,
-            message: `Koneksi gagal: Tanggapan dari Google Apps Script bukan berformat JSON yang valid. Tanggapan yang diterima: "${cleanText}...". Pastikan Anda menggunakan URL "Web app" yang berakhir dengan "/exec" (bukan "/dev") dan akses diatur ke "Anyone" (Siapa saja, bahkan anonim).`
-          };
-        }
-
-        if (json && json.status === 'success') {
-          return { success: true, message: 'Koneksi Berhasil! Sistem Anda berhasil terhubung dengan Google Sheets.' };
-        } else if (json && json.status === 'error') {
-          return { success: false, message: `Koneksi gagal: Apps Script mengembalikan error: "${json.message || 'Error tidak diketahui'}"` };
-        } else {
-          return { success: false, message: `Koneksi gagal: Format respon tidak sesuai. Data: ${JSON.stringify(json)}` };
-        }
-      }
-      return { success: false, message: `Koneksi gagal: Server mengembalikan status HTTP ${response.status} (${response.statusText}).` };
-    } catch (err: any) {
-      console.error('Test connection error:', err);
-      return { 
-        success: false, 
-        message: `Koneksi gagal: ${err.message || 'Terjadi kesalahan jaringan.'}. Pastikan URL sudah benar, koneksi internet aktif, dan pengaturan akses Web App di Google Apps Script telah diset ke "Anyone" (Siapa saja, bahkan anonim).` 
-      };
-    }
-  },
 
   // Save/Update Aset
   async saveAset(aset: Aset): Promise<Aset[]> {
@@ -512,14 +260,6 @@ export const api = {
     }
 
 
-    const url = getScriptUrl();
-    if (url) {
-      try {
-        await callProxy(url, 'POST', { action: 'save_aset', data: aset });
-      } catch (e) {
-        console.warn('Error syncing aset to GAS', e);
-      }
-    }
 
     return local;
   },
@@ -552,19 +292,6 @@ export const api = {
     // Express backend sync
 
     // Google Apps Script batch or iterative sync
-    const url = getScriptUrl();
-    if (url) {
-      try {
-        await callProxy(url, 'POST', { action: 'save_multiple_asets', data: newAsets });
-      } catch (e) {
-        // Fallback simpan satu per satu jika script GAS belum update handler batch
-        for (const aset of newAsets) {
-          try {
-            await callProxy(url, 'POST', { action: 'save_aset', data: aset });
-          } catch (innerErr) {}
-        }
-      }
-    }
 
     return merged;
   },
@@ -584,14 +311,6 @@ export const api = {
     }
 
 
-    const url = getScriptUrl();
-    if (url) {
-      try {
-        await callProxy(url, 'POST', { action: 'delete_aset', id });
-      } catch (e) {
-        console.warn('Error deleting aset in GAS', e);
-      }
-    }
 
     return filtered;
   },
@@ -613,7 +332,7 @@ export const api = {
     // 3. Simpan state bersih ke localStorage secara langsung
     safeSetStorage(KEY_ASETS, filtered);
 
-    // 4. Firebase / Express / GAS Sync
+    // 4. Firebase Sync
     if (isFirebaseClientConfigured()) {
       try {
         await deleteDocumentClient('asets', oldId);
@@ -624,13 +343,6 @@ export const api = {
     }
 
 
-    const url = getScriptUrl();
-    if (url) {
-      try {
-        await callProxy(url, 'POST', { action: 'delete_aset', id: oldId });
-        await callProxy(url, 'POST', { action: 'save_multiple_asets', data: newAsets });
-      } catch (e) {}
-    }
 
     return filtered;
   },
@@ -655,14 +367,6 @@ export const api = {
     }
 
 
-    const url = getScriptUrl();
-    if (url) {
-      try {
-        await callProxy(url, 'POST', { action: 'save_peminjaman', data: pinjam });
-      } catch (e) {
-        console.warn('Error syncing peminjaman to GAS', e);
-      }
-    }
 
     return local;
   },
@@ -701,14 +405,6 @@ export const api = {
       }
 
 
-      const url = getScriptUrl();
-      if (url) {
-        try {
-          await callProxy(url, 'POST', { action: 'save_aset', data: currentAset });
-        } catch (e) {
-          console.warn('Error syncing removed asset status to GAS', e);
-        }
-      }
     }
 
     if (isFirebaseClientConfigured()) {
@@ -720,14 +416,6 @@ export const api = {
     }
 
 
-    const url = getScriptUrl();
-    if (url) {
-      try {
-        await callProxy(url, 'POST', { action: 'save_pemusnahan', data: log });
-      } catch (e) {
-        console.warn('Error syncing pemusnahan to GAS', e);
-      }
-    }
 
     return local;
   },
@@ -745,51 +433,13 @@ export const api = {
     }
 
 
-    const url = cfg.googleAppsScriptUrl || getScriptUrl();
-    if (url) {
-      try {
-        await callProxy(url, 'POST', { action: 'save_pengaturan', data: cfg });
-      } catch (e) {
-        console.warn('Error syncing pengaturan to GAS', e);
-      }
-    }
 
     return cfg;
   },
 
-  // Upload file (photo) to Google Drive (Returns direct web url)
-  async uploadPhotoToDrive(base64Data: string, filename: string): Promise<string> {
-    const url = getScriptUrl();
-    if (!url) {
-      // Local fallback: just return the base64 or a mock url
-      return base64Data;
-    }
-
-    try {
-      const uploadPromise = (async () => {
-        const response = await callProxy(url, 'POST', {
-          action: 'upload_file',
-          fileData: base64Data,
-          fileName: filename
-        });
-        const resData = await response.json();
-        if (resData && resData.status === 'success' && resData.fileUrl) {
-          return resData.fileUrl as string;
-        }
-        throw new Error(resData?.message || 'Gagal mengupload foto ke Google Drive.');
-      })();
-
-      // Batas waktu max 10 detik agar sistem tidak menggantung jika koneksi/Apps Script lambat
-      const timeoutPromise = new Promise<string>((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout upload Google Drive')), 10000)
-      );
-
-      return await Promise.race([uploadPromise, timeoutPromise]);
-    } catch (err: any) {
-      console.warn('[API] Upload bukti ke Drive gagal/timeout, menggunakan file lokal:', err?.message || err);
-      // Fallback to offline local base64 storage
-      return base64Data;
-    }
+  // Foto disimpan sebagai base64 langsung (Firebase Firestore), tidak lagi via Google Drive
+  async uploadPhotoToDrive(base64Data: string, _filename: string): Promise<string> {
+    return base64Data;
   },
 
   // Save/Update Barang Habis Pakai (BHP)
@@ -812,14 +462,6 @@ export const api = {
     }
 
 
-    const url = getScriptUrl();
-    if (url) {
-      try {
-        await callProxy(url, 'POST', { action: 'save_bhp', data: item });
-      } catch (e) {
-        console.warn('Error syncing BHP to GAS', e);
-      }
-    }
 
     return local;
   },
@@ -839,14 +481,6 @@ export const api = {
     }
 
 
-    const url = getScriptUrl();
-    if (url) {
-      try {
-        await callProxy(url, 'POST', { action: 'delete_bhp', id });
-      } catch (e) {
-        console.warn('Error deleting BHP in GAS', e);
-      }
-    }
 
     return filtered;
   },
@@ -879,14 +513,6 @@ export const api = {
         }
 
 
-        const url = getScriptUrl();
-        if (url) {
-          try {
-            await callProxy(url, 'POST', { action: 'save_bhp', data: bhpList[bhpIndex] });
-          } catch (e) {
-            console.warn('Error syncing updated BHP stock to GAS', e);
-          }
-        }
       }
     } else {
       // If updating, adjust stock difference
@@ -910,14 +536,6 @@ export const api = {
           }
 
 
-          const url = getScriptUrl();
-          if (url) {
-            try {
-              await callProxy(url, 'POST', { action: 'save_bhp', data: bhpList[bhpIndex] });
-            } catch (e) {
-              console.warn('Error syncing updated BHP stock to GAS', e);
-            }
-          }
         }
       }
     }
@@ -933,14 +551,6 @@ export const api = {
     }
 
 
-    const url = getScriptUrl();
-    if (url) {
-      try {
-        await callProxy(url, 'POST', { action: 'save_pengambilan_bhp', data: pengambilan });
-      } catch (e) {
-        console.warn('Error syncing pengambilan BHP to GAS', e);
-      }
-    }
 
     return local;
   },
@@ -981,16 +591,6 @@ export const api = {
       `Menyimpan data master ruangan (${ruang.kategori})`
     );
 
-    // Cloud sync via GAS if available
-    const url = getScriptUrl();
-    if (url) {
-      try {
-        await callProxy(url, 'POST', { action: 'save_master_ruang', data: ruang });
-      } catch (e) {
-        console.warn('Error syncing master ruang to GAS', e);
-      }
-    }
-
     return updated;
   },
 
@@ -1009,14 +609,6 @@ export const api = {
       );
     }
 
-    const url = getScriptUrl();
-    if (url) {
-      try {
-        await callProxy(url, 'POST', { action: 'delete_master_ruang', id });
-      } catch (e) {
-        console.warn('Error syncing delete master ruang to GAS', e);
-      }
-    }
 
     return updated;
   },
@@ -1275,12 +867,6 @@ export const api = {
       } catch (e) {}
     }
 
-    const url = getScriptUrl();
-    if (url) {
-      try {
-        await callProxy(url, 'POST', { action: 'save_keluhan', data: item });
-      } catch (e) {}
-    }
 
     return local;
   },
@@ -1296,12 +882,6 @@ export const api = {
       } catch (e) {}
     }
 
-    const url = getScriptUrl();
-    if (url) {
-      try {
-        await callProxy(url, 'POST', { action: 'delete_keluhan', id });
-      } catch (e) {}
-    }
 
     return filtered;
   }
