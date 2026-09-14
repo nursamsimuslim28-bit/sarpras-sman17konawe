@@ -184,7 +184,7 @@ export interface AuditLog {
   id: string; // e.g. LOG-2026-0001
   timestamp: string; // ISO / Wita formatted string
   operator: string; // 'Nursamsi Muslim Widuri, S.Pd.' | 'Alwing' | 'Apriadi'
-  action: 'TAMBAH_ASET' | 'EDIT_ASET' | 'HAPUS_ASET' | 'PINJAM_ASET' | 'KEMBALI_ASET' | 'PEMUSNAHAN_ASET' | 'TAMBAH_BHP' | 'EDIT_BHP' | 'HAPUS_BHP' | 'AMBIL_BHP' | 'UBAH_PENGATURAN' | 'KELOLA_RUANG';
+  action: 'TAMBAH_ASET' | 'EDIT_ASET' | 'PINDAH_ASET' | 'HAPUS_ASET' | 'PINJAM_ASET' | 'KEMBALI_ASET' | 'PEMUSNAHAN_ASET' | 'TAMBAH_BHP' | 'EDIT_BHP' | 'HAPUS_BHP' | 'AMBIL_BHP' | 'UBAH_PENGATURAN' | 'KELOLA_RUANG';
   target: string;
   details: string;
 }

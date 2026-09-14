@@ -234,7 +234,8 @@ export default function App() {
   // Mutators
   const handleSaveAset = async (aset: Aset) => {
     let driveError = false;
-    const isEdit = asets.some(a => a.id === aset.id);
+    const existingAset = asets.find(a => a.id === aset.id);
+    const isEdit = !!existingAset;
 
     if (aset.fotoUrl) {
       try {
@@ -278,10 +279,22 @@ export default function App() {
     const updated = await api.saveAset(aset);
     setAsets(updated);
 
-    const actionType = isEdit ? 'EDIT_ASET' : 'TAMBAH_ASET';
-    const details = isEdit 
-      ? `Memperbarui data aset ${aset.nama} (${aset.id})`
-      : `Menambahkan aset baru ${aset.nama} (${aset.id}) sejumlah ${aset.jumlah} ${aset.satuan}`;
+    const kategoriChanged = isEdit && existingAset!.kategori !== aset.kategori;
+    const ruangChanged = isEdit && existingAset!.ruangLokasi !== aset.ruangLokasi;
+    const isPindah = kategoriChanged || ruangChanged;
+
+    let actionType: AuditLog['action'] = 'TAMBAH_ASET';
+    let details = `Menambahkan aset baru ${aset.nama} (${aset.id}) sejumlah ${aset.jumlah} ${aset.satuan}`;
+    if (isEdit && isPindah) {
+      actionType = 'PINDAH_ASET';
+      const parts: string[] = [];
+      if (kategoriChanged) parts.push(`kategori dari "${existingAset!.kategori}" ke "${aset.kategori}"`);
+      if (ruangChanged) parts.push(`lokasi ruang dari "${existingAset!.ruangLokasi}" ke "${aset.ruangLokasi}"`);
+      details = `Memindahkan aset ${aset.nama} (${aset.id}): ${parts.join(', ')}`;
+    } else if (isEdit) {
+      actionType = 'EDIT_ASET';
+      details = `Memperbarui data aset ${aset.nama} (${aset.id})`;
+    }
     const newLogs = await api.recordAuditLog(activeOperator, actionType, `${aset.nama} (${aset.id})`, details);
     setAuditLogs(newLogs);
     

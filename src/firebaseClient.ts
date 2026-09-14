@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, Firestore } from 'firebase/firestore';
+import { getFirestore, doc, getDocFromServer, getDocsFromServer, setDoc, deleteDoc, collection, Firestore } from 'firebase/firestore';
 
 export interface FirebaseWebConfig {
   apiKey: string;
@@ -182,7 +182,7 @@ export async function testFirebaseClientConnection(): Promise<{ success: boolean
   try {
     // Coba baca dokumen pengaturan atau lakukan ping ringan ke koleksi pengaturan
     const docRef = doc(db, 'pengaturan', 'default');
-    const docSnap = await getDoc(docRef);
+    const docSnap = await getDocFromServer(docRef);
     return {
       success: true,
       message: `Koneksi Berhasil! Terhubung ke Firebase Firestore (Project ID: ${getFirebaseClientConfig()?.projectId}). Dokumen ${docSnap.exists() ? 'ditemukan' : 'siap digunakan'}.`
@@ -216,7 +216,7 @@ export async function getAllDataFromClientFirebase(): Promise<{
     let pengaturan: any = null;
     try {
       const docRef = doc(db, 'pengaturan', 'default');
-      const snap = await getDoc(docRef);
+      const snap = await getDocFromServer(docRef);
       if (snap.exists()) {
         pengaturan = snap.data();
       }
@@ -227,7 +227,7 @@ export async function getAllDataFromClientFirebase(): Promise<{
     // 2. Helper ambil koleksi
     const fetchColl = async (collName: string) => {
       try {
-        const snap = await getDocs(collection(db, collName));
+        const snap = await getDocsFromServer(collection(db, collName));
         const items: any[] = [];
         snap.forEach(d => {
           items.push({ id: d.id, ...d.data() });

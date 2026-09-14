@@ -7,7 +7,7 @@ import {
   RefreshCw, X, AlertTriangle, AlertCircle, ShieldCheck, Lock, ZoomIn, ZoomOut, 
   RotateCw, Maximize2, Loader2, MapPin, Building, FileText, Layers, 
   Hash, DollarSign, BookOpen, Wrench, HardHat, FileSpreadsheet, Check, FolderOpen,
-  Sparkles, Wand2, Download, Upload, Scissors
+  Sparkles, Wand2, Download, Upload, Scissors, MoveRight
 } from 'lucide-react';
 
 // Referensi Jenis Barang & Kodefikasi BMD (Permendagri No. 108 Tahun 2016 - Golongan.Bidang.Kelompok
@@ -190,6 +190,12 @@ export default function AsetTab({
   // State untuk Fitur Pecah Unit Aset (Split Asset)
   const [selectedAsetForSplit, setSelectedAsetForSplit] = useState<Aset | null>(null);
   const [isSplittingAset, setIsSplittingAset] = useState(false);
+
+  // State untuk Fitur Pindahkan Aset (ubah KIB / ruang lokasi cepat, tanpa buka form lengkap)
+  const [selectedAsetForMove, setSelectedAsetForMove] = useState<Aset | null>(null);
+  const [moveTargetKategori, setMoveTargetKategori] = useState<KategoriAset | null>(null);
+  const [moveTargetRuang, setMoveTargetRuang] = useState<string>('');
+  const [isMovingAset, setIsMovingAset] = useState(false);
 
   // Form states for Disposal/Pemusnahan
   const [disposalForm, setDisposalForm] = useState<Partial<LogPemusnahan>>({
@@ -672,6 +678,24 @@ export default function AsetTab({
     }
 
     return errors;
+  };
+
+  const handleConfirmMoveAset = async () => {
+    if (!selectedAsetForMove || !moveTargetKategori || !moveTargetRuang) return;
+    setIsMovingAset(true);
+    try {
+      const movedAset: Aset = {
+        ...selectedAsetForMove,
+        kategori: moveTargetKategori,
+        ruangLokasi: moveTargetRuang,
+      };
+      await onSaveAset(movedAset);
+      setSelectedAsetForMove(null);
+      setMoveTargetKategori(null);
+      setMoveTargetRuang('');
+    } finally {
+      setIsMovingAset(false);
+    }
   };
 
   const handleConfirmSplitAset = async (targetAset: Aset) => {
@@ -1216,6 +1240,17 @@ export default function AsetTab({
                           >
                             <Edit size={12} />
                             Ubah data
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedAsetForMove(aset);
+                              setMoveTargetKategori(aset.kategori);
+                              setMoveTargetRuang(aset.ruangLokasi);
+                            }}
+                            className="px-3 py-2 border border-purple-200 hover:bg-purple-50 active:bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center transition cursor-pointer"
+                            title="Pindahkan aset (ubah KIB / ruang lokasi)"
+                          >
+                            <MoveRight size={13} />
                           </button>
                           <button
                             onClick={() => setSelectedAsetForDeleteChoice(aset)}
@@ -3229,6 +3264,106 @@ export default function AsetTab({
                 >
                   {isSplittingAset ? <Loader2 size={14} className="animate-spin" /> : <Scissors size={14} />}
                   <span>Ya, Pecah Menjadi {selectedAsetForSplit.jumlah} Unit Satuan</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Pindahkan Aset: ubah KIB / ruang lokasi secara cepat, dengan pencatatan riwayat perpindahan */}
+      <AnimatePresence>
+        {selectedAsetForMove && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl max-w-lg w-full p-6 relative border border-slate-100 shadow-2xl max-h-[90vh] overflow-y-auto"
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedAsetForMove(null)}
+                className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-50 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-2 mb-2 text-purple-800 font-extrabold text-base">
+                <div className="p-2 bg-purple-100 text-purple-800 rounded-xl">
+                  <MoveRight size={20} />
+                </div>
+                <h3>Pindahkan Aset</h3>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                Memindahkan <strong className="text-slate-900 font-bold">{selectedAsetForMove.nama}</strong> ({selectedAsetForMove.id}) ke klasifikasi KIB dan/atau lokasi ruang yang benar. Perpindahan ini otomatis tercatat di Log Audit sehingga bisa ditelusuri kapan & oleh siapa.
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Klasifikasi KIB</label>
+                <p className="text-[10px] text-slate-400 mb-2">Sekarang: <span className="font-semibold text-slate-600">{selectedAsetForMove.kategori}</span></p>
+                <div className="grid grid-cols-2 gap-2">
+                  {kibCategories.map(kib => (
+                    <button
+                      key={kib.id}
+                      type="button"
+                      onClick={() => setMoveTargetKategori(kib.fullCat)}
+                      className={`p-2.5 rounded-xl border-2 text-left transition cursor-pointer ${
+                        moveTargetKategori === kib.fullCat
+                          ? 'border-purple-500 bg-purple-50'
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                      }`}
+                    >
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-black border mb-1 ${kib.badgeBg}`}>{kib.code}</span>
+                      <p className="text-[11px] font-bold text-slate-800 leading-tight">{kib.shortTitle}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-5">
+                <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Lokasi / Ruang</label>
+                <p className="text-[10px] text-slate-400 mb-2">Sekarang: <span className="font-semibold text-slate-600">{selectedAsetForMove.ruangLokasi}</span></p>
+                <select
+                  value={moveTargetRuang}
+                  onChange={(e) => setMoveTargetRuang(e.target.value)}
+                  className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                >
+                  {spaces.map(sp => (
+                    <option key={sp} value={sp}>{sp}</option>
+                  ))}
+                </select>
+              </div>
+
+              {(moveTargetKategori !== selectedAsetForMove.kategori || moveTargetRuang !== selectedAsetForMove.ruangLokasi) && (
+                <div className="bg-purple-50/80 border border-purple-200/80 rounded-2xl p-3 mb-4 text-[11px] text-purple-900 space-y-1">
+                  {moveTargetKategori !== selectedAsetForMove.kategori && (
+                    <p>• Kategori: <strong>{selectedAsetForMove.kategori}</strong> → <strong>{moveTargetKategori}</strong></p>
+                  )}
+                  {moveTargetRuang !== selectedAsetForMove.ruangLokasi && (
+                    <p>• Ruang: <strong>{selectedAsetForMove.ruangLokasi}</strong> → <strong>{moveTargetRuang}</strong></p>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={isMovingAset}
+                  onClick={() => setSelectedAsetForMove(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={isMovingAset || (moveTargetKategori === selectedAsetForMove.kategori && moveTargetRuang === selectedAsetForMove.ruangLokasi)}
+                  onClick={handleConfirmMoveAset}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-2 shadow-md shadow-purple-600/15"
+                >
+                  {isMovingAset ? <Loader2 size={14} className="animate-spin" /> : <MoveRight size={14} />}
+                  <span>Simpan Perpindahan</span>
                 </button>
               </div>
             </motion.div>

@@ -2375,6 +2375,7 @@ export default function LaporanTab({ asets, pemusnahans, pengaturan, auditLogs =
                       <option value="Semua">Semua Jenis Aksi</option>
                       <option value="TAMBAH_ASET">Tambah Aset</option>
                       <option value="EDIT_ASET">Edit Aset</option>
+                      <option value="PINDAH_ASET">Pindah Aset</option>
                       <option value="HAPUS_ASET">Hapus Aset</option>
                       <option value="PINJAM_ASET">Peminjaman Aset</option>
                       <option value="KEMBALI_ASET">Pengembalian Aset</option>
@@ -2427,11 +2428,14 @@ export default function LaporanTab({ asets, pemusnahans, pengaturan, auditLogs =
                             const isDelete = log.action.includes('HAPUS') || log.action.includes('PEMUSNAHAN');
                             const isPinjam = log.action.includes('PINJAM') || log.action.includes('AMBIL');
                             const isKembali = log.action.includes('KEMBALI');
+                            const isPindah = log.action.includes('PINDAH');
 
                             const badgeStyle = isAdd
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : isDelete
                               ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : isPindah
+                              ? 'bg-purple-50 text-purple-700 border-purple-200'
                               : isPinjam
                               ? 'bg-amber-50 text-amber-700 border-amber-200'
                               : isKembali
