@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Aset, KategoriAset, KondisiAset, StandardRuang, LogPemusnahan, PengaturanSekolah, MasterRuang } from '../types';
+import { Aset, KategoriAset, KondisiAset, StandardRuang, LogPemusnahan, LogPemeliharaan, PengaturanSekolah, MasterRuang } from '../types';
 import { searchMasterKodeBmd, MasterKodeBmd } from '../data/masterKodeBmd';
 import ImportExportModal from './ImportExportModal';
 import { motion, AnimatePresence } from 'motion/react';
@@ -150,11 +150,13 @@ interface AsetTabProps {
   asets: Aset[];
   pengaturan: PengaturanSekolah;
   masterRuangs?: MasterRuang[];
+  pemeliharaans?: LogPemeliharaan[];
   onSaveAset: (aset: Aset) => Promise<void>;
   onSaveMultipleAsets?: (asets: Aset[]) => Promise<void>;
   onDeleteAset: (id: string) => Promise<void>;
   onSplitAset?: (oldId: string, newAsets: Aset[]) => Promise<void>;
   onLogPemusnahan: (log: LogPemusnahan) => Promise<void>;
+  onLogPemeliharaan?: (log: LogPemeliharaan) => Promise<void>;
   onOpenScanner: (actionType: 'search' | 'aset_form', callback?: (code: string) => void) => void;
   userRole?: 'admin' | 'guest';
 }
@@ -163,11 +165,13 @@ export default function AsetTab({
   asets,
   pengaturan,
   masterRuangs = [],
+  pemeliharaans = [],
   onSaveAset,
   onSaveMultipleAsets,
   onDeleteAset,
   onSplitAset,
   onLogPemusnahan,
+  onLogPemeliharaan,
   onOpenScanner,
   userRole = 'guest'
 }: AsetTabProps) {
@@ -200,6 +204,18 @@ export default function AsetTab({
   const [moveTargetKategori, setMoveTargetKategori] = useState<KategoriAset | null>(null);
   const [moveTargetRuang, setMoveTargetRuang] = useState<string>('');
   const [isMovingAset, setIsMovingAset] = useState(false);
+
+  // State untuk Fitur Riwayat Pemeliharaan/Perawatan Aset
+  const [selectedAsetForMaintenance, setSelectedAsetForMaintenance] = useState<Aset | null>(null);
+  const [isSavingMaintenance, setIsSavingMaintenance] = useState(false);
+  const [maintenanceForm, setMaintenanceForm] = useState<Partial<LogPemeliharaan>>({
+    tanggal: new Date().toISOString().slice(0, 10),
+    jenisPerawatan: 'Perbaikan/Servis',
+    deskripsi: '',
+    biaya: undefined,
+    vendorPetugas: '',
+    kondisiSesudah: undefined
+  });
 
   // Form states for Disposal/Pemusnahan
   const [disposalForm, setDisposalForm] = useState<Partial<LogPemusnahan>>({
@@ -726,6 +742,38 @@ export default function AsetTab({
       setMoveTargetRuang('');
     } finally {
       setIsMovingAset(false);
+    }
+  };
+
+  const handleSaveMaintenance = async () => {
+    if (!selectedAsetForMaintenance || !onLogPemeliharaan) return;
+    if (!maintenanceForm.deskripsi || !maintenanceForm.deskripsi.trim()) return;
+
+    setIsSavingMaintenance(true);
+    try {
+      const log: LogPemeliharaan = {
+        id: `PML-${Date.now()}`,
+        asetId: selectedAsetForMaintenance.id,
+        namaAset: selectedAsetForMaintenance.nama,
+        tanggal: maintenanceForm.tanggal || new Date().toISOString().slice(0, 10),
+        jenisPerawatan: maintenanceForm.jenisPerawatan || 'Perbaikan/Servis',
+        deskripsi: maintenanceForm.deskripsi.trim(),
+        biaya: maintenanceForm.biaya,
+        vendorPetugas: maintenanceForm.vendorPetugas,
+        kondisiSebelum: selectedAsetForMaintenance.kondisi,
+        kondisiSesudah: maintenanceForm.kondisiSesudah,
+      };
+      await onLogPemeliharaan(log);
+      setMaintenanceForm({
+        tanggal: new Date().toISOString().slice(0, 10),
+        jenisPerawatan: 'Perbaikan/Servis',
+        deskripsi: '',
+        biaya: undefined,
+        vendorPetugas: '',
+        kondisiSesudah: undefined
+      });
+    } finally {
+      setIsSavingMaintenance(false);
     }
   };
 
@@ -1271,6 +1319,13 @@ export default function AsetTab({
                           >
                             <Edit size={12} />
                             Ubah data
+                          </button>
+                          <button
+                            onClick={() => setSelectedAsetForMaintenance(aset)}
+                            className="px-3 py-2 border border-teal-200 hover:bg-teal-50 active:bg-teal-100 text-teal-600 rounded-xl flex items-center justify-center transition cursor-pointer"
+                            title="Riwayat Pemeliharaan / Perawatan Aset"
+                          >
+                            <Wrench size={13} />
                           </button>
                           <button
                             onClick={() => {
@@ -3429,6 +3484,174 @@ export default function AsetTab({
                   {isMovingAset ? <Loader2 size={14} className="animate-spin" /> : <MoveRight size={14} />}
                   <span>Simpan Perpindahan</span>
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Riwayat Pemeliharaan / Perawatan Aset */}
+      <AnimatePresence>
+        {selectedAsetForMaintenance && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl max-w-lg w-full p-6 relative border border-slate-100 shadow-2xl max-h-[90vh] overflow-y-auto"
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedAsetForMaintenance(null)}
+                className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-50 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-2 mb-2 text-teal-800 font-extrabold text-base">
+                <div className="p-2 bg-teal-100 text-teal-800 rounded-xl">
+                  <Wrench size={20} />
+                </div>
+                <h3>Riwayat Pemeliharaan Aset</h3>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                <strong className="text-slate-900 font-bold">{selectedAsetForMaintenance.nama}</strong> ({selectedAsetForMaintenance.id})
+              </p>
+
+              {/* Daftar riwayat yang sudah ada */}
+              <div className="mb-5">
+                <label className="block text-[11px] font-bold text-slate-600 mb-2 uppercase tracking-wide">
+                  Riwayat Tercatat ({pemeliharaans.filter(p => p.asetId === selectedAsetForMaintenance.id).length})
+                </label>
+                {pemeliharaans.filter(p => p.asetId === selectedAsetForMaintenance.id).length === 0 ? (
+                  <p className="text-xs text-slate-400 bg-slate-50 rounded-xl p-3 text-center">Belum ada riwayat perawatan untuk aset ini.</p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {pemeliharaans
+                      .filter(p => p.asetId === selectedAsetForMaintenance.id)
+                      .sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || ''))
+                      .map(log => (
+                        <div key={log.id} className="bg-teal-50/60 border border-teal-100 rounded-xl p-2.5 text-[11px]">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="font-bold text-teal-800">{log.jenisPerawatan}</span>
+                            <span className="text-slate-500 font-mono text-[10px]">{log.tanggal}</span>
+                          </div>
+                          <p className="text-slate-700">{log.deskripsi}</p>
+                          <div className="flex items-center gap-2 mt-1 text-slate-500 text-[10px]">
+                            {log.biaya ? <span>Rp {log.biaya.toLocaleString('id-ID')}</span> : null}
+                            {log.vendorPetugas ? <span>• {log.vendorPetugas}</span> : null}
+                            {log.kondisiSesudah ? <span>• Kondisi → {log.kondisiSesudah}</span> : null}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Form catat baru */}
+              <div className="border-t border-slate-100 pt-4">
+                <label className="block text-[11px] font-bold text-slate-600 mb-2 uppercase tracking-wide">Catat Perawatan Baru</label>
+                <div className="grid grid-cols-2 gap-2.5 mb-2.5">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">Tanggal</label>
+                    <input
+                      type="date"
+                      value={maintenanceForm.tanggal || ''}
+                      onChange={(e) => setMaintenanceForm({ ...maintenanceForm, tanggal: e.target.value })}
+                      className="w-full text-xs px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">Jenis Perawatan</label>
+                    <select
+                      value={maintenanceForm.jenisPerawatan}
+                      onChange={(e) => setMaintenanceForm({ ...maintenanceForm, jenisPerawatan: e.target.value as LogPemeliharaan['jenisPerawatan'] })}
+                      className="w-full text-xs px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                    >
+                      <option value="Perbaikan/Servis">Perbaikan/Servis</option>
+                      <option value="Pemeliharaan Rutin">Pemeliharaan Rutin</option>
+                      <option value="Kalibrasi">Kalibrasi</option>
+                      <option value="Penggantian Spare Part">Penggantian Spare Part</option>
+                      <option value="Lainnya">Lainnya</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mb-2.5">
+                  <label className="block text-[10px] font-semibold text-slate-500 mb-1">Deskripsi / Keterangan</label>
+                  <textarea
+                    value={maintenanceForm.deskripsi || ''}
+                    onChange={(e) => setMaintenanceForm({ ...maintenanceForm, deskripsi: e.target.value })}
+                    rows={2}
+                    placeholder="Contoh: Servis printer, ganti catridge tinta"
+                    className="w-full text-xs px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5 mb-2.5">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">Biaya (Rp, opsional)</label>
+                    <input
+                      type="number"
+                      value={maintenanceForm.biaya ?? ''}
+                      onChange={(e) => setMaintenanceForm({ ...maintenanceForm, biaya: e.target.value ? Number(e.target.value) : undefined })}
+                      placeholder="0"
+                      className="w-full text-xs px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">Vendor/Petugas (opsional)</label>
+                    <input
+                      type="text"
+                      value={maintenanceForm.vendorPetugas || ''}
+                      onChange={(e) => setMaintenanceForm({ ...maintenanceForm, vendorPetugas: e.target.value })}
+                      placeholder="Nama teknisi/vendor"
+                      className="w-full text-xs px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-[10px] font-semibold text-slate-500 mb-1">Kondisi Aset Setelah Perawatan (opsional)</label>
+                  <p className="text-[10px] text-slate-400 mb-1.5">Sekarang: <span className="font-semibold text-slate-600">{selectedAsetForMaintenance.kondisi}</span> — pilih jika kondisi berubah setelah perawatan ini.</p>
+                  <div className="flex gap-2">
+                    {(['Baik', 'Rusak Ringan', 'Rusak Berat'] as KondisiAset[]).map(k => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => setMaintenanceForm({ ...maintenanceForm, kondisiSesudah: maintenanceForm.kondisiSesudah === k ? undefined : k })}
+                        className={`flex-1 py-1.5 rounded-lg border text-[10px] font-bold transition cursor-pointer ${
+                          maintenanceForm.kondisiSesudah === k
+                            ? 'border-teal-500 bg-teal-50 text-teal-700'
+                            : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                        }`}
+                      >
+                        {k}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    disabled={isSavingMaintenance}
+                    onClick={() => setSelectedAsetForMaintenance(null)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                  >
+                    Tutup
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSavingMaintenance || !maintenanceForm.deskripsi?.trim()}
+                    onClick={handleSaveMaintenance}
+                    className="px-4 py-2 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-2 shadow-md shadow-teal-600/15"
+                  >
+                    {isSavingMaintenance ? <Loader2 size={14} className="animate-spin" /> : <Wrench size={14} />}
+                    <span>Simpan Catatan Perawatan</span>
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Aset, Peminjaman, LogPemusnahan, PengaturanSekolah, DEFAULT_PENGATURAN, BarangHabisPakai, PengambilanBHP, AuditLog, AUTHORIZED_USERS, MasterRuang, KeluhanSarpras } from './types';
+import { Aset, Peminjaman, LogPemusnahan, LogPemeliharaan, PengaturanSekolah, DEFAULT_PENGATURAN, BarangHabisPakai, PengambilanBHP, AuditLog, AUTHORIZED_USERS, MasterRuang, KeluhanSarpras } from './types';
 import { SCHOOL_LOGO_BASE64 } from './assets/logoBase64';
 import { api } from './api';
 import DashboardTab from './components/DashboardTab';
@@ -47,6 +47,7 @@ export default function App() {
   const [asets, setAsets] = useState<Aset[]>([]);
   const [peminjamans, setPeminjamans] = useState<Peminjaman[]>([]);
   const [pemusnahans, setPemusnahans] = useState<LogPemusnahan[]>([]);
+  const [pemeliharaans, setPemeliharaans] = useState<LogPemeliharaan[]>([]);
   const [pengaturan, setPengaturan] = useState<PengaturanSekolah>(DEFAULT_PENGATURAN);
   const [bhp, setBhp] = useState<BarangHabisPakai[]>([]);
   const [pengambilanBhp, setPengambilanBhp] = useState<PengambilanBHP[]>([]);
@@ -154,6 +155,7 @@ export default function App() {
         setAsets(result.asets);
         setPeminjamans(result.peminjamans);
         setPemusnahans(result.pemusnahans);
+        setPemeliharaans(result.pemeliharaans);
         setPengaturan(result.pengaturan);
         setBhp(result.bhp);
         setPengambilanBhp(result.pengambilanBhp);
@@ -172,6 +174,7 @@ export default function App() {
         setAsets(result.asets);
         setPeminjamans(result.peminjamans);
         setPemusnahans(result.pemusnahans);
+        setPemeliharaans(result.pemeliharaans);
         setPengaturan(result.pengaturan);
         setBhp(result.bhp);
         setPengambilanBhp(result.pengambilanBhp);
@@ -203,6 +206,7 @@ export default function App() {
       setAsets(result.asets);
       setPeminjamans(result.peminjamans);
       setPemusnahans(result.pemusnahans);
+      setPemeliharaans(result.pemeliharaans);
       setPengaturan(result.pengaturan);
       setBhp(result.bhp);
       setPengambilanBhp(result.pengambilanBhp);
@@ -444,6 +448,29 @@ export default function App() {
     loadAllData(false);
   };
 
+  const handleLogPemeliharaan = async (log: LogPemeliharaan) => {
+    const updated = await api.savePemeliharaan(log);
+    setPemeliharaans(updated);
+
+    // Perbarui state aset lokal jika kondisinya berubah setelah perawatan
+    if (log.kondisiSesudah) {
+      const refreshedAsets = asets.map(a =>
+        a.id === log.asetId ? { ...a, kondisi: log.kondisiSesudah! } : a
+      );
+      setAsets(refreshedAsets);
+    }
+
+    const newLogs = await api.recordAuditLog(
+      activeOperator,
+      'PEMELIHARAAN_ASET',
+      `${log.namaAset} (${log.asetId})`,
+      `${log.jenisPerawatan}: ${log.deskripsi}${log.biaya ? ` (Rp ${log.biaya.toLocaleString('id-ID')})` : ''}`
+    );
+    setAuditLogs(newLogs);
+
+    loadAllData(false);
+  };
+
   const handleSavePengaturan = async (cfg: PengaturanSekolah) => {
     const updated = await api.savePengaturan(cfg);
     setPengaturan(updated);
@@ -635,11 +662,13 @@ export default function App() {
             asets={asets}
             pengaturan={pengaturan}
             masterRuangs={masterRuangs}
+            pemeliharaans={pemeliharaans}
             onSaveAset={handleSaveAset}
             onSaveMultipleAsets={handleSaveMultipleAsets}
             onDeleteAset={handleDeleteAset}
             onSplitAset={handleSplitAset}
             onLogPemusnahan={handleLogPemusnahan}
+            onLogPemeliharaan={handleLogPemeliharaan}
             onOpenScanner={handleOpenScanner}
             userRole={userRole}
           />

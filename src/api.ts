@@ -1,4 +1,4 @@
-import { Aset, Peminjaman, LogPemusnahan, PengaturanSekolah, SAMPLE_ASETS, SAMPLE_PEMINJAMANS, SAMPLE_PEMUSNAHANS, DEFAULT_PENGATURAN, BarangHabisPakai, PengambilanBHP, SAMPLE_BHP, SAMPLE_PENGAMBILAN_BHP, AuditLog, AUTHORIZED_USERS, MasterRuang, DEFAULT_MASTER_RUANGS, KeluhanSarpras } from './types';
+import { Aset, Peminjaman, LogPemusnahan, LogPemeliharaan, PengaturanSekolah, SAMPLE_ASETS, SAMPLE_PEMINJAMANS, SAMPLE_PEMUSNAHANS, DEFAULT_PENGATURAN, BarangHabisPakai, PengambilanBHP, SAMPLE_BHP, SAMPLE_PENGAMBILAN_BHP, AuditLog, AUTHORIZED_USERS, MasterRuang, DEFAULT_MASTER_RUANGS, KeluhanSarpras } from './types';
 import { 
   isFirebaseClientConfigured, 
   saveDocumentClient, 
@@ -14,6 +14,7 @@ import {
 const KEY_ASETS = 'esarpras_asets';
 const KEY_PEMINJAMANS = 'esarpras_peminjamans';
 const KEY_PEMUSNAHANS = 'esarpras_pemusnahans';
+const KEY_PEMELIHARAAN = 'esarpras_pemeliharaans';
 const KEY_PENGATURAN = 'esarpras_pengaturan';
 const KEY_BHP = 'esarpras_bhp';
 const KEY_PENGAMBILAN_BHP = 'esarpras_pengambilan_bhp';
@@ -28,7 +29,7 @@ const DUMMY_IDS = new Set<string>([]);
 
 // Purge any residual sample/dummy data from local storage
 function purgeSampleDataFromLocalStorage(): void {
-  [KEY_ASETS, KEY_PEMINJAMANS, KEY_PEMUSNAHANS, KEY_BHP, KEY_PENGAMBILAN_BHP, KEY_AUDIT_LOGS].forEach(key => {
+  [KEY_ASETS, KEY_PEMINJAMANS, KEY_PEMUSNAHANS, KEY_PEMELIHARAAN, KEY_BHP, KEY_PENGAMBILAN_BHP, KEY_AUDIT_LOGS].forEach(key => {
     try {
       const raw = localStorage.getItem(key);
       if (raw) {
@@ -100,6 +101,7 @@ if (!localStorage.getItem(KEY_INITIALIZED)) {
   if (!localStorage.getItem(KEY_ASETS)) safeSetStorage(KEY_ASETS, []);
   if (!localStorage.getItem(KEY_PEMINJAMANS)) safeSetStorage(KEY_PEMINJAMANS, []);
   if (!localStorage.getItem(KEY_PEMUSNAHANS)) safeSetStorage(KEY_PEMUSNAHANS, []);
+  if (!localStorage.getItem(KEY_PEMELIHARAAN)) safeSetStorage(KEY_PEMELIHARAAN, []);
   if (!localStorage.getItem(KEY_BHP)) safeSetStorage(KEY_BHP, []);
   if (!localStorage.getItem(KEY_PENGAMBILAN_BHP)) safeSetStorage(KEY_PENGAMBILAN_BHP, []);
   if (!localStorage.getItem(KEY_AUDIT_LOGS)) safeSetStorage(KEY_AUDIT_LOGS, []);
@@ -144,11 +146,12 @@ if (!localPengaturan) {
 // Dynamic API client that handles syncs
 export const api = {
   // Get all data
-  async getAll(): Promise<{ asets: Aset[]; peminjamans: Peminjaman[]; pemusnahans: LogPemusnahan[]; pengaturan: PengaturanSekolah; bhp: BarangHabisPakai[]; pengambilanBhp: PengambilanBHP[]; keluhan: KeluhanSarpras[] }> {
+  async getAll(): Promise<{ asets: Aset[]; peminjamans: Peminjaman[]; pemusnahans: LogPemusnahan[]; pemeliharaans: LogPemeliharaan[]; pengaturan: PengaturanSekolah; bhp: BarangHabisPakai[]; pengambilanBhp: PengambilanBHP[]; keluhan: KeluhanSarpras[] }> {
     // Ambil data lokal saat ini
     const localAsets: Aset[] = JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
     const localPeminjamans: Peminjaman[] = JSON.parse(localStorage.getItem(KEY_PEMINJAMANS) || '[]');
     const localPemusnahans: LogPemusnahan[] = JSON.parse(localStorage.getItem(KEY_PEMUSNAHANS) || '[]');
+    const localPemeliharaans: LogPemeliharaan[] = JSON.parse(localStorage.getItem(KEY_PEMELIHARAAN) || '[]');
     const localBhp: BarangHabisPakai[] = JSON.parse(localStorage.getItem(KEY_BHP) || '[]');
     const localPengambilanBhp: PengambilanBHP[] = JSON.parse(localStorage.getItem(KEY_PENGAMBILAN_BHP) || '[]');
     const localKeluhan: KeluhanSarpras[] = JSON.parse(localStorage.getItem(KEY_KELUHAN) || '[]');
@@ -173,6 +176,7 @@ export const api = {
           const mergedAsets = mergeById(clientData.asets, localAsets);
           const mergedPeminjamans = mergeById(clientData.peminjamans, localPeminjamans);
           const mergedPemusnahans = mergeById(clientData.pemusnahans, localPemusnahans);
+          const mergedPemeliharaans = mergeById(clientData.pemeliharaans, localPemeliharaans);
           const mergedBhp = mergeById(clientData.bhp, localBhp);
           const mergedPengambilanBhp = mergeById(clientData.pengambilanBhp, localPengambilanBhp);
           const mergedKeluhan = mergeById(clientData.keluhan, localKeluhan);
@@ -180,6 +184,7 @@ export const api = {
           safeSetStorage(KEY_ASETS, mergedAsets);
           safeSetStorage(KEY_PEMINJAMANS, mergedPeminjamans);
           safeSetStorage(KEY_PEMUSNAHANS, mergedPemusnahans);
+          safeSetStorage(KEY_PEMELIHARAAN, mergedPemeliharaans);
           safeSetStorage(KEY_PENGATURAN, mergedPengaturan);
           safeSetStorage(KEY_BHP, mergedBhp);
           safeSetStorage(KEY_PENGAMBILAN_BHP, mergedPengambilanBhp);
@@ -189,6 +194,7 @@ export const api = {
             asets: mergedAsets,
             peminjamans: mergedPeminjamans,
             pemusnahans: mergedPemusnahans,
+            pemeliharaans: mergedPemeliharaans,
             pengaturan: mergedPengaturan,
             bhp: mergedBhp,
             pengambilanBhp: mergedPengambilanBhp,
@@ -209,6 +215,7 @@ export const api = {
       asets: JSON.parse(localStorage.getItem(KEY_ASETS) || '[]'),
       peminjamans: JSON.parse(localStorage.getItem(KEY_PEMINJAMANS) || '[]'),
       pemusnahans: JSON.parse(localStorage.getItem(KEY_PEMUSNAHANS) || '[]'),
+      pemeliharaans: JSON.parse(localStorage.getItem(KEY_PEMELIHARAAN) || '[]'),
       pengaturan: offlinePengaturan,
       bhp: JSON.parse(localStorage.getItem(KEY_BHP) || '[]'),
       pengambilanBhp: JSON.parse(localStorage.getItem(KEY_PENGAMBILAN_BHP) || '[]'),
@@ -397,6 +404,63 @@ export const api = {
 
 
     return local;
+  },
+
+  // Save/Update Pemeliharaan (Perawatan/Perbaikan Aset)
+  async savePemeliharaan(log: LogPemeliharaan): Promise<LogPemeliharaan[]> {
+    const local: LogPemeliharaan[] = JSON.parse(localStorage.getItem(KEY_PEMELIHARAAN) || '[]');
+    const index = local.findIndex(x => x.id === log.id);
+    if (index >= 0) {
+      local[index] = log;
+    } else {
+      local.push(log);
+    }
+    safeSetStorage(KEY_PEMELIHARAAN, local);
+
+    // Jika kondisi aset berubah setelah perawatan, perbarui juga data aset terkait
+    if (log.kondisiSesudah) {
+      const asets: Aset[] = JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
+      const asetIndex = asets.findIndex(x => x.id === log.asetId);
+      if (asetIndex >= 0 && asets[asetIndex].kondisi !== log.kondisiSesudah) {
+        asets[asetIndex].kondisi = log.kondisiSesudah;
+        asets[asetIndex].updatedAt = new Date().toISOString();
+        safeSetStorage(KEY_ASETS, asets);
+        if (isFirebaseClientConfigured()) {
+          try {
+            await saveDocumentClient('asets', asets[asetIndex].id, asets[asetIndex]);
+          } catch (e) {
+            console.error('[API] Gagal memperbarui kondisi aset di Firebase Client:', e);
+          }
+        }
+      }
+    }
+
+    if (isFirebaseClientConfigured()) {
+      try {
+        await saveDocumentClient('pemeliharaans', log.id, log);
+      } catch (e) {
+        console.error('[API] Gagal menyimpan pemeliharaan ke Firebase Client:', e);
+      }
+    }
+
+    return local;
+  },
+
+  // Delete Pemeliharaan
+  async deletePemeliharaan(id: string): Promise<LogPemeliharaan[]> {
+    const local: LogPemeliharaan[] = JSON.parse(localStorage.getItem(KEY_PEMELIHARAAN) || '[]');
+    const filtered = local.filter(x => x.id !== id);
+    safeSetStorage(KEY_PEMELIHARAAN, filtered);
+
+    if (isFirebaseClientConfigured()) {
+      try {
+        await deleteDocumentClient('pemeliharaans', id);
+      } catch (e) {
+        console.error('[API] Gagal menghapus pemeliharaan di Firebase Client:', e);
+      }
+    }
+
+    return filtered;
   },
 
   // Save/Update Pengaturan
@@ -739,6 +803,7 @@ export const api = {
       asets: JSON.parse(localStorage.getItem(KEY_ASETS) || '[]'),
       peminjamans: JSON.parse(localStorage.getItem(KEY_PEMINJAMANS) || '[]'),
       pemusnahans: JSON.parse(localStorage.getItem(KEY_PEMUSNAHANS) || '[]'),
+      pemeliharaans: JSON.parse(localStorage.getItem(KEY_PEMELIHARAAN) || '[]'),
       bhp: JSON.parse(localStorage.getItem(KEY_BHP) || '[]'),
       pengambilanBhp: JSON.parse(localStorage.getItem(KEY_PENGAMBILAN_BHP) || '[]'),
       pengaturan: JSON.parse(localStorage.getItem(KEY_PENGATURAN) || JSON.stringify(DEFAULT_PENGATURAN)),
@@ -764,6 +829,9 @@ export const api = {
       }
       if (Array.isArray(data.pemusnahans)) {
         safeSetStorage(KEY_PEMUSNAHANS, data.pemusnahans);
+      }
+      if (Array.isArray(data.pemeliharaans)) {
+        safeSetStorage(KEY_PEMELIHARAAN, data.pemeliharaans);
       }
       if (Array.isArray(data.bhp)) {
         safeSetStorage(KEY_BHP, data.bhp);
