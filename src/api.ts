@@ -84,34 +84,13 @@ function safeSetStorage(key: string, data: any): void {
   }
 }
 
-// Helper to safely merge remote datasets with local datasets so no locally created item is lost
+// Cloud Firestore adalah satu-satunya sumber kebenaran (source of truth).
+// Jika fetch ke server berhasil (remote adalah array), pakai remote apa adanya
+// supaya item yang dihapus di Cloud ikut hilang di semua perangkat.
+// Local storage hanya dipakai sebagai fallback ketika fetch ke server gagal (mode offline).
 function mergeById<T extends { id: string }>(remote: T[] | undefined, local: T[]): T[] {
-  const map = new Map<string, T>();
-
-  // 1. Tambahkan data dari server remote (filter data dummy jika ada)
-  if (Array.isArray(remote)) {
-    remote.forEach(item => {
-      if (item && item.id && !DUMMY_IDS.has(item.id)) {
-        map.set(item.id, item);
-      }
-    });
-  }
-
-  // 2. Gabungkan dengan data lokal (filter data dummy jika ada)
-  if (Array.isArray(local)) {
-    local.forEach(item => {
-      if (item && item.id && !DUMMY_IDS.has(item.id)) {
-        if (!map.has(item.id)) {
-          map.set(item.id, item);
-        } else {
-          const existing = map.get(item.id)!;
-          map.set(item.id, { ...existing, ...item });
-        }
-      }
-    });
-  }
-
-  return Array.from(map.values());
+  const source = Array.isArray(remote) ? remote : local;
+  return source.filter(item => item && item.id && !DUMMY_IDS.has(item.id));
 }
 
 const KEY_INITIALIZED = 'esarpras_app_initialized';
