@@ -288,7 +288,7 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                       {item.kode} · Reg. {item.register}{item.tahun ? ` · ${item.tahun}` : ''}
                     </p>
                     {item.keterangan && (
-                      <p className="text-[10px] text-slate-400 truncate italic">{item.keterangan}</p>
+                      <p className="text-[10px] text-orange-600 font-semibold truncate italic">{item.keterangan}</p>
                     )}
                   </div>
                   {done ? (
