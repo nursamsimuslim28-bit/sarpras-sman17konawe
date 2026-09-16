@@ -48,11 +48,12 @@ interface Props {
   keluhanList?: KeluhanSarpras[];
   onRefresh?: () => void;
   masterRuangs?: MasterRuang[];
+  onQuickAddRuang?: (nama: string) => Promise<MasterRuang | void> | void;
 }
 
 type SubDocType = 'progja' | 'rab' | 'pemeliharaan' | 'laporan_berkala' | 'penghapusan' | 'sarpras_khusus' | 'keluhan' | 'blanko_kib';
 
-export default function DokumenSarprasHub({ pengaturan, asets, keluhanList = [], onRefresh = () => {}, masterRuangs = [] }: Props) {
+export default function DokumenSarprasHub({ pengaturan, asets, keluhanList = [], onRefresh = () => {}, masterRuangs = [], onQuickAddRuang }: Props) {
   const [activeSubDoc, setActiveSubDoc] = useState<SubDocType>('progja');
 
   const navItems: { id: SubDocType; title: string; subtitle: string; icon: React.ReactNode; tag: string }[] = [
@@ -204,6 +205,7 @@ export default function DokumenSarprasHub({ pengaturan, asets, keluhanList = [],
             keluhanList={keluhanList}
             onRefresh={onRefresh}
             masterRuangs={masterRuangs}
+            onQuickAddRuang={onQuickAddRuang}
           />
         )}
 
@@ -213,6 +215,7 @@ export default function DokumenSarprasHub({ pengaturan, asets, keluhanList = [],
             initialJadwal={DEFAULT_JADWAL_PEMELIHARAAN}
             initialRiwayat={DEFAULT_RIWAYAT_PEMELIHARAAN}
             masterRuangs={masterRuangs}
+            onQuickAddRuang={onQuickAddRuang}
           />
         )}
 
@@ -240,6 +243,7 @@ export default function DokumenSarprasHub({ pengaturan, asets, keluhanList = [],
             initialBuku={DEFAULT_BUKU_PERPUSTAKAAN}
             initialJadwalLab={DEFAULT_JADWAL_LAB}
             masterRuangs={masterRuangs}
+            onQuickAddRuang={onQuickAddRuang}
           />
         )}
 

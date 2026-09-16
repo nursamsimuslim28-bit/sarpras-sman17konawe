@@ -6,6 +6,7 @@ import {
 } from '../../types/dokumenSarpras';
 import { PengaturanSekolah, MasterRuang, StandardRuang } from '../../types';
 import { SULTRA_LOGO_BASE64, SCHOOL_LOGO_BASE64 } from '../../assets/logoBase64';
+import RuangSelect from '../RuangSelect';
 import { 
   exportAlatPeragaDocx, 
   exportBukuPerpusDocx, 
@@ -33,6 +34,7 @@ interface Props {
   initialBuku: BukuPerpustakaanItem[];
   initialJadwalLab: JadwalLabSlot[];
   masterRuangs?: MasterRuang[];
+  onQuickAddRuang?: (nama: string) => Promise<MasterRuang | void> | void;
 }
 
 export default function SarprasKhususDoc({
@@ -41,7 +43,8 @@ export default function SarprasKhususDoc({
   initialAlat,
   initialBuku,
   initialJadwalLab,
-  masterRuangs = []
+  masterRuangs = [],
+  onQuickAddRuang
 }: Props) {
   const [activeTab, setActiveTab] = useState<'alat_peraga' | 'buku_perpus' | 'jadwal_lab'>('alat_peraga');
 
@@ -643,15 +646,13 @@ export default function SarprasKhususDoc({
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-700 mb-1">Ruang Simpan</label>
-                    <select
-                      value={newAlat.ruangPenyimpanan}
-                      onChange={e => setNewAlat({ ...newAlat, ruangPenyimpanan: e.target.value, lokasiPenyimpanan: e.target.value })}
+                    <RuangSelect
+                      value={newAlat.ruangPenyimpanan || ''}
+                      onChange={val => setNewAlat({ ...newAlat, ruangPenyimpanan: val, lokasiPenyimpanan: val })}
+                      spaces={spaces}
+                      onQuickAddRuang={onQuickAddRuang}
                       className="w-full text-xs p-2.5 bg-slate-50 border border-slate-300 rounded-xl"
-                    >
-                      {spaces.map(sp => (
-                        <option key={sp} value={sp}>{sp}</option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 </div>
                 <div className="flex justify-end gap-2 pt-3">

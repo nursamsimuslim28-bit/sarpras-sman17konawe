@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Aset, KategoriAset, KondisiAset, StandardRuang, LogPemusnahan, LogPemeliharaan, PengaturanSekolah, MasterRuang } from '../types';
 import { searchMasterKodeBmd, MasterKodeBmd } from '../data/masterKodeBmd';
 import ImportExportModal from './ImportExportModal';
+import RuangSelect from './RuangSelect';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, Search, Filter, Edit, Trash2, Camera, Info, Barcode, Calendar, 
@@ -158,6 +159,7 @@ interface AsetTabProps {
   onLogPemusnahan: (log: LogPemusnahan) => Promise<void>;
   onLogPemeliharaan?: (log: LogPemeliharaan) => Promise<void>;
   onOpenScanner: (actionType: 'search' | 'aset_form', callback?: (code: string) => void) => void;
+  onQuickAddRuang?: (nama: string) => Promise<MasterRuang | void> | void;
   userRole?: 'admin' | 'guest';
 }
 
@@ -173,6 +175,7 @@ export default function AsetTab({
   onLogPemusnahan,
   onLogPemeliharaan,
   onOpenScanner,
+  onQuickAddRuang,
   userRole = 'guest'
 }: AsetTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -265,7 +268,6 @@ export default function AsetTab({
   });
 
   // State to manage input toggles
-  const [isCustomRuangActive, setIsCustomRuangActive] = useState(false);
   const [isCustomSatuanActive, setIsCustomSatuanActive] = useState(false);
   const [isCustomSumberDanaActive, setIsCustomSumberDanaActive] = useState(false);
   const [isCustomStatusTanahActive, setIsCustomStatusTanahActive] = useState(false);
@@ -901,7 +903,6 @@ export default function AsetTab({
     };
 
     setCurrentAset(mergedAset);
-    setIsCustomRuangActive(!spaces.includes(mergedAset.ruangLokasi as any));
     setIsCustomSatuanActive(!customSatuans.includes(mergedAset.satuan));
     setIsCustomSumberDanaActive(!fundingSources.includes(mergedAset.sumberDana));
     setIsCustomStatusTanahActive(!!mergedAset.statusTanahGedung && !standardStatusTanahOptions.includes(mergedAset.statusTanahGedung));
@@ -915,7 +916,6 @@ export default function AsetTab({
   const handleAddClick = () => {
     const smartDefaults = generateSmartAsetDefaults('B', asets, pengaturan, spaces);
     setCurrentAset(smartDefaults);
-    setIsCustomRuangActive(false);
     setIsCustomSatuanActive(false);
     setIsCustomSumberDanaActive(false);
     setIsCustomStatusTanahActive(false);
@@ -1052,7 +1052,6 @@ export default function AsetTab({
       tanggalRegister: new Date().toISOString().split('T')[0],
       serialNumber: ''
     });
-    setIsCustomRuangActive(false);
     setIsCustomSatuanActive(false);
     setIsCustomSumberDanaActive(false);
     setFormErrors({});
@@ -2001,68 +2000,20 @@ export default function AsetTab({
                             </label>
                             <span className="text-[10px] text-indigo-600 font-semibold">Master Ruangan</span>
                           </div>
-                          {!isCustomRuangActive ? (
-                            <select
-                              value={spaces.includes(currentAset.ruangLokasi as any) ? (currentAset.ruangLokasi || spaces[0] || 'Ruang Kelas') : '__custom__'}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === '__custom__') {
-                                  setIsCustomRuangActive(true);
-                                  setCurrentAset(prev => {
-                                    const next = { ...prev, ruangLokasi: '' as any };
-                                    if (hasAttemptedSubmit) setFormErrors(validateAsetForm(next, activeKib));
-                                    return next;
-                                  });
-                                } else {
-                                  setCurrentAset(prev => {
-                                    const next = { ...prev, ruangLokasi: val as any };
-                                    if (hasAttemptedSubmit) setFormErrors(validateAsetForm(next, activeKib));
-                                    return next;
-                                  });
-                                }
-                              }}
-                              className={`w-full text-xs px-3 py-2 bg-white border ${formErrors.ruangLokasi ? 'border-rose-500 ring-2 ring-rose-200 bg-rose-50/30' : 'border-slate-200'} rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium`}
-                            >
-                              {spaces.map(s => (
-                                <option key={s} value={s}>{s}</option>
-                              ))}
-                              {userRole === 'admin' && (
-                                <option value="__custom__">+ Input Manual...</option>
-                              )}
-                            </select>
-                          ) : (
-                            <div className="flex gap-1">
-                              <input
-                                type="text"
-                                value={currentAset.ruangLokasi || ''}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setCurrentAset(prev => {
-                                    const next = { ...prev, ruangLokasi: val as any };
-                                    if (hasAttemptedSubmit) setFormErrors(validateAsetForm(next, activeKib));
-                                    return next;
-                                  });
-                                }}
-                                placeholder="Nama ruang..."
-                                className={`w-full text-xs px-2.5 py-2 border ${formErrors.ruangLokasi ? 'border-rose-500 ring-2 ring-rose-200 bg-rose-50/30' : 'border-indigo-200'} rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500`}
-                                required
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setIsCustomRuangActive(false);
-                                  setCurrentAset(prev => {
-                                    const next = { ...prev, ruangLokasi: spaces[0] || 'Ruang Kelas' };
-                                    if (hasAttemptedSubmit) setFormErrors(validateAsetForm(next, activeKib));
-                                    return next;
-                                  });
-                                }}
-                                className="px-2 py-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-semibold shrink-0"
-                              >
-                                <X size={12} />
-                              </button>
-                            </div>
-                          )}
+                          <RuangSelect
+                            value={currentAset.ruangLokasi || ''}
+                            onChange={(val) => {
+                              setCurrentAset(prev => {
+                                const next = { ...prev, ruangLokasi: val as any };
+                                if (hasAttemptedSubmit) setFormErrors(validateAsetForm(next, activeKib));
+                                return next;
+                              });
+                            }}
+                            spaces={spaces}
+                            onQuickAddRuang={onQuickAddRuang}
+                            allowAddNew={userRole === 'admin'}
+                            className={`w-full text-xs px-3 py-2 bg-white border ${formErrors.ruangLokasi ? 'border-rose-500 ring-2 ring-rose-200 bg-rose-50/30' : 'border-slate-200'} rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium`}
+                          />
                           {formErrors.ruangLokasi && (
                             <p className="text-[10px] text-rose-600 font-semibold mt-1 flex items-center gap-1">
                               <AlertCircle size={12} className="shrink-0" />
@@ -2649,15 +2600,14 @@ export default function AsetTab({
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                           <label className="block text-xs font-semibold text-slate-700 mb-1">Penempatan Ruangan (KIR)</label>
-                          <select
+                          <RuangSelect
                             value={currentAset.ruangLokasi || 'Ruang Perpustakaan'}
-                            onChange={(e) => setCurrentAset(prev => ({ ...prev, ruangLokasi: e.target.value as any }))}
+                            onChange={(val) => setCurrentAset(prev => ({ ...prev, ruangLokasi: val as any }))}
+                            spaces={spaces}
+                            onQuickAddRuang={onQuickAddRuang}
+                            allowAddNew={userRole === 'admin'}
                             className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none"
-                          >
-                            {spaces.map(s => (
-                              <option key={s} value={s}>{s}</option>
-                            ))}
-                          </select>
+                          />
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-slate-700 mb-1">Jumlah Fisik</label>
@@ -3444,15 +3394,14 @@ export default function AsetTab({
               <div className="mb-5">
                 <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Lokasi / Ruang</label>
                 <p className="text-[10px] text-slate-400 mb-2">Sekarang: <span className="font-semibold text-slate-600">{selectedAsetForMove.ruangLokasi}</span></p>
-                <select
+                <RuangSelect
                   value={moveTargetRuang}
-                  onChange={(e) => setMoveTargetRuang(e.target.value)}
+                  onChange={val => setMoveTargetRuang(val)}
+                  spaces={spaces}
+                  onQuickAddRuang={onQuickAddRuang}
+                  allowAddNew={userRole === 'admin'}
                   className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
-                >
-                  {spaces.map(sp => (
-                    <option key={sp} value={sp}>{sp}</option>
-                  ))}
-                </select>
+                />
               </div>
 
               {(moveTargetKategori !== selectedAsetForMove.kategori || moveTargetRuang !== selectedAsetForMove.ruangLokasi) && (

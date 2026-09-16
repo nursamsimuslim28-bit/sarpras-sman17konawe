@@ -646,6 +646,21 @@ export default function App() {
     alert('✓ Ruangan berhasil dihapus dari Master Data.');
   };
 
+  const handleQuickAddRuang = async (nama: string): Promise<MasterRuang> => {
+    const trimmed = nama.trim();
+    const existing = masterRuangs.find(r => r.nama.toLowerCase().trim() === trimmed.toLowerCase());
+    if (existing) return existing;
+    const newRuang: MasterRuang = {
+      id: `RNG-${Date.now().toString().slice(-6)}`,
+      nama: trimmed,
+      kategori: 'Lainnya'
+    };
+    const updated = await api.saveMasterRuang(newRuang, activeOperator);
+    setMasterRuangs(updated);
+    setAuditLogs(api.getAuditLogs());
+    return newRuang;
+  };
+
   const handleOpenScanner = (actionType: 'search' | 'loan_form' | 'aset_form', callback?: (code: string) => void) => {
     setScannerAction(actionType);
     setScannerCallback(() => callback);
@@ -708,6 +723,7 @@ export default function App() {
             onLogPemusnahan={handleLogPemusnahan}
             onLogPemeliharaan={handleLogPemeliharaan}
             onOpenScanner={handleOpenScanner}
+            onQuickAddRuang={handleQuickAddRuang}
             userRole={userRole}
           />
         );
@@ -753,6 +769,7 @@ export default function App() {
             onSavePengambilanBhp={handleSavePengambilanBhp}
             onMoveBhpToAset={handleMoveBhpToAset}
             masterRuangs={masterRuangs}
+            onQuickAddRuang={handleQuickAddRuang}
             userRole={userRole}
           />
         );
@@ -766,6 +783,7 @@ export default function App() {
             keluhanList={keluhan}
             onRefresh={() => loadAllData(false)}
             masterRuangs={masterRuangs}
+            onQuickAddRuang={handleQuickAddRuang}
           />
         );
       case 'laporan':

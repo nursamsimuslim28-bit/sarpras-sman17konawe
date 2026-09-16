@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { JadwalPemeliharaanItem, RiwayatPemeliharaanItem } from '../../types/dokumenSarpras';
 import { PengaturanSekolah, MasterRuang, StandardRuang } from '../../types';
 import { SULTRA_LOGO_BASE64, SCHOOL_LOGO_BASE64 } from '../../assets/logoBase64';
+import RuangSelect from '../RuangSelect';
 import { exportJadwalPemeliharaanDocx, exportRiwayatPemeliharaanDocx } from '../../utils/docxExport';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -25,11 +26,12 @@ interface Props {
   initialJadwal: JadwalPemeliharaanItem[];
   initialRiwayat: RiwayatPemeliharaanItem[];
   masterRuangs?: MasterRuang[];
+  onQuickAddRuang?: (nama: string) => Promise<MasterRuang | void> | void;
 }
 
 const BULAN_LABELS = ['Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun'];
 
-export default function PemeliharaanDoc({ pengaturan, initialJadwal, initialRiwayat, masterRuangs = [] }: Props) {
+export default function PemeliharaanDoc({ pengaturan, initialJadwal, initialRiwayat, masterRuangs = [], onQuickAddRuang }: Props) {
   const [activeSubTab, setActiveSubTab] = useState<'jadwal' | 'riwayat'>('jadwal');
 
   const defaultSpaces: StandardRuang[] = [
@@ -566,15 +568,13 @@ export default function PemeliharaanDoc({ pengaturan, initialJadwal, initialRiwa
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1">Ruang / Lokasi</label>
-                  <select
-                    value={newRiwayat.ruangLokasi}
-                    onChange={e => setNewRiwayat({ ...newRiwayat, ruangLokasi: e.target.value })}
+                  <RuangSelect
+                    value={newRiwayat.ruangLokasi || ''}
+                    onChange={val => setNewRiwayat({ ...newRiwayat, ruangLokasi: val })}
+                    spaces={spaces}
+                    onQuickAddRuang={onQuickAddRuang}
                     className="w-full text-xs p-2.5 bg-slate-50 border border-slate-300 rounded-xl"
-                  >
-                    {spaces.map(sp => (
-                      <option key={sp} value={sp}>{sp}</option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
 

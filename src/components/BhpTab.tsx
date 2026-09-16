@@ -3,6 +3,7 @@ import { BarangHabisPakai, PengambilanBHP, PengaturanSekolah, KategoriBHP, Aset,
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { motion, AnimatePresence } from 'motion/react';
+import RuangSelect from './RuangSelect';
 import { 
   Package, 
   ClipboardList, 
@@ -89,6 +90,7 @@ interface BhpTabProps {
   onSavePengambilanBhp: (pengambilan: PengambilanBHP) => Promise<void>;
   onMoveBhpToAset?: (bhpItem: BarangHabisPakai, asetData: Aset) => Promise<void>;
   masterRuangs?: MasterRuang[];
+  onQuickAddRuang?: (nama: string) => Promise<MasterRuang | void> | void;
   userRole?: 'admin' | 'guest';
 }
 
@@ -101,6 +103,7 @@ export default function BhpTab({
   onSavePengambilanBhp,
   onMoveBhpToAset,
   masterRuangs = [],
+  onQuickAddRuang,
   userRole = 'guest'
 }: BhpTabProps) {
   const defaultSpaces: StandardRuang[] = [
@@ -2558,15 +2561,13 @@ export default function BhpTab({
 
               <div className="mb-3">
                 <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Ruang/Lokasi</label>
-                <select
+                <RuangSelect
                   value={moveToAsetForm.ruangLokasi}
-                  onChange={(e) => setMoveToAsetForm({ ...moveToAsetForm, ruangLokasi: e.target.value })}
+                  onChange={val => setMoveToAsetForm({ ...moveToAsetForm, ruangLokasi: val })}
+                  spaces={spaces}
+                  onQuickAddRuang={onQuickAddRuang}
                   className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
-                >
-                  {spaces.map(sp => (
-                    <option key={sp} value={sp}>{sp}</option>
-                  ))}
-                </select>
+                />
                 <p className="text-[10px] text-slate-400 mt-1">Diambil dari Master Ruangan - supaya nama ruang tidak duplikat/beda-beda antar penginput.</p>
               </div>
 

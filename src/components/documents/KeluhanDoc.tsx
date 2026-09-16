@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { KeluhanSarpras, PengaturanSekolah, StatusKeluhan, UrgensiKeluhan, MasterRuang, StandardRuang } from '../../types';
 import { SULTRA_LOGO_BASE64, SCHOOL_LOGO_BASE64 } from '../../assets/logoBase64';
+import RuangSelect from '../RuangSelect';
 import { api } from '../../api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -36,9 +37,10 @@ interface Props {
   keluhanList: KeluhanSarpras[];
   onRefresh: () => void;
   masterRuangs?: MasterRuang[];
+  onQuickAddRuang?: (nama: string) => Promise<MasterRuang | void> | void;
 }
 
-export default function KeluhanDoc({ pengaturan, keluhanList, onRefresh, masterRuangs = [] }: Props) {
+export default function KeluhanDoc({ pengaturan, keluhanList, onRefresh, masterRuangs = [], onQuickAddRuang }: Props) {
   const defaultSpaces: StandardRuang[] = [
     'Ruang Kelas',
     'Ruang Perpustakaan',
@@ -596,16 +598,14 @@ export default function KeluhanDoc({ pengaturan, keluhanList, onRefresh, masterR
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Lokasi Ruangan / Fasilitas <span className="text-rose-500">*</span></label>
-                <select
+                <RuangSelect
                   required
                   value={form.lokasiRuang}
-                  onChange={e => setForm({ ...form, lokasiRuang: e.target.value })}
+                  onChange={val => setForm({ ...form, lokasiRuang: val })}
+                  spaces={spaces}
+                  onQuickAddRuang={onQuickAddRuang}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-indigo-500"
-                >
-                  {spaces.map(sp => (
-                    <option key={sp} value={sp}>{sp}</option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
