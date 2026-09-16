@@ -3,7 +3,7 @@ import { Aset } from '../types';
 import JsBarcode from 'jsbarcode';
 import QRCode from 'qrcode';
 import { motion, AnimatePresence } from 'motion/react';
-import { QrCode, Barcode, Printer, Check, Copy, X, Tag, Info, Sparkles, SlidersHorizontal, FileText } from 'lucide-react';
+import { QrCode, Barcode, Printer, Check, Copy, X, Tag, Info, Sparkles, SlidersHorizontal, FileText, Search, CheckSquare, Square, ListChecks } from 'lucide-react';
 import { SCHOOL_LOGO_BASE64 } from '../assets/logoBase64';
 
 interface BarcodeTabProps {
@@ -251,6 +251,8 @@ export default function BarcodeTab({ asets, logoUrl, namaSekolah = "SMA Negeri 1
   const [labelPreset, setLabelPreset] = useState<LabelSizePreset>('compact');
   const [paperType, setPaperType] = useState<PaperType>('F4'); // Default to F4 / Folio (215 x 330 mm)
   const [isGeneratingPrint, setIsGeneratingPrint] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
 
   // Helper untuk mengecek apakah aset merupakan barang bergerak yang bisa ditempeli stiker label
   const isPhysicalLabelAset = (a: Aset) => {
@@ -285,6 +287,41 @@ export default function BarcodeTab({ asets, logoUrl, namaSekolah = "SMA Negeri 1
     return true; // 'ALL'
   });
 
+  const searchedAsets = activeAsets.filter((a) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      a.nama.toLowerCase().includes(q) ||
+      a.id.toLowerCase().includes(q) ||
+      (a.merek || '').toLowerCase().includes(q) ||
+      (a.ruangLokasi || '').toLowerCase().includes(q) ||
+      (a.kodeBarangBmd || '').toLowerCase().includes(q) ||
+      (a.nomorRegisterBmd || '').toLowerCase().includes(q) ||
+      (a.serialNumber || '').toLowerCase().includes(q)
+    );
+  });
+
+  const checkedAsets = activeAsets.filter((a) => checkedIds.has(a.id));
+
+  const toggleChecked = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllVisible = () => {
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      searchedAsets.forEach(a => next.add(a.id));
+      return next;
+    });
+  };
+
+  const clearSelection = () => setCheckedIds(new Set());
+
   const effectiveLogoUrl = logoUrl || SCHOOL_LOGO_BASE64;
   const currentSizeCfg = SIZE_CONFIGS[labelPreset];
   const approxText = paperType === 'F4' ? currentSizeCfg.approxF4 : currentSizeCfg.approxA4;
@@ -297,12 +334,19 @@ export default function BarcodeTab({ asets, logoUrl, namaSekolah = "SMA Negeri 1
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handlePrintLabels = async () => {
+  const handlePrintLabels = async (targetAsets?: Aset[]) => {
+    const printList = targetAsets ?? checkedAsets;
+
+    if (printList.length === 0) {
+      alert('Pilih dulu minimal 1 aset (centang kartu, atau klik "Pilih Semua Hasil Pencarian") sebelum mencetak.');
+      return;
+    }
+
     setIsGeneratingPrint(true);
 
     try {
       if (codeType === 'qr') {
-        const qrImagePromises = activeAsets.map((aset) => generateQrDataUrl(aset.id, effectiveLogoUrl));
+        const qrImagePromises = printList.map((aset) => generateQrDataUrl(aset.id, effectiveLogoUrl));
         const qrImages = await Promise.all(qrImagePromises);
 
         const printWindow = window.open('', '_blank');
@@ -312,7 +356,7 @@ export default function BarcodeTab({ asets, logoUrl, namaSekolah = "SMA Negeri 1
           return;
         }
 
-        const labelsHtml = activeAsets
+        const labelsHtml = printList
           .map((aset, idx) => {
             const qrDataUrl = qrImages[idx];
             return `
@@ -458,7 +502,7 @@ export default function BarcodeTab({ asets, logoUrl, namaSekolah = "SMA Negeri 1
           return;
         }
 
-        const labelsHtml = activeAsets
+        const labelsHtml = printList
           .map((aset) => {
             return `
               <div class="label-card">
@@ -623,13 +667,48 @@ export default function BarcodeTab({ asets, logoUrl, namaSekolah = "SMA Negeri 1
           </div>
 
           <button
-            onClick={handlePrintLabels}
-            disabled={isGeneratingPrint || activeAsets.length === 0}
+            onClick={() => handlePrintLabels()}
+            disabled={isGeneratingPrint || checkedAsets.length === 0}
+            title={checkedAsets.length === 0 ? 'Pilih/centang aset yang mau dicetak terlebih dahulu' : undefined}
             className="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 disabled:opacity-50 text-white font-semibold text-sm rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-sky-600/10"
           >
             <Printer size={16} />
-            {isGeneratingPrint ? 'Menyiapkan...' : `Cetak Batch (${paperType})`}
+            {isGeneratingPrint ? 'Menyiapkan...' : `Cetak Terpilih (${checkedAsets.length})`}
           </button>
+        </div>
+      </div>
+
+      {/* Search & Selection Toolbar */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shadow-2xs">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Cari nama aset, kode/ID, ruangan, merek, atau serial number..."
+            className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-sky-500"
+          />
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={selectAllVisible}
+            disabled={searchedAsets.length === 0}
+            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5"
+          >
+            <ListChecks size={14} />
+            Pilih Semua Hasil Pencarian ({searchedAsets.length})
+          </button>
+          <button
+            onClick={clearSelection}
+            disabled={checkedIds.size === 0}
+            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+          >
+            Kosongkan Pilihan
+          </button>
+          <span className="px-3 py-2 bg-sky-50 text-sky-700 text-xs font-bold rounded-xl border border-sky-100">
+            {checkedIds.size} aset terpilih
+          </span>
         </div>
       </div>
 
@@ -750,49 +829,64 @@ export default function BarcodeTab({ asets, logoUrl, namaSekolah = "SMA Negeri 1
 
       {/* Grid of QR Codes (Compact Display) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-        {activeAsets.length > 0 ? (
-          activeAsets.map((aset) => (
-            <motion.div
-              layoutId={`barcode-${aset.id}`}
-              key={aset.id}
-              onClick={() => setSelectedAset(aset)}
-              className="bg-white p-3 rounded-2xl border border-slate-100 hover:border-sky-200 hover:shadow-md transition cursor-pointer flex flex-col items-center justify-between min-h-[170px]"
-            >
-              <div className="w-full">
-                <div className="flex justify-between items-start gap-1">
-                  <span className="text-[8.5px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase truncate max-w-[90px]">
-                    {aset.ruangLokasi}
-                  </span>
-                  <button
-                    onClick={(e) => handleCopyId(aset.id, e)}
-                    className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded cursor-pointer"
-                    title="Copy Code ID"
-                  >
-                    {copiedId === aset.id ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
-                  </button>
+        {searchedAsets.length > 0 ? (
+          searchedAsets.map((aset) => {
+            const isChecked = checkedIds.has(aset.id);
+            return (
+              <motion.div
+                layoutId={`barcode-${aset.id}`}
+                key={aset.id}
+                onClick={() => setSelectedAset(aset)}
+                className={`bg-white p-3 rounded-2xl border transition cursor-pointer flex flex-col items-center justify-between min-h-[170px] relative ${
+                  isChecked ? 'border-sky-400 ring-2 ring-sky-500/20 shadow-md' : 'border-slate-100 hover:border-sky-200 hover:shadow-md'
+                }`}
+              >
+                <button
+                  onClick={(e) => toggleChecked(aset.id, e)}
+                  className="absolute -top-1.5 -left-1.5 p-0.5 bg-white rounded-md shadow-sm border border-slate-200 text-sky-600 hover:text-sky-700 cursor-pointer z-10"
+                  title={isChecked ? 'Batalkan pilihan' : 'Pilih untuk dicetak'}
+                >
+                  {isChecked ? <CheckSquare size={18} /> : <Square size={18} className="text-slate-300" />}
+                </button>
+
+                <div className="w-full">
+                  <div className="flex justify-between items-start gap-1">
+                    <span className="text-[8.5px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase truncate max-w-[90px]">
+                      {aset.ruangLokasi}
+                    </span>
+                    <button
+                      onClick={(e) => handleCopyId(aset.id, e)}
+                      className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded cursor-pointer"
+                      title="Copy Code ID"
+                    >
+                      {copiedId === aset.id ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
+                    </button>
+                  </div>
+                  <h3 className="text-[11px] font-bold text-slate-800 mt-1.5 truncate text-center" title={aset.nama}>
+                    {aset.nama}
+                  </h3>
                 </div>
-                <h3 className="text-[11px] font-bold text-slate-800 mt-1.5 truncate text-center" title={aset.nama}>
-                  {aset.nama}
-                </h3>
-              </div>
 
-              <div className="my-2 flex justify-center w-full">
-                {codeType === 'qr' ? (
-                  <QRCodeItem value={aset.id} label="" size={105} logoUrl={effectiveLogoUrl} />
-                ) : (
-                  <BarcodeItem value={aset.id} label="" />
-                )}
-              </div>
+                <div className="my-2 flex justify-center w-full">
+                  {codeType === 'qr' ? (
+                    <QRCodeItem value={aset.id} label="" size={105} logoUrl={effectiveLogoUrl} />
+                  ) : (
+                    <BarcodeItem value={aset.id} label="" />
+                  )}
+                </div>
 
-              <span className="text-[9.5px] font-mono text-slate-500 font-bold bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-md">
-                {aset.id}
-              </span>
-            </motion.div>
-          ))
+                <span className="text-[9.5px] font-mono text-slate-500 font-bold bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-md">
+                  {aset.id}
+                </span>
+              </motion.div>
+            );
+          })
         ) : (
           <div className="col-span-full bg-white p-12 rounded-2xl border border-slate-100 shadow-xs text-center">
             <Tag size={40} className="text-slate-300 mx-auto mb-2" />
-            <p className="text-sm font-semibold text-slate-500">Tidak ada aset terdaftar untuk pembuatan label.</p>
+            <p className="text-sm font-semibold text-slate-500">
+              {searchQuery ? 'Tidak ada aset yang cocok dengan pencarian.' : 'Tidak ada aset terdaftar untuk pembuatan label.'}
+            </p>
           </div>
         )}
       </div>
@@ -812,9 +906,22 @@ export default function BarcodeTab({ asets, logoUrl, namaSekolah = "SMA Negeri 1
                 <X size={18} />
               </button>
 
-              <span className="text-[10px] bg-sky-50 text-sky-700 px-2.5 py-1 rounded-full font-bold">
-                {selectedAset.ruangLokasi}
-              </span>
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-[10px] bg-sky-50 text-sky-700 px-2.5 py-1 rounded-full font-bold">
+                  {selectedAset.ruangLokasi}
+                </span>
+                <button
+                  onClick={(e) => toggleChecked(selectedAset.id, e)}
+                  className={`text-[10px] px-2.5 py-1 rounded-full font-bold flex items-center gap-1 cursor-pointer transition ${
+                    checkedIds.has(selectedAset.id)
+                      ? 'bg-sky-600 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {checkedIds.has(selectedAset.id) ? <CheckSquare size={11} /> : <Square size={11} />}
+                  {checkedIds.has(selectedAset.id) ? 'Terpilih' : 'Pilih untuk Cetak Batch'}
+                </button>
+              </div>
               <h2 className="text-sm font-bold text-slate-800 mt-3">{selectedAset.nama}</h2>
               <p className="text-xs text-slate-400 font-medium mt-0.5">{selectedAset.merek || '-'}</p>
 
@@ -840,13 +947,14 @@ export default function BarcodeTab({ asets, logoUrl, namaSekolah = "SMA Negeri 1
                 </button>
                 <button
                   onClick={() => {
+                    const asetToPrint = selectedAset;
                     setSelectedAset(null);
-                    handlePrintLabels();
+                    handlePrintLabels([asetToPrint]);
                   }}
                   className="flex-1 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-xl cursor-pointer flex items-center justify-center gap-1.5 transition shadow-sm shadow-sky-600/10"
                 >
                   <Printer size={14} />
-                  Cetak Label
+                  Cetak Label Ini
                 </button>
               </div>
             </motion.div>
