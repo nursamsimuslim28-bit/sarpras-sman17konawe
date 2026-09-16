@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Aset, OpnameEntry, KondisiAset, StatusPenguasaan } from '../types';
+import { OpnameEntry, OpnameMasterItem, KondisiAset, StatusPenguasaan } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search, X, Camera, Check, Loader2, ClipboardCheck, ChevronRight,
@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 interface OpnameTabProps {
-  asets: Aset[];
+  opnameMasterList: OpnameMasterItem[];
   opnameEntries: OpnameEntry[];
   activeOperator: string;
   onSaveOpnameEntry: (entry: OpnameEntry) => Promise<void>;
@@ -17,6 +17,12 @@ interface OpnameTabProps {
 const STATUS_PENGUASAAN_OPTIONS: StatusPenguasaan[] = [
   'Digunakan', 'Dikuasai Pegawai', 'Digunakan Unit Lain', 'Dikuasai Pihak Ketiga'
 ];
+
+const KIB_LABEL: Record<string, string> = {
+  B: 'KIB B - Peralatan dan Mesin',
+  C: 'KIB C - Gedung dan Bangunan',
+  E: 'KIB E - Aset Tetap Lainnya (Buku)',
+};
 
 // Kompres foto ke JPEG max 1000px agar ringan di database
 function compressImage(file: File, maxDim = 1000, quality = 0.6): Promise<string> {
@@ -49,55 +55,58 @@ function compressImage(file: File, maxDim = 1000, quality = 0.6): Promise<string
   });
 }
 
-export default function OpnameTab({ asets, opnameEntries, activeOperator, onSaveOpnameEntry, onDeleteOpnameEntry }: OpnameTabProps) {
+export default function OpnameTab({ opnameMasterList, opnameEntries, activeOperator, onSaveOpnameEntry, onDeleteOpnameEntry }: OpnameTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterKib, setFilterKib] = useState<'Semua' | 'B' | 'C' | 'E'>('Semua');
   const [filterStatus, setFilterStatus] = useState<'Semua' | 'Sudah' | 'Belum'>('Semua');
-  const [selectedAset, setSelectedAset] = useState<Aset | null>(null);
+  const [selectedItem, setSelectedItem] = useState<OpnameMasterItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingFoto, setIsUploadingFoto] = useState<1 | 2 | null>(null);
 
   const foto1Ref = useRef<HTMLInputElement>(null);
   const foto2Ref = useRef<HTMLInputElement>(null);
 
-  const opnameByAsetId = useMemo(() => {
+  const opnameByRefId = useMemo(() => {
     const map = new Map<string, OpnameEntry>();
-    opnameEntries.forEach(e => map.set(e.asetId, e));
+    opnameEntries.forEach(e => map.set(e.refId, e));
     return map;
   }, [opnameEntries]);
 
   const [form, setForm] = useState<Partial<OpnameEntry>>({});
 
-  const activeAsets = asets.filter(a => a.kondisi !== 'Dihapuskan');
-
-  const filteredAsets = useMemo(() => {
-    let list = activeAsets;
+  const filteredItems = useMemo(() => {
+    let list = opnameMasterList;
     const term = searchTerm.trim().toLowerCase();
     if (term) {
       list = list.filter(a =>
         a.nama.toLowerCase().includes(term) ||
-        a.id.toLowerCase().includes(term) ||
-        (a.merek || '').toLowerCase().includes(term)
+        a.kode.toLowerCase().includes(term) ||
+        a.register.toLowerCase().includes(term) ||
+        (a.keterangan || '').toLowerCase().includes(term)
       );
     }
+    if (filterKib !== 'Semua') {
+      list = list.filter(a => a.kib === filterKib);
+    }
     if (filterStatus === 'Sudah') {
-      list = list.filter(a => opnameByAsetId.has(a.id));
+      list = list.filter(a => opnameByRefId.has(a.id));
     } else if (filterStatus === 'Belum') {
-      list = list.filter(a => !opnameByAsetId.has(a.id));
+      list = list.filter(a => !opnameByRefId.has(a.id));
     }
     return list;
-  }, [activeAsets, searchTerm, filterStatus, opnameByAsetId]);
+  }, [opnameMasterList, searchTerm, filterKib, filterStatus, opnameByRefId]);
 
-  const totalAset = activeAsets.length;
-  const totalSudah = activeAsets.filter(a => opnameByAsetId.has(a.id)).length;
-  const persenSelesai = totalAset > 0 ? Math.round((totalSudah / totalAset) * 100) : 0;
+  const totalItem = opnameMasterList.length;
+  const totalSudah = opnameMasterList.filter(a => opnameByRefId.has(a.id)).length;
+  const persenSelesai = totalItem > 0 ? Math.round((totalSudah / totalItem) * 100) : 0;
 
-  const openForm = (aset: Aset) => {
-    const existing = opnameByAsetId.get(aset.id);
-    setSelectedAset(aset);
+  const openForm = (item: OpnameMasterItem) => {
+    const existing = opnameByRefId.get(item.id);
+    setSelectedItem(item);
     setForm(existing ? { ...existing } : {
       ditemukan: 'Ya',
       statusPenguasaan: 'Digunakan',
-      kondisi: aset.kondisi,
+      kondisi: 'Baik',
       kodeStiker: '',
       keterangan: '',
     });
@@ -117,20 +126,21 @@ export default function OpnameTab({ asets, opnameEntries, activeOperator, onSave
   };
 
   const handleSave = async () => {
-    if (!selectedAset) return;
+    if (!selectedItem) return;
     setIsSaving(true);
     try {
-      const existing = opnameByAsetId.get(selectedAset.id);
+      const existing = opnameByRefId.get(selectedItem.id);
       const entry: OpnameEntry = {
         id: existing?.id || `OPN-${Date.now()}`,
-        asetId: selectedAset.id,
-        namaAset: selectedAset.nama,
-        kodeAset: selectedAset.id,
-        kategori: selectedAset.kategori,
+        refId: selectedItem.id,
+        kib: selectedItem.kib,
+        namaBarang: selectedItem.nama,
+        kodeBarang: selectedItem.kode,
+        noRegister: selectedItem.register,
         tanggalOpname: new Date().toISOString().slice(0, 10),
         ditemukan: form.ditemukan || 'Ya',
         statusPenguasaan: form.statusPenguasaan || 'Digunakan',
-        kondisi: form.kondisi || selectedAset.kondisi,
+        kondisi: form.kondisi || 'Baik',
         kodeStiker: form.kodeStiker || '',
         foto1: form.foto1,
         foto2: form.foto2,
@@ -139,7 +149,7 @@ export default function OpnameTab({ asets, opnameEntries, activeOperator, onSave
         updatedAt: new Date().toISOString(),
       };
       await onSaveOpnameEntry(entry);
-      setSelectedAset(null);
+      setSelectedItem(null);
       setForm({});
     } finally {
       setIsSaving(false);
@@ -147,14 +157,14 @@ export default function OpnameTab({ asets, opnameEntries, activeOperator, onSave
   };
 
   const handleDelete = async () => {
-    if (!selectedAset) return;
-    const existing = opnameByAsetId.get(selectedAset.id);
+    if (!selectedItem) return;
+    const existing = opnameByRefId.get(selectedItem.id);
     if (!existing) return;
-    if (!confirm(`Hapus catatan opname untuk "${selectedAset.nama}"?`)) return;
+    if (!confirm(`Hapus catatan opname untuk "${selectedItem.nama}"?`)) return;
     setIsSaving(true);
     try {
       await onDeleteOpnameEntry(existing.id);
-      setSelectedAset(null);
+      setSelectedItem(null);
       setForm({});
     } finally {
       setIsSaving(false);
@@ -171,72 +181,91 @@ export default function OpnameTab({ asets, opnameEntries, activeOperator, onSave
           </div>
           <div>
             <h2 className="text-base font-extrabold text-slate-800">Opname Fisik BMD 2026</h2>
-            <p className="text-xs text-slate-500">Cari barang, isi status hasil pengecekan fisik, dan ambil foto langsung dari HP.</p>
+            <p className="text-xs text-slate-500">Daftar barang mengacu ke data RESMI PROVINSI (rptrekapkib_b/c/e.xls) - bukan daftar aset aplikasi.</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden">
             <div className="h-full bg-teal-500 transition-all duration-500" style={{ width: `${persenSelesai}%` }} />
           </div>
-          <span className="text-xs font-bold text-slate-600 whitespace-nowrap">{totalSudah} / {totalAset} ({persenSelesai}%)</span>
+          <span className="text-xs font-bold text-slate-600 whitespace-nowrap">{totalSudah} / {totalItem} ({persenSelesai}%)</span>
         </div>
+        {totalItem === 0 && (
+          <p className="text-[11px] text-amber-600 font-semibold mt-2">
+            Daftar referensi provinsi belum dimuat ke database. Hubungi admin untuk mengimpor data KIB B/C/E.
+          </p>
+        )}
       </div>
 
       {/* Search & Filter */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs">
-        <div className="flex flex-col sm:flex-row gap-2.5">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Cari nama barang, kode, atau merek..."
-              className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-            />
-          </div>
-          <div className="flex gap-2">
-            {(['Semua', 'Belum', 'Sudah'] as const).map(s => (
-              <button
-                key={s}
-                onClick={() => setFilterStatus(s)}
-                className={`px-3.5 py-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                  filterStatus === s
-                    ? 'bg-teal-600 border-teal-600 text-white'
-                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                }`}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
+      <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs space-y-2.5">
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Cari nama barang, kode, register, atau keterangan..."
+            className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {(['Semua', 'B', 'C', 'E'] as const).map(k => (
+            <button
+              key={k}
+              onClick={() => setFilterKib(k)}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                filterKib === k ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+              }`}
+            >
+              {k === 'Semua' ? 'Semua KIB' : `KIB ${k}`}
+            </button>
+          ))}
+          <span className="w-px bg-slate-200 mx-1" />
+          {(['Semua', 'Belum', 'Sudah'] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => setFilterStatus(s)}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                filterStatus === s ? 'bg-teal-600 border-teal-600 text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+              }`}
+            >
+              {s}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* List Barang */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-2xs overflow-hidden">
-        {filteredAsets.length === 0 ? (
+        {filteredItems.length === 0 ? (
           <div className="p-10 text-center text-slate-400 text-sm flex flex-col items-center gap-2">
             <ListChecks size={28} className="text-slate-300" />
             Tidak ada barang yang cocok dengan pencarian/filter.
           </div>
         ) : (
           <div className="divide-y divide-slate-50 max-h-[60vh] overflow-y-auto">
-            {filteredAsets.map(aset => {
-              const done = opnameByAsetId.get(aset.id);
+            {filteredItems.slice(0, 300).map(item => {
+              const done = opnameByRefId.get(item.id);
               return (
                 <button
-                  key={aset.id}
-                  onClick={() => openForm(aset)}
+                  key={item.id}
+                  onClick={() => openForm(item)}
                   className="w-full flex items-center gap-3 p-3.5 hover:bg-slate-50 transition text-left cursor-pointer"
                 >
                   <div className={`w-2 h-2 rounded-full shrink-0 ${done ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-black border bg-slate-50 text-slate-500 border-slate-200 shrink-0">{item.kib}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-800 truncate">{aset.nama}</p>
-                    <p className="text-[11px] text-slate-400 font-mono">{aset.id} · {aset.kategori} · {aset.tahunPerolehan}</p>
+                    <p className="text-sm font-bold text-slate-800 truncate">{item.nama}</p>
+                    <p className="text-[11px] text-slate-400 font-mono truncate">
+                      {item.kode} · Reg. {item.register}{item.tahun ? ` · ${item.tahun}` : ''}
+                    </p>
+                    {item.keterangan && (
+                      <p className="text-[10px] text-slate-400 truncate italic">{item.keterangan}</p>
+                    )}
                   </div>
                   {done ? (
-                    <span className={`px-2 py-1 rounded-lg text-[10px] font-black border ${
+                    <span className={`px-2 py-1 rounded-lg text-[10px] font-black border shrink-0 ${
                       done.kondisi === 'Baik' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                       done.kondisi === 'Rusak Ringan' ? 'bg-amber-50 text-amber-700 border-amber-200' :
                       'bg-rose-50 text-rose-700 border-rose-200'
@@ -244,7 +273,7 @@ export default function OpnameTab({ asets, opnameEntries, activeOperator, onSave
                       {done.kondisi}
                     </span>
                   ) : (
-                    <span className="px-2 py-1 rounded-lg text-[10px] font-black border bg-slate-50 text-slate-400 border-slate-200">
+                    <span className="px-2 py-1 rounded-lg text-[10px] font-black border bg-slate-50 text-slate-400 border-slate-200 shrink-0">
                       Belum
                     </span>
                   )}
@@ -252,13 +281,18 @@ export default function OpnameTab({ asets, opnameEntries, activeOperator, onSave
                 </button>
               );
             })}
+            {filteredItems.length > 300 && (
+              <div className="p-3 text-center text-[11px] text-slate-400 font-semibold">
+                Menampilkan 300 dari {filteredItems.length} hasil - persempit pencarian untuk melihat lainnya.
+              </div>
+            )}
           </div>
         )}
       </div>
 
       {/* Modal Form Opname */}
       <AnimatePresence>
-        {selectedAset && (
+        {selectedItem && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -268,7 +302,7 @@ export default function OpnameTab({ asets, opnameEntries, activeOperator, onSave
             >
               <button
                 type="button"
-                onClick={() => { setSelectedAset(null); setForm({}); }}
+                onClick={() => { setSelectedItem(null); setForm({}); }}
                 className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-50 cursor-pointer"
               >
                 <X size={18} />
@@ -280,9 +314,17 @@ export default function OpnameTab({ asets, opnameEntries, activeOperator, onSave
                 </div>
                 <h3>Isi Data Opname</h3>
               </div>
-              <p className="text-xs text-slate-600 mb-4">
-                <strong className="text-slate-900">{selectedAset.nama}</strong> ({selectedAset.id})
+              <p className="text-xs text-slate-600 mb-1">
+                <strong className="text-slate-900">{selectedItem.nama}</strong>
               </p>
+              <p className="text-[11px] text-slate-400 font-mono mb-4">
+                {KIB_LABEL[selectedItem.kib]} · Kode {selectedItem.kode} · Reg. {selectedItem.register}
+              </p>
+              {selectedItem.keterangan && (
+                <p className="text-[11px] text-slate-500 italic mb-4 bg-slate-50 rounded-lg p-2">
+                  Keterangan provinsi: {selectedItem.keterangan}
+                </p>
+              )}
 
               {/* Ditemukan */}
               <div className="mb-3">
@@ -341,7 +383,7 @@ export default function OpnameTab({ asets, opnameEntries, activeOperator, onSave
                   type="text"
                   value={form.kodeStiker || ''}
                   onChange={(e) => setForm({ ...form, kodeStiker: e.target.value })}
-                  placeholder="Contoh: B/0001/1/B/2020"
+                  placeholder={`Contoh: ${selectedItem.kib}/${selectedItem.register}/1/B/${selectedItem.tahun || '2020'}`}
                   className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
                 />
               </div>
@@ -385,7 +427,7 @@ export default function OpnameTab({ asets, opnameEntries, activeOperator, onSave
 
               {/* Keterangan */}
               <div className="mb-5">
-                <label className="block text-[10px] font-semibold text-slate-500 mb-1">Keterangan (opsional)</label>
+                <label className="block text-[10px] font-semibold text-slate-500 mb-1">Keterangan Tambahan (opsional)</label>
                 <textarea
                   value={form.keterangan || ''}
                   onChange={(e) => setForm({ ...form, keterangan: e.target.value })}
@@ -396,7 +438,7 @@ export default function OpnameTab({ asets, opnameEntries, activeOperator, onSave
               </div>
 
               <div className="flex items-center justify-between gap-2.5 pt-3 border-t border-slate-100">
-                {opnameByAsetId.has(selectedAset.id) ? (
+                {opnameByRefId.has(selectedItem.id) ? (
                   <button
                     type="button"
                     disabled={isSaving}
@@ -410,7 +452,7 @@ export default function OpnameTab({ asets, opnameEntries, activeOperator, onSave
                   <button
                     type="button"
                     disabled={isSaving}
-                    onClick={() => { setSelectedAset(null); setForm({}); }}
+                    onClick={() => { setSelectedItem(null); setForm({}); }}
                     className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
                   >
                     Batal

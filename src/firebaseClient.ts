@@ -205,6 +205,7 @@ export async function getAllDataFromClientFirebase(): Promise<{
   pemusnahans: any[];
   pemeliharaans: any[];
   opnameEntries: any[];
+  opnameMasterList: any[];
   bhp: any[];
   pengambilanBhp: any[];
   keluhan: any[];
@@ -241,12 +242,13 @@ export async function getAllDataFromClientFirebase(): Promise<{
       }
     };
 
-    const [asets, peminjamans, pemusnahans, pemeliharaans, opnameEntries, bhp, pengambilanBhp, keluhan] = await Promise.all([
+    const [asets, peminjamans, pemusnahans, pemeliharaans, opnameEntries, opnameMasterList, bhp, pengambilanBhp, keluhan] = await Promise.all([
       fetchColl('asets'),
       fetchColl('peminjamans'),
       fetchColl('pemusnahans'),
       fetchColl('pemeliharaans'),
       fetchColl('opname_2026'),
+      fetchColl('opname_master_2026'),
       fetchColl('bhp'),
       fetchColl('pengambilan_bhp'),
       fetchColl('keluhan')
@@ -259,6 +261,7 @@ export async function getAllDataFromClientFirebase(): Promise<{
       pemusnahans,
       pemeliharaans,
       opnameEntries,
+      opnameMasterList,
       bhp,
       pengambilanBhp,
       keluhan

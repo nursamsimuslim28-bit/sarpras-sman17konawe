@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Aset, Peminjaman, LogPemusnahan, LogPemeliharaan, OpnameEntry, PengaturanSekolah, DEFAULT_PENGATURAN, BarangHabisPakai, PengambilanBHP, AuditLog, AUTHORIZED_USERS, MasterRuang, KeluhanSarpras } from './types';
+import { Aset, Peminjaman, LogPemusnahan, LogPemeliharaan, OpnameEntry, OpnameMasterItem, PengaturanSekolah, DEFAULT_PENGATURAN, BarangHabisPakai, PengambilanBHP, AuditLog, AUTHORIZED_USERS, MasterRuang, KeluhanSarpras } from './types';
 import { SCHOOL_LOGO_BASE64 } from './assets/logoBase64';
 import { api } from './api';
 import DashboardTab from './components/DashboardTab';
@@ -51,6 +51,7 @@ export default function App() {
   const [pemusnahans, setPemusnahans] = useState<LogPemusnahan[]>([]);
   const [pemeliharaans, setPemeliharaans] = useState<LogPemeliharaan[]>([]);
   const [opnameEntries, setOpnameEntries] = useState<OpnameEntry[]>([]);
+  const [opnameMasterList, setOpnameMasterList] = useState<OpnameMasterItem[]>([]);
   const [pengaturan, setPengaturan] = useState<PengaturanSekolah>(DEFAULT_PENGATURAN);
   const [bhp, setBhp] = useState<BarangHabisPakai[]>([]);
   const [pengambilanBhp, setPengambilanBhp] = useState<PengambilanBHP[]>([]);
@@ -160,6 +161,7 @@ export default function App() {
         setPemusnahans(result.pemusnahans);
         setPemeliharaans(result.pemeliharaans);
         setOpnameEntries(result.opnameEntries);
+        setOpnameMasterList(result.opnameMasterList);
         setPengaturan(result.pengaturan);
         setBhp(result.bhp);
         setPengambilanBhp(result.pengambilanBhp);
@@ -180,6 +182,7 @@ export default function App() {
         setPemusnahans(result.pemusnahans);
         setPemeliharaans(result.pemeliharaans);
         setOpnameEntries(result.opnameEntries);
+        setOpnameMasterList(result.opnameMasterList);
         setPengaturan(result.pengaturan);
         setBhp(result.bhp);
         setPengambilanBhp(result.pengambilanBhp);
@@ -213,6 +216,7 @@ export default function App() {
       setPemusnahans(result.pemusnahans);
       setPemeliharaans(result.pemeliharaans);
       setOpnameEntries(result.opnameEntries);
+      setOpnameMasterList(result.opnameMasterList);
       setPengaturan(result.pengaturan);
       setBhp(result.bhp);
       setPengambilanBhp(result.pengambilanBhp);
@@ -713,7 +717,7 @@ export default function App() {
       case 'opname':
         return (
           <OpnameTab
-            asets={asets}
+            opnameMasterList={opnameMasterList}
             opnameEntries={opnameEntries}
             activeOperator={activeOperator}
             onSaveOpnameEntry={handleSaveOpnameEntry}

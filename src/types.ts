@@ -188,14 +188,38 @@ export interface LogPemeliharaan {
 }
 
 // ---------- Opname Fisik BMD (Sensus Aset) ----------
+// PENTING: Opname mengacu ke data RESMI PROVINSI (rptrekapkib_b/c/e.xls), BUKAN ke
+// daftar Aset di aplikasi utama - karena penamaan & penomoran provinsi berbeda dari
+// data yang diinput sekolah. Daftar referensi disimpan terpisah di koleksi
+// 'opname_master_2026' (read-only, diimpor sekali dari file provinsi).
 export type StatusPenguasaan = 'Digunakan' | 'Dikuasai Pegawai' | 'Digunakan Unit Lain' | 'Dikuasai Pihak Ketiga';
+
+export interface OpnameMasterItem {
+  id: string; // e.g. REF-B-0001
+  kib: 'B' | 'C' | 'E';
+  no: string;
+  nama: string;
+  kode: string;
+  register: string;
+  tahun?: string;
+  harga?: number;
+  keterangan?: string;
+  merk?: string;
+  bahan?: string;
+  asalUsul?: string;
+  judulPencipta?: string; // khusus KIB E (buku)
+  konstruksi?: string; // khusus KIB C
+  letakLokasi?: string; // khusus KIB C
+  luasLantai?: string; // khusus KIB C
+}
 
 export interface OpnameEntry {
   id: string; // e.g. OPN-2026-0001
-  asetId: string;
-  namaAset: string; // snapshot nama saat opname dicatat
-  kodeAset: string; // snapshot kode/id aset
-  kategori: string; // snapshot kategori (KIB)
+  refId: string; // id dari OpnameMasterItem (data provinsi), BUKAN id Aset aplikasi
+  kib: 'B' | 'C' | 'E';
+  namaBarang: string; // snapshot nama saat opname dicatat
+  kodeBarang: string; // snapshot kode barang provinsi
+  noRegister: string; // snapshot nomor register provinsi
   tanggalOpname: string; // YYYY-MM-DD
   ditemukan: 'Ya' | 'Tidak';
   statusPenguasaan: StatusPenguasaan;
