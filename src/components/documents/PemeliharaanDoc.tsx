@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { JadwalPemeliharaanItem, RiwayatPemeliharaanItem } from '../../types/dokumenSarpras';
-import { PengaturanSekolah } from '../../types';
+import { PengaturanSekolah, MasterRuang, StandardRuang } from '../../types';
 import { SULTRA_LOGO_BASE64, SCHOOL_LOGO_BASE64 } from '../../assets/logoBase64';
 import { exportJadwalPemeliharaanDocx, exportRiwayatPemeliharaanDocx } from '../../utils/docxExport';
 import jsPDF from 'jspdf';
@@ -24,12 +24,22 @@ interface Props {
   pengaturan: PengaturanSekolah;
   initialJadwal: JadwalPemeliharaanItem[];
   initialRiwayat: RiwayatPemeliharaanItem[];
+  masterRuangs?: MasterRuang[];
 }
 
 const BULAN_LABELS = ['Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun'];
 
-export default function PemeliharaanDoc({ pengaturan, initialJadwal, initialRiwayat }: Props) {
+export default function PemeliharaanDoc({ pengaturan, initialJadwal, initialRiwayat, masterRuangs = [] }: Props) {
   const [activeSubTab, setActiveSubTab] = useState<'jadwal' | 'riwayat'>('jadwal');
+
+  const defaultSpaces: StandardRuang[] = [
+    'Ruang Kelas', 'Ruang Perpustakaan', 'Ruang Laboratorium',
+    'Ruang Pimpinan / Administrasi', 'Ruang Guru', 'Tempat Beribadah',
+    'Ruang Konseling / UKS', 'Toilet', 'Tempat Bermain / Olahraga', 'Ruang Sirkulasi'
+  ];
+  const spaces: StandardRuang[] = masterRuangs && masterRuangs.length > 0
+    ? Array.from(new Set([...masterRuangs.map(r => r.nama), ...defaultSpaces]))
+    : defaultSpaces;
   
   const [jadwalList, setJadwalList] = useState<JadwalPemeliharaanItem[]>(() => {
     const saved = localStorage.getItem('dokumen_jadwal_pemeliharaan');
@@ -69,7 +79,7 @@ export default function PemeliharaanDoc({ pengaturan, initialJadwal, initialRiwa
     pelaksana: 'Swakelola',
     biaya: 0,
     hasilAkhir: 'Baik',
-    ruangLokasi: ''
+    ruangLokasi: 'Ruang Laboratorium'
   });
 
   // New Jadwal input state
@@ -147,7 +157,7 @@ export default function PemeliharaanDoc({ pengaturan, initialJadwal, initialRiwa
       pelaksana: newRiwayat.pelaksana || 'Swakelola',
       biaya: Number(newRiwayat.biaya) || 0,
       hasilAkhir: (newRiwayat.hasilAkhir as any) || 'Baik',
-      ruangLokasi: newRiwayat.ruangLokasi || 'Laboratorium / Kelas'
+      ruangLokasi: newRiwayat.ruangLokasi || 'Ruang Laboratorium'
     };
 
     saveRiwayat([...riwayatList, item]);
@@ -160,7 +170,7 @@ export default function PemeliharaanDoc({ pengaturan, initialJadwal, initialRiwa
       pelaksana: 'Swakelola',
       biaya: 0,
       hasilAkhir: 'Baik',
-      ruangLokasi: ''
+      ruangLokasi: 'Ruang Laboratorium'
     });
   };
 
@@ -556,13 +566,15 @@ export default function PemeliharaanDoc({ pengaturan, initialJadwal, initialRiwa
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1">Ruang / Lokasi</label>
-                  <input
-                    type="text"
+                  <select
                     value={newRiwayat.ruangLokasi}
                     onChange={e => setNewRiwayat({ ...newRiwayat, ruangLokasi: e.target.value })}
-                    placeholder="e.g. Lab Komputer / Kelas XII"
                     className="w-full text-xs p-2.5 bg-slate-50 border border-slate-300 rounded-xl"
-                  />
+                  >
+                    {spaces.map(sp => (
+                      <option key={sp} value={sp}>{sp}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

@@ -208,10 +208,11 @@ export default function DokumenSarprasHub({ pengaturan, asets, keluhanList = [],
         )}
 
         {activeSubDoc === 'pemeliharaan' && (
-          <PemeliharaanDoc 
-            pengaturan={pengaturan} 
-            initialJadwal={DEFAULT_JADWAL_PEMELIHARAAN} 
-            initialRiwayat={DEFAULT_RIWAYAT_PEMELIHARAAN} 
+          <PemeliharaanDoc
+            pengaturan={pengaturan}
+            initialJadwal={DEFAULT_JADWAL_PEMELIHARAAN}
+            initialRiwayat={DEFAULT_RIWAYAT_PEMELIHARAAN}
+            masterRuangs={masterRuangs}
           />
         )}
 
@@ -233,11 +234,12 @@ export default function DokumenSarprasHub({ pengaturan, asets, keluhanList = [],
         )}
 
         {activeSubDoc === 'sarpras_khusus' && (
-          <SarprasKhususDoc 
-            pengaturan={pengaturan} 
-            initialAlatPeraga={DEFAULT_ALAT_PERAGA} 
-            initialBuku={DEFAULT_BUKU_PERPUSTAKAAN} 
-            initialJadwalLab={DEFAULT_JADWAL_LAB} 
+          <SarprasKhususDoc
+            pengaturan={pengaturan}
+            initialAlatPeraga={DEFAULT_ALAT_PERAGA}
+            initialBuku={DEFAULT_BUKU_PERPUSTAKAAN}
+            initialJadwalLab={DEFAULT_JADWAL_LAB}
+            masterRuangs={masterRuangs}
           />
         )}
 

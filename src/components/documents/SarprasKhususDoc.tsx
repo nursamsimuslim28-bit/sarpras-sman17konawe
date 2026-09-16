@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { 
-  AlatPeragaItem, 
-  BukuPerpustakaanItem, 
-  JadwalLabSlot 
+import {
+  AlatPeragaItem,
+  BukuPerpustakaanItem,
+  JadwalLabSlot
 } from '../../types/dokumenSarpras';
-import { PengaturanSekolah } from '../../types';
+import { PengaturanSekolah, MasterRuang, StandardRuang } from '../../types';
 import { SULTRA_LOGO_BASE64, SCHOOL_LOGO_BASE64 } from '../../assets/logoBase64';
 import { 
   exportAlatPeragaDocx, 
@@ -32,18 +32,29 @@ interface Props {
   initialAlat?: AlatPeragaItem[];
   initialBuku: BukuPerpustakaanItem[];
   initialJadwalLab: JadwalLabSlot[];
+  masterRuangs?: MasterRuang[];
 }
 
-export default function SarprasKhususDoc({ 
-  pengaturan, 
+export default function SarprasKhususDoc({
+  pengaturan,
   initialAlatPeraga,
-  initialAlat, 
-  initialBuku, 
-  initialJadwalLab 
+  initialAlat,
+  initialBuku,
+  initialJadwalLab,
+  masterRuangs = []
 }: Props) {
   const [activeTab, setActiveTab] = useState<'alat_peraga' | 'buku_perpus' | 'jadwal_lab'>('alat_peraga');
 
   const defaultAlat = initialAlatPeraga || initialAlat || [];
+
+  const defaultSpaces: StandardRuang[] = [
+    'Ruang Kelas', 'Ruang Perpustakaan', 'Ruang Laboratorium',
+    'Ruang Pimpinan / Administrasi', 'Ruang Guru', 'Tempat Beribadah',
+    'Ruang Konseling / UKS', 'Toilet', 'Tempat Bermain / Olahraga', 'Ruang Sirkulasi'
+  ];
+  const spaces: StandardRuang[] = masterRuangs && masterRuangs.length > 0
+    ? Array.from(new Set([...masterRuangs.map(r => r.nama), ...defaultSpaces]))
+    : defaultSpaces;
 
   const [alatList, setAlatList] = useState<AlatPeragaItem[]>(() => {
     const saved = localStorage.getItem('dokumen_alat_peraga');
@@ -93,8 +104,8 @@ export default function SarprasKhususDoc({
     jumlah: 1,
     satuan: 'Set',
     kondisi: 'Baik',
-    ruangPenyimpanan: 'Lab Biologi',
-    lokasiPenyimpanan: 'Lab Biologi',
+    ruangPenyimpanan: 'Ruang Laboratorium',
+    lokasiPenyimpanan: 'Ruang Laboratorium',
     keterangan: ''
   });
 
@@ -144,13 +155,13 @@ export default function SarprasKhususDoc({
       jumlah: Number(newAlat.jumlah) || 1,
       satuan: newAlat.satuan || 'Set',
       kondisi: (newAlat.kondisi as any) || 'Baik',
-      ruangPenyimpanan: newAlat.ruangPenyimpanan || 'Lab IPA',
-      lokasiPenyimpanan: newAlat.ruangPenyimpanan || 'Lab IPA',
+      ruangPenyimpanan: newAlat.ruangPenyimpanan || 'Ruang Laboratorium',
+      lokasiPenyimpanan: newAlat.ruangPenyimpanan || 'Ruang Laboratorium',
       keterangan: newAlat.keterangan || '-'
     };
     saveAlat([...alatList, item]);
     setIsAddOpen(false);
-    setNewAlat({ namaAlat: '', mataPelajaran: 'IPA / Biologi', jumlah: 1, satuan: 'Set', kondisi: 'Baik', ruangPenyimpanan: 'Lab Biologi', lokasiPenyimpanan: 'Lab Biologi', keterangan: '' });
+    setNewAlat({ namaAlat: '', mataPelajaran: 'IPA / Biologi', jumlah: 1, satuan: 'Set', kondisi: 'Baik', ruangPenyimpanan: 'Ruang Laboratorium', lokasiPenyimpanan: 'Ruang Laboratorium', keterangan: '' });
   };
 
   const handleAddBuku = (e: React.FormEvent) => {
@@ -632,13 +643,15 @@ export default function SarprasKhususDoc({
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-700 mb-1">Ruang Simpan</label>
-                    <input
-                      type="text"
+                    <select
                       value={newAlat.ruangPenyimpanan}
                       onChange={e => setNewAlat({ ...newAlat, ruangPenyimpanan: e.target.value, lokasiPenyimpanan: e.target.value })}
-                      placeholder="e.g. Lab IPA / Lab Komputer"
                       className="w-full text-xs p-2.5 bg-slate-50 border border-slate-300 rounded-xl"
-                    />
+                    >
+                      {spaces.map(sp => (
+                        <option key={sp} value={sp}>{sp}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div className="flex justify-end gap-2 pt-3">
