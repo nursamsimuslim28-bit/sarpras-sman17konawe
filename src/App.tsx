@@ -754,6 +754,7 @@ export default function App() {
             opnameMasterList={opnameMasterList}
             opnameEntries={opnameEntries}
             activeOperator={activeOperator}
+            pengaturan={pengaturan}
             onSaveOpnameEntry={handleSaveOpnameEntry}
             onDeleteOpnameEntry={handleDeleteOpnameEntry}
           />

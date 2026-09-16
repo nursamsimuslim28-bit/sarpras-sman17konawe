@@ -1,15 +1,17 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { OpnameEntry, OpnameMasterItem, KondisiAset, StatusPenguasaan } from '../types';
+import { OpnameEntry, OpnameMasterItem, KondisiAset, StatusPenguasaan, PengaturanSekolah } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search, X, Camera, Check, Loader2, ClipboardCheck, ChevronRight,
-  Trash2, ListChecks
+  Trash2, ListChecks, FileArchive
 } from 'lucide-react';
+import { exportLaporanOpnameZip } from '../utils/opnameLaporanExport';
 
 interface OpnameTabProps {
   opnameMasterList: OpnameMasterItem[];
   opnameEntries: OpnameEntry[];
   activeOperator: string;
+  pengaturan: PengaturanSekolah;
   onSaveOpnameEntry: (entry: OpnameEntry) => Promise<void>;
   onDeleteOpnameEntry: (id: string) => Promise<void>;
 }
@@ -55,13 +57,30 @@ function compressImage(file: File, maxDim = 1000, quality = 0.6): Promise<string
   });
 }
 
-export default function OpnameTab({ opnameMasterList, opnameEntries, activeOperator, onSaveOpnameEntry, onDeleteOpnameEntry }: OpnameTabProps) {
+export default function OpnameTab({ opnameMasterList, opnameEntries, activeOperator, pengaturan, onSaveOpnameEntry, onDeleteOpnameEntry }: OpnameTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterKib, setFilterKib] = useState<'Semua' | 'B' | 'C' | 'E'>('Semua');
   const [filterStatus, setFilterStatus] = useState<'Semua' | 'Sudah' | 'Belum'>('Semua');
   const [selectedItem, setSelectedItem] = useState<OpnameMasterItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingFoto, setIsUploadingFoto] = useState<1 | 2 | null>(null);
+  const [isExportingLaporan, setIsExportingLaporan] = useState(false);
+
+  const handleExportLaporan = async () => {
+    if (opnameMasterList.length === 0) {
+      alert('Belum ada data referensi opname yang dimuat.');
+      return;
+    }
+    setIsExportingLaporan(true);
+    try {
+      await exportLaporanOpnameZip(pengaturan, opnameMasterList, opnameEntries);
+    } catch (e) {
+      console.error('Gagal membuat laporan opname:', e);
+      alert('Gagal membuat laporan. Silakan coba lagi.');
+    } finally {
+      setIsExportingLaporan(false);
+    }
+  };
 
   const foto1Ref = useRef<HTMLInputElement>(null);
   const foto2Ref = useRef<HTMLInputElement>(null);
@@ -175,14 +194,25 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
     <div className="space-y-5">
       {/* Ringkasan Progress */}
       <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-2xs">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="p-2.5 bg-teal-100 text-teal-700 rounded-xl">
-            <ClipboardCheck size={22} />
+        <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-teal-100 text-teal-700 rounded-xl">
+              <ClipboardCheck size={22} />
+            </div>
+            <div>
+              <h2 className="text-base font-extrabold text-slate-800">Opname Fisik BMD 2026</h2>
+              <p className="text-xs text-slate-500">Daftar barang mengacu ke data RESMI PROVINSI (rptrekapkib_b/c/e.xls) - bukan daftar aset aplikasi.</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-base font-extrabold text-slate-800">Opname Fisik BMD 2026</h2>
-            <p className="text-xs text-slate-500">Daftar barang mengacu ke data RESMI PROVINSI (rptrekapkib_b/c/e.xls) - bukan daftar aset aplikasi.</p>
-          </div>
+          <button
+            onClick={handleExportLaporan}
+            disabled={isExportingLaporan || totalItem === 0}
+            className="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-sm shadow-teal-600/20 shrink-0"
+            title="Unduh laporan sensus KIB B/C/E (Excel + surat + foto) sesuai format resmi, dalam satu file ZIP"
+          >
+            {isExportingLaporan ? <Loader2 size={14} className="animate-spin" /> : <FileArchive size={14} />}
+            {isExportingLaporan ? 'Menyiapkan Laporan...' : 'Unduh Laporan Sensus (ZIP)'}
+          </button>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden">
