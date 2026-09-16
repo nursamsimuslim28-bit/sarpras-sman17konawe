@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarangHabisPakai, PengambilanBHP, PengaturanSekolah, KategoriBHP, Aset, KategoriAset, KondisiAset } from '../types';
+import { BarangHabisPakai, PengambilanBHP, PengaturanSekolah, KategoriBHP, Aset, KategoriAset, KondisiAset, MasterRuang, StandardRuang } from '../types';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { motion, AnimatePresence } from 'motion/react';
@@ -88,6 +88,7 @@ interface BhpTabProps {
   onDeleteBhp: (id: string) => Promise<void>;
   onSavePengambilanBhp: (pengambilan: PengambilanBHP) => Promise<void>;
   onMoveBhpToAset?: (bhpItem: BarangHabisPakai, asetData: Aset) => Promise<void>;
+  masterRuangs?: MasterRuang[];
   userRole?: 'admin' | 'guest';
 }
 
@@ -99,8 +100,24 @@ export default function BhpTab({
   onDeleteBhp,
   onSavePengambilanBhp,
   onMoveBhpToAset,
+  masterRuangs = [],
   userRole = 'guest'
 }: BhpTabProps) {
+  const defaultSpaces: StandardRuang[] = [
+    'Ruang Kelas',
+    'Ruang Perpustakaan',
+    'Ruang Laboratorium',
+    'Ruang Pimpinan / Administrasi',
+    'Ruang Guru',
+    'Tempat Beribadah',
+    'Ruang Konseling / UKS',
+    'Toilet',
+    'Tempat Bermain / Olahraga',
+    'Ruang Sirkulasi'
+  ];
+  const spaces: StandardRuang[] = masterRuangs && masterRuangs.length > 0
+    ? Array.from(new Set([...masterRuangs.map(r => r.nama), ...defaultSpaces]))
+    : defaultSpaces;
   const [activeSubTab, setActiveSubTab] = useState<'stok' | 'log'>('stok');
 
   // State untuk Fitur "Pindahkan ke Aset Tetap" (koreksi salah kategori input)
@@ -116,9 +133,10 @@ export default function BhpTab({
 
   const openMoveToAsetModal = (item: BarangHabisPakai) => {
     setSelectedBhpForMove(item);
+    const matchedRuang = spaces.find(s => item.lokasiPenyimpanan?.startsWith(s)) || spaces[0] || '';
     setMoveToAsetForm({
       kategori: 'KIB B (Peralatan dan Mesin)',
-      ruangLokasi: item.lokasiPenyimpanan || '',
+      ruangLokasi: matchedRuang,
       kondisi: 'Baik',
       sumberDana: '',
       tahunPerolehan: new Date().getFullYear(),
@@ -2540,12 +2558,16 @@ export default function BhpTab({
 
               <div className="mb-3">
                 <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Ruang/Lokasi</label>
-                <input
-                  type="text"
+                <select
                   value={moveToAsetForm.ruangLokasi}
                   onChange={(e) => setMoveToAsetForm({ ...moveToAsetForm, ruangLokasi: e.target.value })}
                   className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
-                />
+                >
+                  {spaces.map(sp => (
+                    <option key={sp} value={sp}>{sp}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">Diambil dari Master Ruangan - supaya nama ruang tidak duplikat/beda-beda antar penginput.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-2.5 mb-3">

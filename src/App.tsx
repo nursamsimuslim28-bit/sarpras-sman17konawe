@@ -752,6 +752,7 @@ export default function App() {
             onDeleteBhp={handleDeleteBhp}
             onSavePengambilanBhp={handleSavePengambilanBhp}
             onMoveBhpToAset={handleMoveBhpToAset}
+            masterRuangs={masterRuangs}
             userRole={userRole}
           />
         );
