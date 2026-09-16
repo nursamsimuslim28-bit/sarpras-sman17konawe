@@ -380,57 +380,60 @@ VITE_FIREBASE_APP_ID=${cfg?.appId || ''}`;
                   )}
                 </div>
               </form>
+
+              {/* Jaring pengaman: dorong data lokal browser ini ke Cloud.
+                  Biasanya tidak perlu — setiap simpan data sudah otomatis tersinkron ke Firestore.
+                  Hanya berguna kalau perangkat ini pernah lama offline dan ada data yang nyangkut lokal. */}
+              <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl mt-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                    <ArrowUpCircle size={15} className="text-indigo-600" />
+                    Unggah Data Browser Ini ke Cloud
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed mb-3">
+                  Jaring pengaman untuk kasus jarang: perangkat ini sempat offline lama dan ada data yang cuma tersimpan lokal. Pemakaian normal tidak perlu ini — setiap simpan data sudah otomatis tersinkron ke Cloud.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSyncAllToCloud}
+                  disabled={isSyncingAll || !dbStatus?.configured}
+                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1.5 transition shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {isSyncingAll ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Menyinkronkan ke Cloud...
+                    </>
+                  ) : (
+                    <>
+                      <Cloud size={14} />
+                      Unggah Semua Data Lokal ke Cloud
+                    </>
+                  )}
+                </button>
+                {!dbStatus?.configured && (
+                  <p className="text-[10px] text-amber-700 mt-1.5">Hubungkan Firebase terlebih dahulu di atas sebelum mengunggah.</p>
+                )}
+                {syncAllResult && (
+                  <div className={`mt-2 p-2.5 rounded-lg text-xs font-medium flex items-start gap-1.5 ${syncAllResult.success ? 'bg-emerald-100/70 text-emerald-800' : 'bg-rose-100/70 text-rose-800'}`}>
+                    {syncAllResult.success ? <Check size={14} className="mt-0.5 shrink-0" /> : <WifiOff size={14} className="mt-0.5 shrink-0" />}
+                    <span>{syncAllResult.message}</span>
+                  </div>
+                )}
+              </div>
             </motion.div>
           )}
         </SectionCard>
 
-        {/* --- Sinkronisasi & Migrasi --- */}
+        {/* --- Cadangan Data --- */}
         <SectionCard
           icon={<Cloud size={20} className="text-emerald-600" />}
           iconBg="bg-emerald-50"
-          title="Sinkronisasi & Migrasi Data"
-          subtitle="Pindahkan data dari browser ini ke Cloud, atau cadangkan sebagai berkas"
+          title="Cadangan Data (Backup / Restore)"
+          subtitle="Cadangkan seluruh data sebagai berkas, terlepas dari status Firebase"
         >
           <div className="space-y-3">
-            <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
-                  <ArrowUpCircle size={15} className="text-indigo-600" />
-                  Unggah Data Browser Ini ke Cloud
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-600 leading-relaxed mb-3">
-                Kirim seluruh data aset, peminjaman, BHP, dan pengaturan dari browser ini ke Firestore agar bisa dibaca dari perangkat lain. Data lama di Cloud akan digabung, bukan dihapus.
-              </p>
-              <button
-                type="button"
-                onClick={handleSyncAllToCloud}
-                disabled={isSyncingAll || !dbStatus?.configured}
-                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1.5 transition shadow-sm cursor-pointer disabled:opacity-50"
-              >
-                {isSyncingAll ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    Menyinkronkan ke Cloud...
-                  </>
-                ) : (
-                  <>
-                    <Cloud size={14} />
-                    Unggah Semua Data Lokal ke Cloud
-                  </>
-                )}
-              </button>
-              {!dbStatus?.configured && (
-                <p className="text-[10px] text-amber-700 mt-1.5">Hubungkan Firebase terlebih dahulu di atas sebelum mengunggah.</p>
-              )}
-              {syncAllResult && (
-                <div className={`mt-2 p-2.5 rounded-lg text-xs font-medium flex items-start gap-1.5 ${syncAllResult.success ? 'bg-emerald-100/70 text-emerald-800' : 'bg-rose-100/70 text-rose-800'}`}>
-                  {syncAllResult.success ? <Check size={14} className="mt-0.5 shrink-0" /> : <WifiOff size={14} className="mt-0.5 shrink-0" />}
-                  <span>{syncAllResult.message}</span>
-                </div>
-              )}
-            </div>
-
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
               <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <HardDrive size={14} className="text-slate-600" />
