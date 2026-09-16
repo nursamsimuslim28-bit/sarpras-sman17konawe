@@ -552,6 +552,24 @@ export default function App() {
     loadAllData(false);
   };
 
+  const handleMoveBhpToAset = async (bhpItem: BarangHabisPakai, asetData: Aset) => {
+    const updatedAsets = await api.saveAset(asetData);
+    setAsets(updatedAsets);
+
+    const updatedBhp = await api.deleteBHP(bhpItem.id);
+    setBhp(updatedBhp);
+
+    const newLogs = await api.recordAuditLog(
+      activeOperator,
+      'PINDAH_ASET',
+      `${asetData.nama} (${asetData.id})`,
+      `Dipindahkan dari Barang Habis Pakai (${bhpItem.id}) ke Aset Tetap ${asetData.kategori} karena salah kategori input.`
+    );
+    setAuditLogs(newLogs);
+
+    loadAllData(false);
+  };
+
   const handleDeleteBhp = async (id: string) => {
     const targetBhp = bhp.find(b => b.id === id);
     const updated = await api.deleteBHP(id);
@@ -733,6 +751,7 @@ export default function App() {
             onSaveBhp={handleSaveBhp}
             onDeleteBhp={handleDeleteBhp}
             onSavePengambilanBhp={handleSavePengambilanBhp}
+            onMoveBhpToAset={handleMoveBhpToAset}
             userRole={userRole}
           />
         );

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarangHabisPakai, PengambilanBHP, PengaturanSekolah, KategoriBHP } from '../types';
+import { BarangHabisPakai, PengambilanBHP, PengaturanSekolah, KategoriBHP, Aset, KategoriAset, KondisiAset } from '../types';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { motion, AnimatePresence } from 'motion/react';
@@ -30,7 +30,8 @@ import {
   Lock,
   Camera,
   Loader2,
-  FolderOpen
+  FolderOpen,
+  MoveRight
 } from 'lucide-react';
 
 import { SULTRA_LOGO_BASE64, SCHOOL_LOGO_BASE64 } from '../assets/logoBase64';
@@ -86,6 +87,7 @@ interface BhpTabProps {
   onSaveBhp: (item: BarangHabisPakai) => Promise<void>;
   onDeleteBhp: (id: string) => Promise<void>;
   onSavePengambilanBhp: (pengambilan: PengambilanBHP) => Promise<void>;
+  onMoveBhpToAset?: (bhpItem: BarangHabisPakai, asetData: Aset) => Promise<void>;
   userRole?: 'admin' | 'guest';
 }
 
@@ -96,9 +98,56 @@ export default function BhpTab({
   onSaveBhp,
   onDeleteBhp,
   onSavePengambilanBhp,
+  onMoveBhpToAset,
   userRole = 'guest'
 }: BhpTabProps) {
   const [activeSubTab, setActiveSubTab] = useState<'stok' | 'log'>('stok');
+
+  // State untuk Fitur "Pindahkan ke Aset Tetap" (koreksi salah kategori input)
+  const [selectedBhpForMove, setSelectedBhpForMove] = useState<BarangHabisPakai | null>(null);
+  const [moveToAsetForm, setMoveToAsetForm] = useState<{ kategori: KategoriAset; ruangLokasi: string; kondisi: KondisiAset; sumberDana: string; tahunPerolehan: number }>({
+    kategori: 'KIB B (Peralatan dan Mesin)',
+    ruangLokasi: '',
+    kondisi: 'Baik',
+    sumberDana: '',
+    tahunPerolehan: new Date().getFullYear(),
+  });
+  const [isMovingBhpToAset, setIsMovingBhpToAset] = useState(false);
+
+  const openMoveToAsetModal = (item: BarangHabisPakai) => {
+    setSelectedBhpForMove(item);
+    setMoveToAsetForm({
+      kategori: 'KIB B (Peralatan dan Mesin)',
+      ruangLokasi: item.lokasiPenyimpanan || '',
+      kondisi: 'Baik',
+      sumberDana: '',
+      tahunPerolehan: new Date().getFullYear(),
+    });
+  };
+
+  const handleConfirmMoveToAset = async () => {
+    if (!selectedBhpForMove || !onMoveBhpToAset) return;
+    setIsMovingBhpToAset(true);
+    try {
+      const newAset: Aset = {
+        id: `PINDAH-BHP-${Date.now()}`,
+        nama: selectedBhpForMove.nama,
+        merek: selectedBhpForMove.merek || '',
+        kategori: moveToAsetForm.kategori,
+        ruangLokasi: moveToAsetForm.ruangLokasi || selectedBhpForMove.lokasiPenyimpanan,
+        jumlah: selectedBhpForMove.stokSekarang || 1,
+        satuan: selectedBhpForMove.satuan,
+        kondisi: moveToAsetForm.kondisi,
+        sumberDana: moveToAsetForm.sumberDana || '-',
+        tahunPerolehan: moveToAsetForm.tahunPerolehan,
+        catatan: `Dipindahkan dari BHP (${selectedBhpForMove.id}) karena salah kategori input. ${selectedBhpForMove.catatan || ''}`.trim(),
+      };
+      await onMoveBhpToAset(selectedBhpForMove, newAset);
+      setSelectedBhpForMove(null);
+    } finally {
+      setIsMovingBhpToAset(false);
+    }
+  };
   
   // Search and Filter States
   const [searchBhp, setSearchBhp] = useState('');
@@ -1217,6 +1266,14 @@ export default function BhpTab({
                       
                       {userRole === 'admin' && (
                         <>
+                          <button
+                            onClick={() => openMoveToAsetModal(item)}
+                            className="p-2 text-purple-400 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition cursor-pointer"
+                            title="Pindahkan ke Aset Tetap (kalau salah input kategori)"
+                          >
+                            <MoveRight size={14} />
+                          </button>
+
                           <button
                             onClick={() => openBhpModal(item)}
                             className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition cursor-pointer"
@@ -2440,6 +2497,124 @@ export default function BhpTab({
           </div>
         </div>
       )}
+
+      {/* Modal Pindahkan ke Aset Tetap (koreksi salah kategori input) */}
+      <AnimatePresence>
+        {selectedBhpForMove && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl max-w-lg w-full p-6 relative border border-slate-100 shadow-2xl max-h-[92vh] overflow-y-auto"
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedBhpForMove(null)}
+                className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-50 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-2 mb-2 text-purple-800 font-extrabold text-base">
+                <div className="p-2 bg-purple-100 text-purple-800 rounded-xl">
+                  <MoveRight size={20} />
+                </div>
+                <h3>Pindahkan ke Aset Tetap</h3>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                <strong className="text-slate-900 font-bold">{selectedBhpForMove.nama}</strong> akan dipindahkan dari Barang Habis Pakai (BHP) menjadi Aset Tetap. Gunakan ini kalau barang ini sebenarnya salah dimasukkan sebagai BHP (misalnya alat elektronik/peralatan tahan lama).
+              </p>
+
+              <div className="mb-3">
+                <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Kategori KIB</label>
+                <select
+                  value={moveToAsetForm.kategori}
+                  onChange={(e) => setMoveToAsetForm({ ...moveToAsetForm, kategori: e.target.value as KategoriAset })}
+                  className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                >
+                  <option value="KIB B (Peralatan dan Mesin)">KIB B (Peralatan dan Mesin)</option>
+                  <option value="KIB E (Aset Tetap Lainnya)">KIB E (Aset Tetap Lainnya)</option>
+                </select>
+              </div>
+
+              <div className="mb-3">
+                <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Ruang/Lokasi</label>
+                <input
+                  type="text"
+                  value={moveToAsetForm.ruangLokasi}
+                  onChange={(e) => setMoveToAsetForm({ ...moveToAsetForm, ruangLokasi: e.target.value })}
+                  className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5 mb-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Sumber Dana</label>
+                  <input
+                    type="text"
+                    value={moveToAsetForm.sumberDana}
+                    onChange={(e) => setMoveToAsetForm({ ...moveToAsetForm, sumberDana: e.target.value })}
+                    placeholder="Contoh: BOS Reguler"
+                    className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Tahun Perolehan</label>
+                  <input
+                    type="number"
+                    value={moveToAsetForm.tahunPerolehan}
+                    onChange={(e) => setMoveToAsetForm({ ...moveToAsetForm, tahunPerolehan: Number(e.target.value) })}
+                    className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div className="mb-5">
+                <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Kondisi</label>
+                <div className="flex gap-2">
+                  {(['Baik', 'Rusak Ringan', 'Rusak Berat'] as KondisiAset[]).map(k => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setMoveToAsetForm({ ...moveToAsetForm, kondisi: k })}
+                      className={`flex-1 py-2 rounded-lg border text-[10px] font-bold transition cursor-pointer ${
+                        moveToAsetForm.kondisi === k ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-500'
+                      }`}
+                    >
+                      {k}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-purple-50/80 border border-purple-200/80 rounded-2xl p-3 mb-4 text-[11px] text-purple-900">
+                Jumlah yang dipindahkan: <strong>{selectedBhpForMove.stokSekarang} {selectedBhpForMove.satuan}</strong> (dari stok BHP saat ini). Barang ini akan hilang dari daftar BHP setelah dipindahkan.
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={isMovingBhpToAset}
+                  onClick={() => setSelectedBhpForMove(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={isMovingBhpToAset || !moveToAsetForm.tahunPerolehan}
+                  onClick={handleConfirmMoveToAset}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-2 shadow-md shadow-purple-600/15"
+                >
+                  {isMovingBhpToAset ? <Loader2 size={14} className="animate-spin" /> : <MoveRight size={14} />}
+                  <span>Pindahkan ke Aset</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
