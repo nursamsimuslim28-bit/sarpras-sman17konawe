@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Aset, Peminjaman, LogPemusnahan, LogPemeliharaan, PengaturanSekolah, DEFAULT_PENGATURAN, BarangHabisPakai, PengambilanBHP, AuditLog, AUTHORIZED_USERS, MasterRuang, KeluhanSarpras } from './types';
+import { Aset, Peminjaman, LogPemusnahan, LogPemeliharaan, OpnameEntry, PengaturanSekolah, DEFAULT_PENGATURAN, BarangHabisPakai, PengambilanBHP, AuditLog, AUTHORIZED_USERS, MasterRuang, KeluhanSarpras } from './types';
 import { SCHOOL_LOGO_BASE64 } from './assets/logoBase64';
 import { api } from './api';
 import DashboardTab from './components/DashboardTab';
 import AsetTab from './components/AsetTab';
 import PeminjamanTab from './components/PeminjamanTab';
+import OpnameTab from './components/OpnameTab';
 import BhpTab from './components/BhpTab';
 import BarcodeTab from './components/BarcodeTab';
 import LaporanTab from './components/LaporanTab';
@@ -38,7 +39,8 @@ import {
   EyeOff,
   UserCheck,
   ShieldCheck,
-  DoorOpen
+  DoorOpen,
+  ClipboardCheck
 } from 'lucide-react';
 
 export default function App() {
@@ -48,6 +50,7 @@ export default function App() {
   const [peminjamans, setPeminjamans] = useState<Peminjaman[]>([]);
   const [pemusnahans, setPemusnahans] = useState<LogPemusnahan[]>([]);
   const [pemeliharaans, setPemeliharaans] = useState<LogPemeliharaan[]>([]);
+  const [opnameEntries, setOpnameEntries] = useState<OpnameEntry[]>([]);
   const [pengaturan, setPengaturan] = useState<PengaturanSekolah>(DEFAULT_PENGATURAN);
   const [bhp, setBhp] = useState<BarangHabisPakai[]>([]);
   const [pengambilanBhp, setPengambilanBhp] = useState<PengambilanBHP[]>([]);
@@ -156,6 +159,7 @@ export default function App() {
         setPeminjamans(result.peminjamans);
         setPemusnahans(result.pemusnahans);
         setPemeliharaans(result.pemeliharaans);
+        setOpnameEntries(result.opnameEntries);
         setPengaturan(result.pengaturan);
         setBhp(result.bhp);
         setPengambilanBhp(result.pengambilanBhp);
@@ -175,6 +179,7 @@ export default function App() {
         setPeminjamans(result.peminjamans);
         setPemusnahans(result.pemusnahans);
         setPemeliharaans(result.pemeliharaans);
+        setOpnameEntries(result.opnameEntries);
         setPengaturan(result.pengaturan);
         setBhp(result.bhp);
         setPengambilanBhp(result.pengambilanBhp);
@@ -207,6 +212,7 @@ export default function App() {
       setPeminjamans(result.peminjamans);
       setPemusnahans(result.pemusnahans);
       setPemeliharaans(result.pemeliharaans);
+      setOpnameEntries(result.opnameEntries);
       setPengaturan(result.pengaturan);
       setBhp(result.bhp);
       setPengambilanBhp(result.pengambilanBhp);
@@ -471,6 +477,16 @@ export default function App() {
     loadAllData(false);
   };
 
+  const handleSaveOpnameEntry = async (entry: OpnameEntry) => {
+    const updated = await api.saveOpnameEntry(entry);
+    setOpnameEntries(updated);
+  };
+
+  const handleDeleteOpnameEntry = async (id: string) => {
+    const updated = await api.deleteOpnameEntry(id);
+    setOpnameEntries(updated);
+  };
+
   const handleSavePengaturan = async (cfg: PengaturanSekolah) => {
     const updated = await api.savePengaturan(cfg);
     setPengaturan(updated);
@@ -694,6 +710,16 @@ export default function App() {
             onOpenScanner={handleOpenScanner}
           />
         );
+      case 'opname':
+        return (
+          <OpnameTab
+            asets={asets}
+            opnameEntries={opnameEntries}
+            activeOperator={activeOperator}
+            onSaveOpnameEntry={handleSaveOpnameEntry}
+            onDeleteOpnameEntry={handleDeleteOpnameEntry}
+          />
+        );
       case 'bhp':
         return (
           <BhpTab
@@ -751,6 +777,7 @@ export default function App() {
     { id: 'aset', label: 'Data Aset Tetap', icon: <Database size={18} /> },
     { id: 'master_ruang', label: 'Master Ruangan', icon: <DoorOpen size={18} />, adminOnly: true },
     { id: 'peminjaman', label: 'Peminjaman', icon: <BookOpen size={18} /> },
+    { id: 'opname', label: 'Opname Fisik BMD 2026', icon: <ClipboardCheck size={18} /> },
     { id: 'bhp', label: 'Data Barang Habis Pakai (BHP)', icon: <Package size={18} /> },
     { id: 'dokumen_sarpras', label: 'Dokumen Standar Sarpras', icon: <FileCheck2 size={18} /> },
     { id: 'barcode', label: 'Label QR Code', icon: <QrCode size={18} /> },
@@ -983,6 +1010,7 @@ export default function App() {
               {activeTab === 'dashboard' ? 'Dasbor Utama' :
                activeTab === 'aset' ? 'Manajemen Aset Tetap' :
                activeTab === 'peminjaman' ? 'Sirkulasi Peminjaman' :
+               activeTab === 'opname' ? 'Opname Fisik BMD 2026' :
                activeTab === 'bhp' ? 'Data Barang Habis Pakai (BHP)' :
                activeTab === 'barcode' ? 'Label Barcode' :
                activeTab === 'dokumen_sarpras' ? 'Dokumen Standar Sarpras (Permendagri 47/2021)' :

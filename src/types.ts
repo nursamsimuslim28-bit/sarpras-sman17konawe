@@ -187,6 +187,27 @@ export interface LogPemeliharaan {
   updatedAt?: string;
 }
 
+// ---------- Opname Fisik BMD (Sensus Aset) ----------
+export type StatusPenguasaan = 'Digunakan' | 'Dikuasai Pegawai' | 'Digunakan Unit Lain' | 'Dikuasai Pihak Ketiga';
+
+export interface OpnameEntry {
+  id: string; // e.g. OPN-2026-0001
+  asetId: string;
+  namaAset: string; // snapshot nama saat opname dicatat
+  kodeAset: string; // snapshot kode/id aset
+  kategori: string; // snapshot kategori (KIB)
+  tanggalOpname: string; // YYYY-MM-DD
+  ditemukan: 'Ya' | 'Tidak';
+  statusPenguasaan: StatusPenguasaan;
+  kondisi: KondisiAset;
+  kodeStiker?: string;
+  foto1?: string; // Base64 (dikompresi) atau URL Drive nantinya
+  foto2?: string;
+  keterangan?: string;
+  petugas: string;
+  updatedAt?: string;
+}
+
 export const AUTHORIZED_USERS = [
   'Nursamsi Muslim Widuri, S.Pd.',
   'Alwing',

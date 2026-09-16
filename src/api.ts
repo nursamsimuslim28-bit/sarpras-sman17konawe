@@ -1,4 +1,4 @@
-import { Aset, Peminjaman, LogPemusnahan, LogPemeliharaan, PengaturanSekolah, SAMPLE_ASETS, SAMPLE_PEMINJAMANS, SAMPLE_PEMUSNAHANS, DEFAULT_PENGATURAN, BarangHabisPakai, PengambilanBHP, SAMPLE_BHP, SAMPLE_PENGAMBILAN_BHP, AuditLog, AUTHORIZED_USERS, MasterRuang, DEFAULT_MASTER_RUANGS, KeluhanSarpras } from './types';
+import { Aset, Peminjaman, LogPemusnahan, LogPemeliharaan, OpnameEntry, PengaturanSekolah, SAMPLE_ASETS, SAMPLE_PEMINJAMANS, SAMPLE_PEMUSNAHANS, DEFAULT_PENGATURAN, BarangHabisPakai, PengambilanBHP, SAMPLE_BHP, SAMPLE_PENGAMBILAN_BHP, AuditLog, AUTHORIZED_USERS, MasterRuang, DEFAULT_MASTER_RUANGS, KeluhanSarpras } from './types';
 import { 
   isFirebaseClientConfigured, 
   saveDocumentClient, 
@@ -15,6 +15,7 @@ const KEY_ASETS = 'esarpras_asets';
 const KEY_PEMINJAMANS = 'esarpras_peminjamans';
 const KEY_PEMUSNAHANS = 'esarpras_pemusnahans';
 const KEY_PEMELIHARAAN = 'esarpras_pemeliharaans';
+const KEY_OPNAME = 'esarpras_opname_2026';
 const KEY_PENGATURAN = 'esarpras_pengaturan';
 const KEY_BHP = 'esarpras_bhp';
 const KEY_PENGAMBILAN_BHP = 'esarpras_pengambilan_bhp';
@@ -29,7 +30,7 @@ const DUMMY_IDS = new Set<string>([]);
 
 // Purge any residual sample/dummy data from local storage
 function purgeSampleDataFromLocalStorage(): void {
-  [KEY_ASETS, KEY_PEMINJAMANS, KEY_PEMUSNAHANS, KEY_PEMELIHARAAN, KEY_BHP, KEY_PENGAMBILAN_BHP, KEY_AUDIT_LOGS].forEach(key => {
+  [KEY_ASETS, KEY_PEMINJAMANS, KEY_PEMUSNAHANS, KEY_PEMELIHARAAN, KEY_OPNAME, KEY_BHP, KEY_PENGAMBILAN_BHP, KEY_AUDIT_LOGS].forEach(key => {
     try {
       const raw = localStorage.getItem(key);
       if (raw) {
@@ -102,6 +103,7 @@ if (!localStorage.getItem(KEY_INITIALIZED)) {
   if (!localStorage.getItem(KEY_PEMINJAMANS)) safeSetStorage(KEY_PEMINJAMANS, []);
   if (!localStorage.getItem(KEY_PEMUSNAHANS)) safeSetStorage(KEY_PEMUSNAHANS, []);
   if (!localStorage.getItem(KEY_PEMELIHARAAN)) safeSetStorage(KEY_PEMELIHARAAN, []);
+  if (!localStorage.getItem(KEY_OPNAME)) safeSetStorage(KEY_OPNAME, []);
   if (!localStorage.getItem(KEY_BHP)) safeSetStorage(KEY_BHP, []);
   if (!localStorage.getItem(KEY_PENGAMBILAN_BHP)) safeSetStorage(KEY_PENGAMBILAN_BHP, []);
   if (!localStorage.getItem(KEY_AUDIT_LOGS)) safeSetStorage(KEY_AUDIT_LOGS, []);
@@ -146,12 +148,13 @@ if (!localPengaturan) {
 // Dynamic API client that handles syncs
 export const api = {
   // Get all data
-  async getAll(): Promise<{ asets: Aset[]; peminjamans: Peminjaman[]; pemusnahans: LogPemusnahan[]; pemeliharaans: LogPemeliharaan[]; pengaturan: PengaturanSekolah; bhp: BarangHabisPakai[]; pengambilanBhp: PengambilanBHP[]; keluhan: KeluhanSarpras[] }> {
+  async getAll(): Promise<{ asets: Aset[]; peminjamans: Peminjaman[]; pemusnahans: LogPemusnahan[]; pemeliharaans: LogPemeliharaan[]; opnameEntries: OpnameEntry[]; pengaturan: PengaturanSekolah; bhp: BarangHabisPakai[]; pengambilanBhp: PengambilanBHP[]; keluhan: KeluhanSarpras[] }> {
     // Ambil data lokal saat ini
     const localAsets: Aset[] = JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
     const localPeminjamans: Peminjaman[] = JSON.parse(localStorage.getItem(KEY_PEMINJAMANS) || '[]');
     const localPemusnahans: LogPemusnahan[] = JSON.parse(localStorage.getItem(KEY_PEMUSNAHANS) || '[]');
     const localPemeliharaans: LogPemeliharaan[] = JSON.parse(localStorage.getItem(KEY_PEMELIHARAAN) || '[]');
+    const localOpnameEntries: OpnameEntry[] = JSON.parse(localStorage.getItem(KEY_OPNAME) || '[]');
     const localBhp: BarangHabisPakai[] = JSON.parse(localStorage.getItem(KEY_BHP) || '[]');
     const localPengambilanBhp: PengambilanBHP[] = JSON.parse(localStorage.getItem(KEY_PENGAMBILAN_BHP) || '[]');
     const localKeluhan: KeluhanSarpras[] = JSON.parse(localStorage.getItem(KEY_KELUHAN) || '[]');
@@ -177,6 +180,7 @@ export const api = {
           const mergedPeminjamans = mergeById(clientData.peminjamans, localPeminjamans);
           const mergedPemusnahans = mergeById(clientData.pemusnahans, localPemusnahans);
           const mergedPemeliharaans = mergeById(clientData.pemeliharaans, localPemeliharaans);
+          const mergedOpnameEntries = mergeById(clientData.opnameEntries, localOpnameEntries);
           const mergedBhp = mergeById(clientData.bhp, localBhp);
           const mergedPengambilanBhp = mergeById(clientData.pengambilanBhp, localPengambilanBhp);
           const mergedKeluhan = mergeById(clientData.keluhan, localKeluhan);
@@ -185,6 +189,7 @@ export const api = {
           safeSetStorage(KEY_PEMINJAMANS, mergedPeminjamans);
           safeSetStorage(KEY_PEMUSNAHANS, mergedPemusnahans);
           safeSetStorage(KEY_PEMELIHARAAN, mergedPemeliharaans);
+          safeSetStorage(KEY_OPNAME, mergedOpnameEntries);
           safeSetStorage(KEY_PENGATURAN, mergedPengaturan);
           safeSetStorage(KEY_BHP, mergedBhp);
           safeSetStorage(KEY_PENGAMBILAN_BHP, mergedPengambilanBhp);
@@ -195,6 +200,7 @@ export const api = {
             peminjamans: mergedPeminjamans,
             pemusnahans: mergedPemusnahans,
             pemeliharaans: mergedPemeliharaans,
+            opnameEntries: mergedOpnameEntries,
             pengaturan: mergedPengaturan,
             bhp: mergedBhp,
             pengambilanBhp: mergedPengambilanBhp,
@@ -216,6 +222,7 @@ export const api = {
       peminjamans: JSON.parse(localStorage.getItem(KEY_PEMINJAMANS) || '[]'),
       pemusnahans: JSON.parse(localStorage.getItem(KEY_PEMUSNAHANS) || '[]'),
       pemeliharaans: JSON.parse(localStorage.getItem(KEY_PEMELIHARAAN) || '[]'),
+      opnameEntries: JSON.parse(localStorage.getItem(KEY_OPNAME) || '[]'),
       pengaturan: offlinePengaturan,
       bhp: JSON.parse(localStorage.getItem(KEY_BHP) || '[]'),
       pengambilanBhp: JSON.parse(localStorage.getItem(KEY_PENGAMBILAN_BHP) || '[]'),
@@ -457,6 +464,45 @@ export const api = {
         await deleteDocumentClient('pemeliharaans', id);
       } catch (e) {
         console.error('[API] Gagal menghapus pemeliharaan di Firebase Client:', e);
+      }
+    }
+
+    return filtered;
+  },
+
+  // Save/Update Opname 2026 (Sensus Fisik BMD)
+  async saveOpnameEntry(entry: OpnameEntry): Promise<OpnameEntry[]> {
+    const local: OpnameEntry[] = JSON.parse(localStorage.getItem(KEY_OPNAME) || '[]');
+    const index = local.findIndex(x => x.id === entry.id);
+    if (index >= 0) {
+      local[index] = entry;
+    } else {
+      local.push(entry);
+    }
+    safeSetStorage(KEY_OPNAME, local);
+
+    if (isFirebaseClientConfigured()) {
+      try {
+        await saveDocumentClient('opname_2026', entry.id, entry);
+      } catch (e) {
+        console.error('[API] Gagal menyimpan data opname ke Firebase Client:', e);
+      }
+    }
+
+    return local;
+  },
+
+  // Delete Opname Entry
+  async deleteOpnameEntry(id: string): Promise<OpnameEntry[]> {
+    const local: OpnameEntry[] = JSON.parse(localStorage.getItem(KEY_OPNAME) || '[]');
+    const filtered = local.filter(x => x.id !== id);
+    safeSetStorage(KEY_OPNAME, filtered);
+
+    if (isFirebaseClientConfigured()) {
+      try {
+        await deleteDocumentClient('opname_2026', id);
+      } catch (e) {
+        console.error('[API] Gagal menghapus data opname di Firebase Client:', e);
       }
     }
 
@@ -804,6 +850,7 @@ export const api = {
       peminjamans: JSON.parse(localStorage.getItem(KEY_PEMINJAMANS) || '[]'),
       pemusnahans: JSON.parse(localStorage.getItem(KEY_PEMUSNAHANS) || '[]'),
       pemeliharaans: JSON.parse(localStorage.getItem(KEY_PEMELIHARAAN) || '[]'),
+      opnameEntries: JSON.parse(localStorage.getItem(KEY_OPNAME) || '[]'),
       bhp: JSON.parse(localStorage.getItem(KEY_BHP) || '[]'),
       pengambilanBhp: JSON.parse(localStorage.getItem(KEY_PENGAMBILAN_BHP) || '[]'),
       pengaturan: JSON.parse(localStorage.getItem(KEY_PENGATURAN) || JSON.stringify(DEFAULT_PENGATURAN)),
@@ -832,6 +879,9 @@ export const api = {
       }
       if (Array.isArray(data.pemeliharaans)) {
         safeSetStorage(KEY_PEMELIHARAAN, data.pemeliharaans);
+      }
+      if (Array.isArray(data.opnameEntries)) {
+        safeSetStorage(KEY_OPNAME, data.opnameEntries);
       }
       if (Array.isArray(data.bhp)) {
         safeSetStorage(KEY_BHP, data.bhp);
