@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { OpnameEntry, OpnameMasterItem, KondisiAset, StatusPenguasaan, PengaturanSekolah } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search, X, Camera, Check, Loader2, ClipboardCheck, ChevronRight,
-  Trash2, ListChecks, FileArchive
+  Trash2, ListChecks, FileArchive, FolderOpen
 } from 'lucide-react';
 import { exportLaporanOpnameZip } from '../utils/opnameLaporanExport';
 
@@ -81,9 +81,6 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
       setIsExportingLaporan(false);
     }
   };
-
-  const foto1Ref = useRef<HTMLInputElement>(null);
-  const foto2Ref = useRef<HTMLInputElement>(null);
 
   const opnameByRefId = useMemo(() => {
     const map = new Map<string, OpnameEntry>();
@@ -422,34 +419,53 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
               <div className="mb-3 grid grid-cols-2 gap-2.5">
                 {([1, 2] as const).map(slot => {
                   const val = slot === 1 ? form.foto1 : form.foto2;
-                  const ref = slot === 1 ? foto1Ref : foto2Ref;
                   return (
                     <div key={slot}>
                       <label className="block text-[10px] font-semibold text-slate-500 mb-1">Foto {slot} {slot === 1 ? '(Tampak Depan)' : '(Kondisi/Detail)'}</label>
-                      <input
-                        ref={ref}
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className="hidden"
-                        onChange={(e) => handleFotoChange(slot, e.target.files?.[0] || null)}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => ref.current?.click()}
-                        className="w-full aspect-4/3 rounded-xl border-2 border-dashed border-slate-200 hover:border-teal-400 flex items-center justify-center overflow-hidden relative cursor-pointer bg-slate-50"
-                      >
-                        {isUploadingFoto === slot ? (
+                      {isUploadingFoto === slot ? (
+                        <div className="w-full aspect-4/3 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50">
                           <Loader2 size={22} className="animate-spin text-teal-500" />
-                        ) : val ? (
+                        </div>
+                      ) : val ? (
+                        <div className="relative w-full aspect-4/3 rounded-xl overflow-hidden border border-slate-200">
                           <img src={val} alt={`Foto ${slot}`} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="flex flex-col items-center gap-1 text-slate-400">
-                            <Camera size={20} />
-                            <span className="text-[10px] font-semibold">Ambil Foto</span>
+                          <button
+                            type="button"
+                            onClick={() => setForm(prev => ({ ...prev, [slot === 1 ? 'foto1' : 'foto2']: undefined }))}
+                            className="absolute top-1 right-1 p-1 bg-rose-600 hover:bg-rose-700 text-white rounded-full shadow-md transition z-10 cursor-pointer"
+                            title="Hapus foto"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-full aspect-4/3 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 p-2 bg-slate-50">
+                          <Camera size={18} className="text-slate-300" />
+                          <div className="flex items-center gap-1.5 w-full">
+                            <label className="flex-1 py-1.5 px-1 bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-600 text-[9.5px] font-bold rounded-lg flex items-center justify-center gap-1 cursor-pointer transition border border-slate-200" title="Pilih dari Galeri / Folder HP">
+                              <FolderOpen size={11} className="shrink-0 text-slate-500" />
+                              <span>Galeri</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => handleFotoChange(slot, e.target.files?.[0] || null)}
+                              />
+                            </label>
+                            <label className="flex-1 py-1.5 px-1 bg-teal-600 hover:bg-teal-700 text-white text-[9.5px] font-bold rounded-lg flex items-center justify-center gap-1 cursor-pointer transition shadow-xs" title="Ambil foto langsung dengan Kamera HP">
+                              <Camera size={11} className="shrink-0" />
+                              <span>Kamera</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                className="hidden"
+                                onChange={(e) => handleFotoChange(slot, e.target.files?.[0] || null)}
+                              />
+                            </label>
                           </div>
-                        )}
-                      </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
