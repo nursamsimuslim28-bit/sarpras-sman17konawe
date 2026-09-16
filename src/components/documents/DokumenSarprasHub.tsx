@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PengaturanSekolah, Aset } from '../../types';
+import { PengaturanSekolah, Aset, MasterRuang } from '../../types';
 import { 
   DEFAULT_PROGRAM_KERJA,
   DEFAULT_RAB,
@@ -47,11 +47,12 @@ interface Props {
   asets: Aset[];
   keluhanList?: KeluhanSarpras[];
   onRefresh?: () => void;
+  masterRuangs?: MasterRuang[];
 }
 
 type SubDocType = 'progja' | 'rab' | 'pemeliharaan' | 'laporan_berkala' | 'penghapusan' | 'sarpras_khusus' | 'keluhan' | 'blanko_kib';
 
-export default function DokumenSarprasHub({ pengaturan, asets, keluhanList = [], onRefresh = () => {} }: Props) {
+export default function DokumenSarprasHub({ pengaturan, asets, keluhanList = [], onRefresh = () => {}, masterRuangs = [] }: Props) {
   const [activeSubDoc, setActiveSubDoc] = useState<SubDocType>('progja');
 
   const navItems: { id: SubDocType; title: string; subtitle: string; icon: React.ReactNode; tag: string }[] = [
@@ -198,10 +199,11 @@ export default function DokumenSarprasHub({ pengaturan, asets, keluhanList = [],
         )}
 
         {activeSubDoc === 'keluhan' && (
-          <KeluhanDoc 
-            pengaturan={pengaturan} 
-            keluhanList={keluhanList} 
-            onRefresh={onRefresh} 
+          <KeluhanDoc
+            pengaturan={pengaturan}
+            keluhanList={keluhanList}
+            onRefresh={onRefresh}
+            masterRuangs={masterRuangs}
           />
         )}
 

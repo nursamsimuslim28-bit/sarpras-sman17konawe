@@ -760,11 +760,12 @@ export default function App() {
         return <BarcodeTab asets={asets} logoUrl={pengaturan.logoUrl} namaSekolah={pengaturan.namaSekolah} />;
       case 'dokumen_sarpras':
         return (
-          <DokumenSarprasHub 
-            pengaturan={pengaturan} 
-            asets={asets} 
+          <DokumenSarprasHub
+            pengaturan={pengaturan}
+            asets={asets}
             keluhanList={keluhan}
             onRefresh={() => loadAllData(false)}
+            masterRuangs={masterRuangs}
           />
         );
       case 'laporan':
