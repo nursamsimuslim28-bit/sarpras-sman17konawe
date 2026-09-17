@@ -1,4 +1,5 @@
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import { SULTRA_LOGO_BASE64 } from '../assets/logoBase64';
 import {
   Document,
   Packer,
@@ -188,7 +189,8 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
         groupLabel: 'Dokumen Gedung',
         cols: [
           { label: 'Tanggal', width: 12, get: blank },
-          { label: 'Nomor', width: 12, get: blank }
+          { label: 'Nomor', width: 12, get: blank },
+          { label: 'Luas (M2)', width: 12, get: blank }
         ]
       },
       { groupLabel: 'Status Tanah', cols: [{ label: 'Status Tanah', width: 12, get: blank }] },
@@ -237,36 +239,60 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
 
 // ============ COVER SHEET ============
 
-function buildCoverSheet(pengaturan: PengaturanSekolah, kib: KibKey): XLSX.WorkSheet {
+const THIN_BORDER: Partial<ExcelJS.Borders> = {
+  top: { style: 'thin', color: { argb: 'FF000000' } },
+  left: { style: 'thin', color: { argb: 'FF000000' } },
+  bottom: { style: 'thin', color: { argb: 'FF000000' } },
+  right: { style: 'thin', color: { argb: 'FF000000' } }
+};
+const CENTER: Partial<ExcelJS.Alignment> = { horizontal: 'center', vertical: 'middle', wrapText: true };
+const LEFT_MID: Partial<ExcelJS.Alignment> = { horizontal: 'left', vertical: 'middle' };
+
+function addLogo(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet) {
+  try {
+    const imgId = wb.addImage({ base64: SULTRA_LOGO_BASE64, extension: 'png' });
+    ws.addImage(imgId, { tl: { col: 0.15, row: 0.15 }, ext: { width: 64, height: 64 } });
+  } catch (e) {
+    // logo opsional - jangan gagalkan seluruh export jika gambar bermasalah
+  }
+}
+
+function addCoverSheet(wb: ExcelJS.Workbook, pengaturan: PengaturanSekolah, kib: KibKey) {
+  const ws = wb.addWorksheet('cover');
+  ws.getColumn(1).width = 14;
+  for (let c = 2; c <= 10; c++) ws.getColumn(c).width = 12;
   const tahun = new Date().getFullYear();
-  const rows: any[][] = [
-    [], [], [], [], [], [], [], [],
-    ['PEMERINTAH PROVINSI SULAWESI TENGGARA'],
-    ['DINAS PENDIDIKAN DAN KEBUDAYAAN'],
-    [(pengaturan.namaSekolah || 'SMA Negeri 17 Konawe').toUpperCase()],
-    [], [],
-    [`LAPORAN HASIL INVENTARISASI DAN PENILAIAN BMD ${tahun}`],
-    [`KARTU INVENTARIS BARANG (KIB) ${kib}`],
-    [`SAMPAI DENGAN TANGGAL 31 DESEMBER ${tahun}`],
-    [], [], [],
-    [`NPSN: ${pengaturan.npsn || '-'}`],
-    [`Alamat: ${pengaturan.alamat || '-'}`]
-  ];
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!merges'] = rows.map((_r, idx) => ({ s: { r: idx, c: 0 }, e: { r: idx, c: 10 } }));
-  ws['!cols'] = [{ wch: 14 }];
-  return ws;
+
+  addLogo(wb, ws);
+
+  const titleRow = (r: number, text: string, size = 12, bold = true) => {
+    ws.mergeCells(r, 1, r, 10);
+    const cell = ws.getCell(r, 1);
+    cell.value = text;
+    cell.font = { bold, size, name: 'Arial' };
+    cell.alignment = CENTER;
+  };
+
+  titleRow(9, 'PEMERINTAH PROVINSI SULAWESI TENGGARA', 13);
+  titleRow(10, 'DINAS PENDIDIKAN DAN KEBUDAYAAN', 12);
+  titleRow(11, (pengaturan.namaSekolah || 'SMA Negeri 17 Konawe').toUpperCase(), 12);
+  titleRow(13, `LAPORAN HASIL INVENTARISASI DAN PENILAIAN BMD ${tahun}`, 14);
+  titleRow(14, `KARTU INVENTARIS BARANG (KIB) ${kib}`, 12, false);
+  titleRow(15, `SAMPAI DENGAN TANGGAL 31 DESEMBER ${tahun}`, 11, false);
+  titleRow(18, `NPSN: ${pengaturan.npsn || '-'}`, 10, false);
+  titleRow(19, `Alamat: ${pengaturan.alamat || '-'}`, 10, false);
 }
 
 // ============ EXCEL PER-KIB (KARTU INVENTARIS BARANG HASIL SENSUS) - replika format resmi ============
 
-function buildKibWorkbook(
+function addKibWorksheet(
+  wb: ExcelJS.Workbook,
   kib: KibKey,
   pengaturan: PengaturanSekolah,
   masterList: OpnameMasterItem[],
   entries: OpnameEntry[],
   tally: Tally
-): ArrayBuffer {
+) {
   const entryByRefId = new Map(entries.map(e => [e.refId, e]));
   const leadingGroups = leadingGroupsFor(kib);
   const leadingColCount = leadingGroups.reduce((n, g) => n + g.cols.length, 0);
@@ -274,59 +300,97 @@ function buildKibWorkbook(
   const KONDISI_COL_COUNT = KONDISI_CODES.length * 2; // kode, Nilai
   const totalCols = leadingColCount + SENSUS_COL_COUNT + KONDISI_COL_COUNT;
 
-  const kopRows: any[][] = [
-    ['PEMERINTAH PROVINSI SULAWESI TENGGARA'],
-    ['DINAS PENDIDIKAN DAN KEBUDAYAAN'],
-    [(pengaturan.namaSekolah || 'SMA Negeri 17 Konawe').toUpperCase()],
-    [KIB_TITLE[kib]],
-    [`OPD : ${pengaturan.namaSekolah || '-'}`],
-    [`PROVINSI : Sulawesi Tenggara`],
-    [`ALAMAT : ${pengaturan.alamat || '-'}`],
-    []
+  const ws = wb.addWorksheet(`KIB ${kib} Hasil Sensus`);
+  addLogo(wb, ws);
+
+  const kopLines = [
+    { text: 'PEMERINTAH PROVINSI SULAWESI TENGGARA', size: 13, bold: true, center: true },
+    { text: 'DINAS PENDIDIKAN DAN KEBUDAYAAN', size: 12, bold: true, center: true },
+    { text: (pengaturan.namaSekolah || 'SMA Negeri 17 Konawe').toUpperCase(), size: 12, bold: true, center: true },
+    { text: KIB_TITLE[kib], size: 11, bold: true, center: true },
+    { text: '', size: 10, bold: false, center: false },
+    { text: `OPD           : ${pengaturan.namaSekolah || '-'}`, size: 10, bold: false, center: false },
+    { text: `PROVINSI      : Sulawesi Tenggara`, size: 10, bold: false, center: false },
+    { text: `ALAMAT        : ${pengaturan.alamat || '-'}`, size: 10, bold: false, center: false },
+    { text: '', size: 10, bold: false, center: false }
   ];
+  kopLines.forEach((line, idx) => {
+    const r = idx + 1;
+    ws.mergeCells(r, 1, r, totalCols);
+    const cell = ws.getCell(r, 1);
+    cell.value = line.text;
+    cell.font = { bold: line.bold, size: line.size, name: 'Arial' };
+    cell.alignment = line.center ? CENTER : LEFT_MID;
+  });
 
-  const HEADER_ROWS = 4; // grup, sub-grup, nomor, jml/nilai/tanpaNilai
-  const headerBase = kopRows.length; // baris awal blok header tabel (0-based)
+  const headerBase = kopLines.length + 1; // baris pertama header tabel (1-based)
+  const r1 = headerBase, r2 = headerBase + 1, r3 = headerBase + 2, r4 = headerBase + 3;
 
-  // Row 1 (grup): leading group labels (merge horizontal jika group.cols>1, vertikal 2 baris jika 1 kolom) + "Hasil Sensus" (merge horizontal semua kolom trailing)
-  const row1: any[] = [];
-  const row2: any[] = [];
+  // ---- Baris grup (r1) & sub-grup (r2) untuk kolom depan ----
+  let c = 1;
   leadingGroups.forEach(g => {
-    row1.push(g.groupLabel);
-    for (let i = 1; i < g.cols.length; i++) row1.push('');
-    if (g.cols.length > 1) {
-      g.cols.forEach(c => row2.push(c.label));
+    const span = g.cols.length;
+    if (span > 1) {
+      ws.mergeCells(r1, c, r1, c + span - 1);
+      g.cols.forEach((col, i) => {
+        const cell = ws.getCell(r2, c + i);
+        cell.value = col.label;
+      });
     } else {
-      row2.push(''); // akan di-merge vertikal dengan row1
+      ws.mergeCells(r1, c, r2, c);
     }
+    const groupCell = ws.getCell(r1, c);
+    groupCell.value = g.groupLabel;
+    c += span;
   });
-  row1.push('Hasil Sensus');
-  for (let i = 1; i < SENSUS_COL_COUNT + KONDISI_COL_COUNT; i++) row1.push('');
+
+  // ---- "Hasil Sensus" super header ----
+  ws.mergeCells(r1, c, r1, totalCols);
+  ws.getCell(r1, c).value = 'Hasil Sensus';
+  let sc = c;
   SENSUS_CATEGORIES.forEach(cat => {
-    row2.push(cat.label, '', '');
+    ws.mergeCells(r2, sc, r2, sc + 2);
+    ws.getCell(r2, sc).value = cat.label;
+    sc += 3;
   });
-  row2.push('Kondisi (B/KB/RB)');
-  for (let i = 1; i < KONDISI_COL_COUNT; i++) row2.push('');
+  ws.mergeCells(r2, sc, r2, sc + KONDISI_COL_COUNT - 1);
+  ws.getCell(r2, sc).value = 'Kondisi (B/KB/RB)';
 
-  // Row 3 (nomor urut kolom, hanya untuk leading columns)
-  const row3: any[] = [];
-  for (let i = 1; i <= leadingColCount; i++) row3.push(i);
-  for (let i = 0; i < SENSUS_COL_COUNT + KONDISI_COL_COUNT; i++) row3.push('');
+  // ---- Baris nomor urut resmi (r3) ----
+  for (let i = 0; i < leadingColCount; i++) ws.getCell(r3, i + 1).value = i + 1;
 
-  // Row 4 (Jml/Nilai/Tanpa Nilai per kategori sensus, kode/Nilai per kondisi)
-  const row4: any[] = [];
-  for (let i = 0; i < leadingColCount; i++) row4.push('');
-  SENSUS_CATEGORIES.forEach(() => row4.push('Jml', 'Nilai', 'Tanpa Nilai'));
-  KONDISI_CODES.forEach(k => row4.push(k.code, 'Nilai'));
+  // ---- Baris Jml/Nilai/Tanpa Nilai & kode kondisi (r4) ----
+  let c4 = leadingColCount + 1;
+  SENSUS_CATEGORIES.forEach(() => {
+    ws.getCell(r4, c4).value = 'Jml';
+    ws.getCell(r4, c4 + 1).value = 'Nilai';
+    ws.getCell(r4, c4 + 2).value = 'Tanpa Nilai';
+    c4 += 3;
+  });
+  KONDISI_CODES.forEach(k => {
+    ws.getCell(r4, c4).value = k.code;
+    ws.getCell(r4, c4 + 1).value = 'Nilai';
+    c4 += 2;
+  });
 
-  const rows: any[][] = [...kopRows, row1, row2, row3, row4];
+  // Styling header (r1-r4)
+  for (let r = r1; r <= r4; r++) {
+    for (let cc = 1; cc <= totalCols; cc++) {
+      const cell = ws.getCell(r, cc);
+      cell.border = THIN_BORDER;
+      cell.alignment = CENTER;
+      cell.font = { bold: true, size: 9, name: 'Arial' };
+    }
+  }
 
+  // ---- Baris data ----
+  let rowIdx = r4 + 1;
   masterList.forEach((m, idx) => {
     const entry = entryByRefId.get(m.id);
     const harga = fmtRupiah(m.harga || 0);
 
     const leadingVals: any[] = [];
-    leadingGroups.forEach(g => g.cols.forEach(c => leadingVals.push(c.get(m, pengaturan) as any)));
+    leadingGroups.forEach(g => g.cols.forEach(col => leadingVals.push(col.get(m, pengaturan) as any)));
     if (typeof leadingVals[0] !== 'number') leadingVals[0] = m.no || idx + 1;
 
     const sensusVals: any[] = new Array(SENSUS_COL_COUNT).fill('');
@@ -334,7 +398,7 @@ function buildKibWorkbook(
 
     if (entry) {
       const statusKey = statusKeyForEntry(entry);
-      const catIdx = SENSUS_CATEGORIES.findIndex(c => c.key === statusKey);
+      const catIdx = SENSUS_CATEGORIES.findIndex(cat => cat.key === statusKey);
       if (catIdx >= 0) {
         sensusVals[catIdx * 3] = 1;
         if (harga > 0) sensusVals[catIdx * 3 + 1] = harga;
@@ -348,74 +412,50 @@ function buildKibWorkbook(
       }
     }
 
-    rows.push([...leadingVals, ...sensusVals, ...kondisiVals]);
+    const rowVals = [...leadingVals, ...sensusVals, ...kondisiVals];
+    const row = ws.getRow(rowIdx);
+    rowVals.forEach((v, i) => { row.getCell(i + 1).value = v as any; });
+    for (let cc = 1; cc <= totalCols; cc++) {
+      const cell = row.getCell(cc);
+      cell.border = THIN_BORDER;
+      cell.font = { size: 9, name: 'Arial' };
+      cell.alignment = cc <= leadingColCount ? { vertical: 'middle', wrapText: true } : { horizontal: 'center', vertical: 'middle' };
+    }
+    rowIdx++;
   });
 
-  // Baris JUMLAH
-  const totalRow: any[] = new Array(leadingColCount).fill('');
-  totalRow[0] = 'JUMLAH';
+  // ---- Baris JUMLAH ----
+  const totalRowIdx = rowIdx;
+  ws.mergeCells(totalRowIdx, 1, totalRowIdx, Math.max(1, leadingColCount));
+  ws.getCell(totalRowIdx, 1).value = 'JUMLAH';
+  let tc = leadingColCount + 1;
   SENSUS_CATEGORIES.forEach(cat => {
     const st = tally.status[cat.key];
-    totalRow.push(st.jml, st.nilai, st.tanpaNilai);
+    ws.getCell(totalRowIdx, tc).value = st.jml;
+    ws.getCell(totalRowIdx, tc + 1).value = st.nilai;
+    ws.getCell(totalRowIdx, tc + 2).value = st.tanpaNilai;
+    tc += 3;
   });
   KONDISI_CODES.forEach(k => {
     const kt = tally.kondisi[k.code];
-    totalRow.push(kt.jml, kt.nilai);
+    ws.getCell(totalRowIdx, tc).value = kt.jml;
+    ws.getCell(totalRowIdx, tc + 1).value = kt.nilai;
+    tc += 2;
   });
-  rows.push(totalRow);
-
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-
-  const merges: XLSX.Range[] = [];
-  // Kop surat (baris 0-6) full-width merge
-  for (let r = 0; r < kopRows.length - 1; r++) {
-    merges.push({ s: { r, c: 0 }, e: { r, c: totalCols - 1 } });
+  for (let cc = 1; cc <= totalCols; cc++) {
+    const cell = ws.getCell(totalRowIdx, cc);
+    cell.border = THIN_BORDER;
+    cell.font = { bold: true, size: 9, name: 'Arial' };
+    cell.alignment = CENTER;
   }
 
-  const r1i = headerBase, r2i = headerBase + 1, r3i = headerBase + 2, r4i = headerBase + 3;
+  // ---- Lebar kolom ----
+  let colIdx = 1;
+  leadingGroups.forEach(g => g.cols.forEach(col => { ws.getColumn(colIdx).width = col.width; colIdx++; }));
+  for (let i = 0; i < SENSUS_COL_COUNT; i++) { ws.getColumn(colIdx).width = 9; colIdx++; }
+  for (let i = 0; i < KONDISI_COL_COUNT; i++) { ws.getColumn(colIdx).width = 7; colIdx++; }
 
-  // Merge grup leading columns
-  let c = 0;
-  leadingGroups.forEach(g => {
-    if (g.cols.length > 1) {
-      merges.push({ s: { r: r1i, c }, e: { r: r1i, c: c + g.cols.length - 1 } });
-    } else {
-      merges.push({ s: { r: r1i, c }, e: { r: r2i, c } }); // merge vertikal
-    }
-    c += g.cols.length;
-  });
-  // Merge "Hasil Sensus" super header
-  merges.push({ s: { r: r1i, c }, e: { r: r1i, c: totalCols - 1 } });
-
-  // Merge tiap kategori sensus (3 kolom) di row2
-  let sc = leadingColCount;
-  SENSUS_CATEGORIES.forEach(() => {
-    merges.push({ s: { r: r2i, c: sc }, e: { r: r2i, c: sc + 2 } });
-    sc += 3;
-  });
-  // Merge "Kondisi (B/KB/RB)" - satu label membentang semua kolom kondisi
-  merges.push({ s: { r: r2i, c: sc }, e: { r: r2i, c: sc + KONDISI_COL_COUNT - 1 } });
-  sc += KONDISI_COL_COUNT;
-
-  // Merge baris JUMLAH label (kolom leading selain kolom pertama)
-  const jumlahRowIdx = rows.length - 1;
-  if (leadingColCount > 1) {
-    merges.push({ s: { r: jumlahRowIdx, c: 0 }, e: { r: jumlahRowIdx, c: leadingColCount - 1 } });
-  }
-
-  ws['!merges'] = merges;
-  ws['!cols'] = [
-    ...leadingGroups.flatMap(g => g.cols.map(col => ({ wch: col.width }))),
-    ...Array.from({ length: SENSUS_COL_COUNT }, () => ({ wch: 10 })),
-    ...Array.from({ length: KONDISI_COL_COUNT }, () => ({ wch: 8 }))
-  ];
-
-  void row3; void row4;
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, buildCoverSheet(pengaturan, kib), 'cover');
-  XLSX.utils.book_append_sheet(wb, ws, `KIB ${kib} Hasil Sensus`);
-  return XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
+  ws.views = [{ state: 'frozen', xSplit: leadingColCount, ySplit: r4 }];
 }
 
 // ============ SURAT LAPORAN NARATIF (DOCX) - 6 tabel terpisah sesuai format resmi ============
@@ -735,7 +775,10 @@ export async function exportLaporanOpnameZip(
 
     if (masterList.length === 0) continue;
 
-    const xlsxBuffer = buildKibWorkbook(kib, pengaturan, masterList, entries, tally);
+    const wb = new ExcelJS.Workbook();
+    addCoverSheet(wb, pengaturan, kib);
+    addKibWorksheet(wb, kib, pengaturan, masterList, entries, tally);
+    const xlsxBuffer = await wb.xlsx.writeBuffer();
     zip.folder(`KIB_${kib}`)!.file(`KIB_${kib}.xlsx`, xlsxBuffer);
 
     addFotoToZip(zip, kib, masterList, entries);
