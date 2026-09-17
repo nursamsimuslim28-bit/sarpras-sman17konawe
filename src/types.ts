@@ -208,9 +208,14 @@ export interface OpnameMasterItem {
   bahan?: string;
   asalUsul?: string;
   judulPencipta?: string; // khusus KIB E (buku)
-  konstruksi?: string; // khusus KIB C
+  konstruksi?: string; // khusus KIB C — nilai kolom "Beton/Tidak"
   letakLokasi?: string; // khusus KIB C
   luasLantai?: string; // khusus KIB C
+  kondisiBangunan?: string; // khusus KIB C — "Baik"/"Rusak Ringan"/"Rusak Berat"
+  bertingkat?: string; // khusus KIB C — "Tidak"/"Bertingkat"
+  dokumenTanggal?: string; // khusus KIB C — tanggal SK/kontrak gedung
+  dokumenNomor?: string; // khusus KIB C — nomor SK/kontrak gedung
+  statusTanah?: string; // khusus KIB C
 }
 
 export interface OpnameFotoUnit {

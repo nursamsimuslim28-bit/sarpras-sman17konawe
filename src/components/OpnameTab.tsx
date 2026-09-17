@@ -3,9 +3,10 @@ import { OpnameEntry, OpnameFotoUnit, OpnameMasterItem, KondisiAset, StatusPengu
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search, X, Camera, Check, Loader2, ClipboardCheck, ChevronRight,
-  Trash2, ListChecks, FileArchive, FolderOpen
+  Trash2, ListChecks, FileArchive, FolderOpen, ScanBarcode
 } from 'lucide-react';
 import { exportLaporanOpnameZip } from '../utils/opnameLaporanExport';
+import QRScanner from './QRScanner';
 
 interface OpnameTabProps {
   opnameMasterList: OpnameMasterItem[];
@@ -97,6 +98,7 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
   const [isUploadingFoto, setIsUploadingFoto] = useState<{ unit: number; slot: 1 | 2 } | null>(null);
   const [isExportingLaporan, setIsExportingLaporan] = useState(false);
   const [zoomFoto, setZoomFoto] = useState<{ src: string; label: string } | null>(null);
+  const [scanUnitIdx, setScanUnitIdx] = useState<number | null>(null);
 
   const handleExportLaporan = async () => {
     if (opnameMasterList.length === 0) {
@@ -510,13 +512,24 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                     {selectedItem.kib === 'B' && (
                       <div className="mb-2">
                         <label className="block text-[10px] font-semibold text-slate-500 mb-1">Nomor Seri/Pabrik (wajib untuk alat elektronik)</label>
-                        <input
-                          type="text"
-                          value={unit.nomorSeri || ''}
-                          onChange={(e) => handleNomorSeriChange(unitIdx, e.target.value)}
-                          placeholder="Contoh: SN-2024XJ0012345"
-                          className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                        />
+                        <div className="flex gap-1.5">
+                          <input
+                            type="text"
+                            value={unit.nomorSeri || ''}
+                            onChange={(e) => handleNomorSeriChange(unitIdx, e.target.value)}
+                            placeholder="Contoh: SN-2024XJ0012345"
+                            className="flex-1 min-w-0 text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setScanUnitIdx(unitIdx)}
+                            title="Scan barcode nomor seri dengan kamera"
+                            className="shrink-0 px-3 py-2 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition flex items-center justify-center cursor-pointer"
+                          >
+                            <ScanBarcode size={18} />
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1">Scan hanya berhasil jika stiker alat punya barcode. Kalau tidak ada, ketik manual.</p>
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-2.5">
@@ -678,6 +691,20 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Scanner Barcode untuk Nomor Seri */}
+      <QRScanner
+        isOpen={scanUnitIdx !== null}
+        onClose={() => setScanUnitIdx(null)}
+        asets={[]}
+        peminjamans={[]}
+        onQuickReturn={async () => {}}
+        actionType="aset_form"
+        onSuccessCallback={(code) => {
+          if (scanUnitIdx !== null) handleNomorSeriChange(scanUnitIdx, code);
+          setScanUnitIdx(null);
+        }}
+      />
     </div>
   );
 }

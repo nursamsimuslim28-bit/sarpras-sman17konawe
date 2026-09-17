@@ -191,9 +191,9 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
       {
         groupLabel: 'Konstruksi Bangunan',
         cols: [
-          { label: 'Kondisi Bangunan (B/KB/RB)', width: 12, get: blank },
-          { label: 'Bertingkat/Tidak', width: 12, get: blank },
-          { label: 'Beton/Tidak', width: 12, get: blank },
+          { label: 'Kondisi Bangunan (B/KB/RB)', width: 12, get: m => m.kondisiBangunan || '-' },
+          { label: 'Bertingkat/Tidak', width: 12, get: m => m.bertingkat || '-' },
+          { label: 'Beton/Tidak', width: 12, get: m => m.konstruksi || '-' },
           { label: 'Luas Lantai (M2)', width: 14, get: m => m.luasLantai || '-' }
         ]
       },
@@ -201,12 +201,12 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
       {
         groupLabel: 'Dokumen Gedung',
         cols: [
-          { label: 'Tanggal', width: 12, get: blank },
-          { label: 'Nomor', width: 12, get: blank },
+          { label: 'Tanggal', width: 12, get: m => m.dokumenTanggal || '-' },
+          { label: 'Nomor', width: 12, get: m => m.dokumenNomor || '-' },
           { label: 'Luas (M2)', width: 12, get: blank }
         ]
       },
-      { groupLabel: 'Status Tanah', cols: [{ label: 'Status Tanah', width: 12, get: blank }] },
+      { groupLabel: 'Status Tanah', cols: [{ label: 'Status Tanah', width: 12, get: m => m.statusTanah || '-' }] },
       { groupLabel: 'Nomor Kode Tanah', cols: [{ label: 'Nomor Kode Tanah', width: 16, get: blank }] },
       { groupLabel: 'Asal Usul', cols: [{ label: 'Asal Usul', width: 20, get: m => m.asalUsul || '-' }] },
       { groupLabel: 'Harga Satuan', cols: [{ label: 'Harga Satuan', width: 14, get: blank }] },
