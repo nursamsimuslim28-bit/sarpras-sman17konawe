@@ -920,22 +920,43 @@ async function buildLaporanNaratifDocx(pengaturan: PengaturanSekolah, tallies: R
 
 // ============ FOTO -> ZIP ============
 
+function writeFotoPair(folder: JSZip, foto1: string | undefined, foto2: string | undefined) {
+  [foto1, foto2].forEach((foto, i) => {
+    if (!foto) return;
+    const match = foto.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (!match) return;
+    const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+    folder.file(`foto_${i + 1}.${ext}`, match[2], { base64: true });
+  });
+}
+
 function addFotoToZip(zip: JSZip, kib: KibKey, masterList: OpnameMasterItem[], entries: OpnameEntry[]) {
   const entryByRefId = new Map(entries.map(e => [e.refId, e]));
   masterList.forEach((m, idx) => {
     const entry = entryByRefId.get(m.id);
-    if (!entry || (!entry.foto1 && !entry.foto2)) return;
+    if (!entry) return;
+
+    // Unit fisik: pakai fotoUnits kalau ada, fallback ke foto1/foto2 lama (data sebelum fitur multi-unit)
+    const units = entry.fotoUnits && entry.fotoUnits.length > 0
+      ? entry.fotoUnits
+      : (entry.foto1 || entry.foto2) ? [{ foto1: entry.foto1, foto2: entry.foto2 }] : [];
+    if (units.length === 0) return;
 
     const seq = m.no || String(idx + 1);
-    const folder = zip.folder(`KIB_${kib}`)!.folder(`Foto_KIB_${kib}`)!.folder(`${kib}-${seq}`)!;
+    const baseFolder = zip.folder(`KIB_${kib}`)!.folder(`Foto_KIB_${kib}`)!.folder(`${kib}-${seq}`)!;
 
-    [entry.foto1, entry.foto2].forEach((foto, i) => {
-      if (!foto) return;
-      const match = foto.match(/^data:image\/(\w+);base64,(.+)$/);
-      if (!match) return;
-      const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-      folder.file(`foto_${i + 1}.${ext}`, match[2], { base64: true });
-    });
+    if (units.length === 1) {
+      // 1 unit fisik - foto langsung di folder KIB_X-<no>, tanpa sub-folder pecahan
+      writeFotoPair(baseFolder, units[0].foto1, units[0].foto2);
+    } else {
+      // Lebih dari 1 unit fisik yang diwakili baris data ini - pecah jadi sub-folder
+      // KIB_X-<no>.1, KIB_X-<no>.2, dst, masing-masing dengan pasangan fotonya sendiri.
+      units.forEach((u, i) => {
+        if (!u.foto1 && !u.foto2) return;
+        const unitFolder = baseFolder.folder(`${kib}-${seq}.${i + 1}`)!;
+        writeFotoPair(unitFolder, u.foto1, u.foto2);
+      });
+    }
   });
 }
 

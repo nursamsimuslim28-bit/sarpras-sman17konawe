@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { OpnameEntry, OpnameMasterItem, KondisiAset, StatusPenguasaan, PengaturanSekolah } from '../types';
+import { OpnameEntry, OpnameFotoUnit, OpnameMasterItem, KondisiAset, StatusPenguasaan, PengaturanSekolah } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search, X, Camera, Check, Loader2, ClipboardCheck, ChevronRight,
@@ -25,6 +25,26 @@ const KIB_LABEL: Record<string, string> = {
   C: 'KIB C - Gedung dan Bangunan',
   E: 'KIB E - Aset Tetap Lainnya (Buku)',
 };
+
+// Coba tebak jumlah unit fisik dari teks keterangan provinsi, mis. "...Jumlah Barang 3 Harga Satuan..."
+function guessJumlahUnit(keterangan?: string): number {
+  if (!keterangan) return 1;
+  const match = keterangan.match(/jumlah\s*(?:barang|unit)?\s*[:=]?\s*(\d+)/i);
+  if (match) {
+    const n = parseInt(match[1], 10);
+    if (n > 0 && n <= 100) return n;
+  }
+  return 1;
+}
+
+function normalizeFotoUnits(entry: Partial<OpnameEntry> | undefined, jumlahUnit: number): OpnameFotoUnit[] {
+  let units: OpnameFotoUnit[] = entry?.fotoUnits ? [...entry.fotoUnits] : [];
+  if (units.length === 0 && (entry?.foto1 || entry?.foto2)) {
+    units = [{ foto1: entry.foto1, foto2: entry.foto2 }];
+  }
+  while (units.length < jumlahUnit) units.push({});
+  return units;
+}
 
 // Kompres foto ke JPEG max 1000px agar ringan di database
 function compressImage(file: File, maxDim = 1000, quality = 0.6): Promise<string> {
@@ -63,7 +83,7 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
   const [filterStatus, setFilterStatus] = useState<'Semua' | 'Sudah' | 'Belum'>('Semua');
   const [selectedItem, setSelectedItem] = useState<OpnameMasterItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploadingFoto, setIsUploadingFoto] = useState<1 | 2 | null>(null);
+  const [isUploadingFoto, setIsUploadingFoto] = useState<{ unit: number; slot: 1 | 2 } | null>(null);
   const [isExportingLaporan, setIsExportingLaporan] = useState(false);
   const [zoomFoto, setZoomFoto] = useState<{ src: string; label: string } | null>(null);
 
@@ -119,27 +139,49 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
 
   const openForm = (item: OpnameMasterItem) => {
     const existing = opnameByRefId.get(item.id);
+    const jumlahUnit = existing?.jumlahUnit || guessJumlahUnit(item.keterangan);
     setSelectedItem(item);
-    setForm(existing ? { ...existing } : {
+    setForm(existing ? { ...existing, jumlahUnit, fotoUnits: normalizeFotoUnits(existing, jumlahUnit) } : {
       ditemukan: 'Ya',
       statusPenguasaan: 'Digunakan',
       kondisi: 'Baik',
       kodeStiker: '',
       keterangan: '',
+      jumlahUnit,
+      fotoUnits: normalizeFotoUnits(undefined, jumlahUnit),
     });
   };
 
-  const handleFotoChange = async (slot: 1 | 2, file: File | null) => {
+  const handleFotoChange = async (unitIdx: number, slot: 1 | 2, file: File | null) => {
     if (!file) return;
-    setIsUploadingFoto(slot);
+    setIsUploadingFoto({ unit: unitIdx, slot });
     try {
       const compressed = await compressImage(file);
-      setForm(prev => ({ ...prev, [slot === 1 ? 'foto1' : 'foto2']: compressed }));
+      setForm(prev => {
+        const units = [...(prev.fotoUnits || [])];
+        while (units.length <= unitIdx) units.push({});
+        units[unitIdx] = { ...units[unitIdx], [slot === 1 ? 'foto1' : 'foto2']: compressed };
+        return { ...prev, fotoUnits: units };
+      });
     } catch (e) {
       alert('Gagal memproses foto. Coba lagi.');
     } finally {
       setIsUploadingFoto(null);
     }
+  };
+
+  const handleRemoveFoto = (unitIdx: number, slot: 1 | 2) => {
+    setForm(prev => {
+      const units = [...(prev.fotoUnits || [])];
+      if (!units[unitIdx]) return prev;
+      units[unitIdx] = { ...units[unitIdx], [slot === 1 ? 'foto1' : 'foto2']: undefined };
+      return { ...prev, fotoUnits: units };
+    });
+  };
+
+  const handleJumlahUnitChange = (n: number) => {
+    const jumlahUnit = Math.max(1, Math.min(100, n || 1));
+    setForm(prev => ({ ...prev, jumlahUnit, fotoUnits: normalizeFotoUnits(prev, jumlahUnit) }));
   };
 
   const handleSave = async () => {
@@ -150,6 +192,8 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
       // ID deterministik berdasarkan refId (bukan Date.now()) - supaya kalau item yang sama
       // disimpan ulang di kondisi cache lokal sempat basi, tetap menimpa dokumen yang sama
       // di Firestore, bukan membuat dokumen duplikat baru.
+      const jumlahUnit = Math.max(1, form.jumlahUnit || 1);
+      const fotoUnits = normalizeFotoUnits(form, jumlahUnit).slice(0, jumlahUnit);
       const entry: OpnameEntry = {
         id: existing?.id || `OPN-${selectedItem.id}`,
         refId: selectedItem.id,
@@ -162,8 +206,8 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
         statusPenguasaan: form.statusPenguasaan || 'Digunakan',
         kondisi: form.kondisi || 'Baik',
         kodeStiker: form.kodeStiker || '',
-        foto1: form.foto1,
-        foto2: form.foto2,
+        jumlahUnit,
+        fotoUnits,
         keterangan: form.keterangan || '',
         petugas: activeOperator,
         updatedAt: new Date().toISOString(),
@@ -419,87 +463,114 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                 />
               </div>
 
-              {/* Foto 1 & 2 */}
-              <div className="mb-3 grid grid-cols-2 gap-2.5">
-                {([1, 2] as const).map(slot => {
-                  const val = slot === 1 ? form.foto1 : form.foto2;
-                  return (
-                    <div key={slot}>
-                      <label className="block text-[10px] font-semibold text-slate-500 mb-1">Foto {slot} {slot === 1 ? '(Tampak Depan)' : '(Kondisi/Detail)'}</label>
-                      {isUploadingFoto === slot ? (
-                        <div className="w-full aspect-4/3 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50">
-                          <Loader2 size={22} className="animate-spin text-teal-500" />
-                        </div>
-                      ) : val ? (
-                        <div className="relative w-full aspect-4/3 rounded-xl overflow-hidden border border-slate-200">
-                          <img
-                            src={val}
-                            alt={`Foto ${slot}`}
-                            onClick={() => setZoomFoto({ src: val, label: `Foto ${slot} - ${selectedItem.nama}` })}
-                            className="w-full h-full object-cover cursor-zoom-in"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setForm(prev => ({ ...prev, [slot === 1 ? 'foto1' : 'foto2']: undefined }))}
-                            className="absolute top-1 right-1 p-1 bg-rose-600 hover:bg-rose-700 text-white rounded-full shadow-md transition z-10 cursor-pointer"
-                            title="Hapus foto"
-                          >
-                            <X size={12} />
-                          </button>
-                          <div className="absolute bottom-0 left-0 right-0 flex items-center gap-1 p-1 bg-slate-900/60">
-                            <label className="flex-1 py-1 bg-white/90 hover:bg-white text-slate-700 rounded flex items-center justify-center cursor-pointer transition" title="Ganti dari Galeri">
-                              <FolderOpen size={11} />
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={(e) => handleFotoChange(slot, e.target.files?.[0] || null)}
-                              />
-                            </label>
-                            <label className="flex-1 py-1 bg-white/90 hover:bg-white text-slate-700 rounded flex items-center justify-center cursor-pointer transition" title="Ganti dengan Kamera">
-                              <Camera size={11} />
-                              <input
-                                type="file"
-                                accept="image/*"
-                                capture="environment"
-                                className="hidden"
-                                onChange={(e) => handleFotoChange(slot, e.target.files?.[0] || null)}
-                              />
-                            </label>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="w-full aspect-4/3 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 p-2 bg-slate-50">
-                          <Camera size={18} className="text-slate-300" />
-                          <div className="flex items-center gap-1.5 w-full">
-                            <label className="flex-1 py-1.5 px-1 bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-600 text-[9.5px] font-bold rounded-lg flex items-center justify-center gap-1 cursor-pointer transition border border-slate-200" title="Pilih dari Galeri / Folder HP">
-                              <FolderOpen size={11} className="shrink-0 text-slate-500" />
-                              <span>Galeri</span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={(e) => handleFotoChange(slot, e.target.files?.[0] || null)}
-                              />
-                            </label>
-                            <label className="flex-1 py-1.5 px-1 bg-teal-600 hover:bg-teal-700 text-white text-[9.5px] font-bold rounded-lg flex items-center justify-center gap-1 cursor-pointer transition shadow-xs" title="Ambil foto langsung dengan Kamera HP">
-                              <Camera size={11} className="shrink-0" />
-                              <span>Kamera</span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                capture="environment"
-                                className="hidden"
-                                onChange={(e) => handleFotoChange(slot, e.target.files?.[0] || null)}
-                              />
-                            </label>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              {/* Jumlah Unit Fisik */}
+              <div className="mb-3">
+                <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Jumlah Unit Fisik</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={form.jumlahUnit || 1}
+                  onChange={(e) => handleJumlahUnitChange(parseInt(e.target.value, 10))}
+                  className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Kalau 1 baris data ini mewakili beberapa barang fisik sekaligus (mis. "...Jumlah Barang 3..." di keterangan), isi sesuai jumlahnya - tiap unit butuh 2 foto sendiri-sendiri.
+                </p>
               </div>
+
+              {/* Foto per Unit Fisik */}
+              {Array.from({ length: Math.max(1, form.jumlahUnit || 1) }, (_, unitIdx) => {
+                const unit = form.fotoUnits?.[unitIdx] || {};
+                return (
+                  <div key={unitIdx} className="mb-3">
+                    {(form.jumlahUnit || 1) > 1 && (
+                      <p className="text-[10px] font-bold text-teal-700 uppercase tracking-wide mb-1.5">Unit {unitIdx + 1} dari {form.jumlahUnit}</p>
+                    )}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {([1, 2] as const).map(slot => {
+                        const val = slot === 1 ? unit.foto1 : unit.foto2;
+                        const isUploading = isUploadingFoto?.unit === unitIdx && isUploadingFoto?.slot === slot;
+                        return (
+                          <div key={slot}>
+                            <label className="block text-[10px] font-semibold text-slate-500 mb-1">Foto {slot} {slot === 1 ? '(Tampak Depan)' : '(Kondisi/Detail)'}</label>
+                            {isUploading ? (
+                              <div className="w-full aspect-4/3 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50">
+                                <Loader2 size={22} className="animate-spin text-teal-500" />
+                              </div>
+                            ) : val ? (
+                              <div className="relative w-full aspect-4/3 rounded-xl overflow-hidden border border-slate-200">
+                                <img
+                                  src={val}
+                                  alt={`Foto ${slot}`}
+                                  onClick={() => setZoomFoto({ src: val, label: `Unit ${unitIdx + 1} - Foto ${slot} - ${selectedItem.nama}` })}
+                                  className="w-full h-full object-cover cursor-zoom-in"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveFoto(unitIdx, slot)}
+                                  className="absolute top-1 right-1 p-1 bg-rose-600 hover:bg-rose-700 text-white rounded-full shadow-md transition z-10 cursor-pointer"
+                                  title="Hapus foto"
+                                >
+                                  <X size={12} />
+                                </button>
+                                <div className="absolute bottom-0 left-0 right-0 flex items-center gap-1 p-1 bg-slate-900/60">
+                                  <label className="flex-1 py-1 bg-white/90 hover:bg-white text-slate-700 rounded flex items-center justify-center cursor-pointer transition" title="Ganti dari Galeri">
+                                    <FolderOpen size={11} />
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(e) => handleFotoChange(unitIdx, slot, e.target.files?.[0] || null)}
+                                    />
+                                  </label>
+                                  <label className="flex-1 py-1 bg-white/90 hover:bg-white text-slate-700 rounded flex items-center justify-center cursor-pointer transition" title="Ganti dengan Kamera">
+                                    <Camera size={11} />
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      capture="environment"
+                                      className="hidden"
+                                      onChange={(e) => handleFotoChange(unitIdx, slot, e.target.files?.[0] || null)}
+                                    />
+                                  </label>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="w-full aspect-4/3 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 p-2 bg-slate-50">
+                                <Camera size={18} className="text-slate-300" />
+                                <div className="flex items-center gap-1.5 w-full">
+                                  <label className="flex-1 py-1.5 px-1 bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-600 text-[9.5px] font-bold rounded-lg flex items-center justify-center gap-1 cursor-pointer transition border border-slate-200" title="Pilih dari Galeri / Folder HP">
+                                    <FolderOpen size={11} className="shrink-0 text-slate-500" />
+                                    <span>Galeri</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(e) => handleFotoChange(unitIdx, slot, e.target.files?.[0] || null)}
+                                    />
+                                  </label>
+                                  <label className="flex-1 py-1.5 px-1 bg-teal-600 hover:bg-teal-700 text-white text-[9.5px] font-bold rounded-lg flex items-center justify-center gap-1 cursor-pointer transition shadow-xs" title="Ambil foto langsung dengan Kamera HP">
+                                    <Camera size={11} className="shrink-0" />
+                                    <span>Kamera</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      capture="environment"
+                                      className="hidden"
+                                      onChange={(e) => handleFotoChange(unitIdx, slot, e.target.files?.[0] || null)}
+                                    />
+                                  </label>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
 
               {/* Keterangan */}
               <div className="mb-5">

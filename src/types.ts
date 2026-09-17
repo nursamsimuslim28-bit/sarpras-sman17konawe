@@ -213,6 +213,11 @@ export interface OpnameMasterItem {
   luasLantai?: string; // khusus KIB C
 }
 
+export interface OpnameFotoUnit {
+  foto1?: string; // Base64 (dikompresi) - tampak depan unit fisik ini
+  foto2?: string; // Base64 (dikompresi) - kondisi/detail unit fisik ini
+}
+
 export interface OpnameEntry {
   id: string; // e.g. OPN-2026-0001
   refId: string; // id dari OpnameMasterItem (data provinsi), BUKAN id Aset aplikasi
@@ -225,8 +230,12 @@ export interface OpnameEntry {
   statusPenguasaan: StatusPenguasaan;
   kondisi: KondisiAset;
   kodeStiker?: string;
-  foto1?: string; // Base64 (dikompresi) atau URL Drive nantinya
+  /** @deprecated pakai fotoUnits - dipertahankan untuk baca data lama (jumlahUnit=1) */
+  foto1?: string;
+  /** @deprecated pakai fotoUnits */
   foto2?: string;
+  jumlahUnit?: number; // berapa unit fisik yang diwakili baris data ini (default 1)
+  fotoUnits?: OpnameFotoUnit[]; // foto per unit fisik - panjang idealnya = jumlahUnit
   keterangan?: string;
   petugas: string;
   updatedAt?: string;
