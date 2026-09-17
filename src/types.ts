@@ -245,6 +245,17 @@ export interface OpnameEntry {
   keterangan?: string;
   petugas: string;
   updatedAt?: string;
+
+  // Kolom wajib di format laporan resmi, tapi tidak ada datanya di file sumber provinsi -
+  // diisi manual oleh operator saat opname.
+  ukuranCC?: string; // khusus KIB B
+  penggunaan?: string; // khusus KIB B & KIB E
+  satuan?: string; // khusus KIB B
+  luasLantai?: number; // khusus KIB C - luas lantai bangunan (M2)
+  luasTanahDokumen?: number; // khusus KIB C - luas tanah (M2) sesuai dokumen gedung
+  nomorKodeTanah?: string; // khusus KIB C
+  hargaSatuan?: number; // khusus KIB C
+  spesifikasi?: string; // khusus KIB E
 }
 
 export const AUTHORIZED_USERS = [

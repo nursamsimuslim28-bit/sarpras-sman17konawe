@@ -233,6 +233,14 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
         keterangan: form.keterangan || '',
         petugas: activeOperator,
         updatedAt: new Date().toISOString(),
+        ukuranCC: form.ukuranCC || undefined,
+        penggunaan: form.penggunaan || undefined,
+        satuan: form.satuan || undefined,
+        luasLantai: form.luasLantai ?? undefined,
+        luasTanahDokumen: form.luasTanahDokumen ?? undefined,
+        nomorKodeTanah: form.nomorKodeTanah || undefined,
+        hargaSatuan: form.hargaSatuan ?? undefined,
+        spesifikasi: form.spesifikasi || undefined,
       };
       await onSaveOpnameEntry(entry);
       setSelectedItem(null);
@@ -484,6 +492,130 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                   className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
                 />
               </div>
+
+              {/* Kolom wajib format resmi yang tidak ada di data provinsi - diisi manual */}
+              {selectedItem.kib === 'B' && (
+                <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wide mb-2">Data Tambahan untuk Laporan Resmi (kosong di data provinsi)</p>
+                  <div className="grid grid-cols-2 gap-2.5 mb-2.5">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1">Ukuran/CC</label>
+                      <input
+                        type="text"
+                        value={form.ukuranCC || ''}
+                        onChange={(e) => setForm({ ...form, ukuranCC: e.target.value })}
+                        placeholder="Contoh: 45x35 cm"
+                        className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1">Satuan</label>
+                      <input
+                        type="text"
+                        list="satuan-options"
+                        value={form.satuan || ''}
+                        onChange={(e) => setForm({ ...form, satuan: e.target.value })}
+                        placeholder="Contoh: Unit"
+                        className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                      />
+                      <datalist id="satuan-options">
+                        <option value="Unit" />
+                        <option value="Buah" />
+                        <option value="Set" />
+                        <option value="Paket" />
+                        <option value="Pasang" />
+                        <option value="Buku" />
+                      </datalist>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">Penggunaan</label>
+                    <input
+                      type="text"
+                      value={form.penggunaan || ''}
+                      onChange={(e) => setForm({ ...form, penggunaan: e.target.value })}
+                      placeholder="Contoh: Digunakan untuk KBM"
+                      className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {selectedItem.kib === 'C' && (
+                <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wide mb-2">Data Tambahan untuk Laporan Resmi (kosong di data provinsi)</p>
+                  <div className="grid grid-cols-2 gap-2.5 mb-2.5">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1">Luas Lantai Bangunan (M2)</label>
+                      <input
+                        type="number"
+                        value={form.luasLantai ?? ''}
+                        onChange={(e) => setForm({ ...form, luasLantai: e.target.value ? parseFloat(e.target.value) : undefined })}
+                        placeholder="Contoh: 120"
+                        className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1">Luas Tanah - Dokumen (M2)</label>
+                      <input
+                        type="number"
+                        value={form.luasTanahDokumen ?? ''}
+                        onChange={(e) => setForm({ ...form, luasTanahDokumen: e.target.value ? parseFloat(e.target.value) : undefined })}
+                        placeholder="Contoh: 500"
+                        className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1">Nomor Kode Tanah</label>
+                      <input
+                        type="text"
+                        value={form.nomorKodeTanah || ''}
+                        onChange={(e) => setForm({ ...form, nomorKodeTanah: e.target.value })}
+                        placeholder="Contoh: 15.03.02.01.0001"
+                        className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1">Harga Satuan (Rp)</label>
+                      <input
+                        type="number"
+                        value={form.hargaSatuan ?? ''}
+                        onChange={(e) => setForm({ ...form, hargaSatuan: e.target.value ? parseFloat(e.target.value) : undefined })}
+                        placeholder="Contoh: 519321250"
+                        className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedItem.kib === 'E' && (
+                <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wide mb-2">Data Tambahan untuk Laporan Resmi (kosong di data provinsi)</p>
+                  <div className="mb-2.5">
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">Spesifikasi</label>
+                    <input
+                      type="text"
+                      value={form.spesifikasi || ''}
+                      onChange={(e) => setForm({ ...form, spesifikasi: e.target.value })}
+                      placeholder="Contoh: Cover keras, 250 halaman"
+                      className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">Penggunaan</label>
+                    <input
+                      type="text"
+                      value={form.penggunaan || ''}
+                      onChange={(e) => setForm({ ...form, penggunaan: e.target.value })}
+                      placeholder="Contoh: Koleksi Perpustakaan"
+                      className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Jumlah Unit Fisik */}
               <div className="mb-3">

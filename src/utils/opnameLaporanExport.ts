@@ -146,6 +146,13 @@ interface LeadingGroup {
 
 const blank = () => '-';
 
+// "Keadaan Barang (B/KB/RB)" di kolom depan KIB B mengacu ke kondisi fisik yang sudah
+// dicatat saat opname (entry.kondisi) - bukan field terpisah, supaya tidak diminta isi dobel.
+function kondisiKodeFromEntry(entry?: OpnameEntry): string {
+  const found = KONDISI_CODES.find(k => k.kondisi === entry?.kondisi);
+  return found?.code || '-';
+}
+
 function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
   if (kib === 'B') {
     return [
@@ -153,7 +160,7 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
       { groupLabel: 'Nama Barang/Jenis Aset', cols: [{ label: 'Nama Barang/Jenis Aset', width: 32, get: m => m.nama || '-' }] },
       { groupLabel: 'Nomor Register', cols: [{ label: 'Nomor Register', width: 14, get: m => m.register || '-' }] },
       { groupLabel: 'Merk/Type', cols: [{ label: 'Merk/Type', width: 18, get: m => m.merk || '-' }] },
-      { groupLabel: 'Ukuran/CC', cols: [{ label: 'Ukuran/CC', width: 10, get: blank }] },
+      { groupLabel: 'Ukuran/CC', cols: [{ label: 'Ukuran/CC', width: 10, get: (_m, _p, entry) => entry?.ukuranCC || '-' }] },
       { groupLabel: 'Bahan', cols: [{ label: 'Bahan', width: 14, get: m => m.bahan || '-' }] },
       { groupLabel: 'Tahun Pembelian', cols: [{ label: 'Tahun Pembelian', width: 10, get: m => m.tahun || '-' }] },
       {
@@ -174,10 +181,10 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
           { label: 'BPKB', width: 12, get: blank }
         ]
       },
-      { groupLabel: 'Keadaan Barang (B/KB/RB)', cols: [{ label: 'Keadaan Barang (B/KB/RB)', width: 12, get: blank }] },
+      { groupLabel: 'Keadaan Barang (B/KB/RB)', cols: [{ label: 'Keadaan Barang (B/KB/RB)', width: 12, get: (_m, _p, entry) => kondisiKodeFromEntry(entry) }] },
       { groupLabel: 'Asal Usul', cols: [{ label: 'Asal Usul', width: 20, get: m => m.asalUsul || '-' }] },
-      { groupLabel: 'Penggunaan', cols: [{ label: 'Penggunaan', width: 14, get: blank }] },
-      { groupLabel: 'Satuan', cols: [{ label: 'Satuan', width: 10, get: blank }] },
+      { groupLabel: 'Penggunaan', cols: [{ label: 'Penggunaan', width: 14, get: (_m, _p, entry) => entry?.penggunaan || '-' }] },
+      { groupLabel: 'Satuan', cols: [{ label: 'Satuan', width: 10, get: (_m, _p, entry) => entry?.satuan || '-' }] },
       { groupLabel: 'Harga', cols: [{ label: 'Harga (Rp)', width: 16, get: m => fmtRupiah(m.harga || 0), isHarga: true }] },
       { groupLabel: 'KET.', cols: [{ label: 'KET.', width: 24, get: m => m.keterangan || '-' }] }
     ];
@@ -194,7 +201,7 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
           { label: 'Kondisi Bangunan (B/KB/RB)', width: 12, get: m => m.kondisiBangunan || '-' },
           { label: 'Bertingkat/Tidak', width: 12, get: m => m.bertingkat || '-' },
           { label: 'Beton/Tidak', width: 12, get: m => m.konstruksi || '-' },
-          { label: 'Luas Lantai (M2)', width: 14, get: m => m.luasLantai || '-' }
+          { label: 'Luas Lantai (M2)', width: 14, get: (m, _p, entry) => m.luasLantai || entry?.luasLantai || '-' }
         ]
       },
       { groupLabel: 'Letak/Lokasi Alamat', cols: [{ label: 'Letak/Lokasi Alamat', width: 20, get: m => m.letakLokasi || '-' }] },
@@ -203,13 +210,13 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
         cols: [
           { label: 'Tanggal', width: 12, get: m => m.dokumenTanggal || '-' },
           { label: 'Nomor', width: 12, get: m => m.dokumenNomor || '-' },
-          { label: 'Luas (M2)', width: 12, get: blank }
+          { label: 'Luas (M2)', width: 12, get: (_m, _p, entry) => entry?.luasTanahDokumen || '-' }
         ]
       },
       { groupLabel: 'Status Tanah', cols: [{ label: 'Status Tanah', width: 12, get: m => m.statusTanah || '-' }] },
-      { groupLabel: 'Nomor Kode Tanah', cols: [{ label: 'Nomor Kode Tanah', width: 16, get: blank }] },
+      { groupLabel: 'Nomor Kode Tanah', cols: [{ label: 'Nomor Kode Tanah', width: 16, get: (_m, _p, entry) => entry?.nomorKodeTanah || '-' }] },
       { groupLabel: 'Asal Usul', cols: [{ label: 'Asal Usul', width: 20, get: m => m.asalUsul || '-' }] },
-      { groupLabel: 'Harga Satuan', cols: [{ label: 'Harga Satuan', width: 14, get: blank }] },
+      { groupLabel: 'Harga Satuan', cols: [{ label: 'Harga Satuan', width: 14, get: (_m, _p, entry) => entry?.hargaSatuan ? formatRp(entry.hargaSatuan) : '-' }] },
       { groupLabel: 'Harga (Rp)', cols: [{ label: 'Harga (Rp)', width: 16, get: m => fmtRupiah(m.harga || 0), isHarga: true }] },
       { groupLabel: 'Keterangan', cols: [{ label: 'Keterangan', width: 24, get: m => m.keterangan || '-' }] }
     ];
@@ -224,7 +231,7 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
       groupLabel: 'Buku dan Alat Perpustakaan',
       cols: [
         { label: 'Judul', width: 26, get: m => m.judulPencipta || '-' },
-        { label: 'Spesifikasi', width: 16, get: blank }
+        { label: 'Spesifikasi', width: 16, get: (_m, _p, entry) => entry?.spesifikasi || '-' }
       ]
     },
     {
@@ -244,7 +251,7 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
     },
     { groupLabel: 'Asal Usul', cols: [{ label: 'Asal Usul', width: 20, get: m => m.asalUsul || '-' }] },
     { groupLabel: 'Tahun Pembelian', cols: [{ label: 'Tahun Pembelian', width: 10, get: m => m.tahun || '-' }] },
-    { groupLabel: 'Penggunaan', cols: [{ label: 'Penggunaan', width: 14, get: blank }] },
+    { groupLabel: 'Penggunaan', cols: [{ label: 'Penggunaan', width: 14, get: (_m, _p, entry) => entry?.penggunaan || '-' }] },
     { groupLabel: 'Harga (Rp)', cols: [{ label: 'Harga (Rp)', width: 16, get: m => fmtRupiah(m.harga || 0), isHarga: true }] },
     { groupLabel: 'KET.', cols: [{ label: 'KET.', width: 24, get: m => m.keterangan || '-' }] }
   ];
