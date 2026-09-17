@@ -26,13 +26,24 @@ const KIB_LABEL: Record<string, string> = {
   E: 'KIB E - Aset Tetap Lainnya (Buku)',
 };
 
-// Coba tebak jumlah unit fisik dari teks keterangan provinsi, mis. "...Jumlah Barang 3 Harga Satuan..."
-function guessJumlahUnit(keterangan?: string): number {
-  if (!keterangan) return 1;
-  const match = keterangan.match(/jumlah\s*(?:barang|unit)?\s*[:=]?\s*(\d+)/i);
-  if (match) {
-    const n = parseInt(match[1], 10);
-    if (n > 0 && n <= 100) return n;
+// Coba tebak jumlah unit fisik dari data provinsi, dua pola yang umum ditemukan:
+// 1. Rentang nomor register, mis. register "0001 s/d 0005" -> 5 unit
+// 2. Kalimat di keterangan, mis. "...Jumlah Barang 3 Harga Satuan..." -> 3 unit
+function guessJumlahUnit(item: Pick<OpnameMasterItem, 'register' | 'keterangan'>): number {
+  if (item.register) {
+    const rangeMatch = item.register.match(/(\d+)\s*s\s*\/?\s*d\s*(\d+)/i);
+    if (rangeMatch) {
+      const start = parseInt(rangeMatch[1], 10);
+      const end = parseInt(rangeMatch[2], 10);
+      if (end >= start && (end - start + 1) <= 100) return end - start + 1;
+    }
+  }
+  if (item.keterangan) {
+    const match = item.keterangan.match(/jumlah\s*(?:barang|unit)?\s*[:=]?\s*(\d+)/i);
+    if (match) {
+      const n = parseInt(match[1], 10);
+      if (n > 0 && n <= 100) return n;
+    }
   }
   return 1;
 }
@@ -139,7 +150,7 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
 
   const openForm = (item: OpnameMasterItem) => {
     const existing = opnameByRefId.get(item.id);
-    const jumlahUnit = existing?.jumlahUnit || guessJumlahUnit(item.keterangan);
+    const jumlahUnit = existing?.jumlahUnit || guessJumlahUnit(item);
     setSelectedItem(item);
     setForm(existing ? { ...existing, jumlahUnit, fotoUnits: normalizeFotoUnits(existing, jumlahUnit) } : {
       ditemukan: 'Ya',
