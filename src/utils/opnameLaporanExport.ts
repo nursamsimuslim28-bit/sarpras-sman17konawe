@@ -468,15 +468,17 @@ function addKibWorksheet(
   ws.mergeCells(totalRowIdx, 1, totalRowIdx, Math.max(1, leadingColCount));
   ws.getCell(totalRowIdx, 1).value = 'JUMLAH';
   let tc = leadingColCount + 1;
-  SENSUS_CATEGORIES.forEach(() => {
-    ws.getCell(totalRowIdx, tc).value = { formula: `SUM(${colLetter(tc)}${dataStartRow}:${colLetter(tc)}${dataEndRow})` };
-    ws.getCell(totalRowIdx, tc + 1).value = { formula: `SUM(${colLetter(tc + 1)}${dataStartRow}:${colLetter(tc + 1)}${dataEndRow})` };
-    ws.getCell(totalRowIdx, tc + 2).value = { formula: `SUM(${colLetter(tc + 2)}${dataStartRow}:${colLetter(tc + 2)}${dataEndRow})` };
+  SENSUS_CATEGORIES.forEach(cat => {
+    const st = tally.status[cat.key];
+    ws.getCell(totalRowIdx, tc).value = { formula: `SUM(${colLetter(tc)}${dataStartRow}:${colLetter(tc)}${dataEndRow})`, result: st.jml } as ExcelJS.CellFormulaValue;
+    ws.getCell(totalRowIdx, tc + 1).value = { formula: `SUM(${colLetter(tc + 1)}${dataStartRow}:${colLetter(tc + 1)}${dataEndRow})`, result: st.nilai } as ExcelJS.CellFormulaValue;
+    ws.getCell(totalRowIdx, tc + 2).value = { formula: `SUM(${colLetter(tc + 2)}${dataStartRow}:${colLetter(tc + 2)}${dataEndRow})`, result: st.tanpaNilai } as ExcelJS.CellFormulaValue;
     tc += 3;
   });
-  KONDISI_CODES.forEach(() => {
-    ws.getCell(totalRowIdx, tc).value = { formula: `SUM(${colLetter(tc)}${dataStartRow}:${colLetter(tc)}${dataEndRow})` };
-    ws.getCell(totalRowIdx, tc + 1).value = { formula: `SUM(${colLetter(tc + 1)}${dataStartRow}:${colLetter(tc + 1)}${dataEndRow})` };
+  KONDISI_CODES.forEach(k => {
+    const kt = tally.kondisi[k.code];
+    ws.getCell(totalRowIdx, tc).value = { formula: `SUM(${colLetter(tc)}${dataStartRow}:${colLetter(tc)}${dataEndRow})`, result: kt.jml } as ExcelJS.CellFormulaValue;
+    ws.getCell(totalRowIdx, tc + 1).value = { formula: `SUM(${colLetter(tc + 1)}${dataStartRow}:${colLetter(tc + 1)}${dataEndRow})`, result: kt.nilai } as ExcelJS.CellFormulaValue;
     tc += 2;
   });
   for (let cc = 1; cc <= totalCols; cc++) {
@@ -485,7 +487,6 @@ function addKibWorksheet(
     cell.font = { bold: true, size: 9, name: 'Arial' };
     cell.alignment = CENTER;
   }
-  void tally;
 
   // ---- Lebar kolom ----
   let colIdx = 1;
@@ -518,9 +519,11 @@ function labelCell(ws: ExcelJS.Worksheet, row: number, col: number, text: string
   cell.font = { bold, size: 10, name: 'Arial' };
 }
 
-function formulaCell(ws: ExcelJS.Worksheet, row: number, col: number, formula: string, bold = false): void {
+function formulaCell(ws: ExcelJS.Worksheet, row: number, col: number, formula: string, result: number, bold = false): void {
   const cell = ws.getCell(row, col);
-  cell.value = { formula };
+  // Sertakan hasil hitungan (result) bersama rumusnya, supaya angka tetap tampil benar
+  // walau file dibuka di viewer yang tidak otomatis menghitung ulang rumus (mis. preview cepat).
+  cell.value = { formula, result } as ExcelJS.CellFormulaValue;
   cell.font = { bold, size: 10, name: 'Arial' };
   cell.numFmt = '#,##0';
 }
@@ -533,10 +536,9 @@ function borderRange(ws: ExcelJS.Worksheet, r1: number, c1: number, r2: number, 
   }
 }
 
-function addRekapSensusSheet(wb: ExcelJS.Workbook, kib: KibKey, info: KibSheetInfo): { sheetName: string } {
+function addRekapSensusSheet(wb: ExcelJS.Workbook, kib: KibKey, info: KibSheetInfo, tally: Tally): { sheetName: string } {
   const ws = wb.addWorksheet('rekap sensus');
   const M = info.sheetName;
-  const dataRange = (col: number) => `${colLetter(col)}${info.dataStartRow}:${colLetter(col)}${info.dataEndRow}`;
 
   labelCell(ws, 1, 1, `REKAP SENSUS - KIB ${kib}`, true);
 
@@ -544,16 +546,15 @@ function addRekapSensusSheet(wb: ExcelJS.Workbook, kib: KibKey, info: KibSheetIn
   headers.forEach((h, i) => labelCell(ws, 3, i + 1, h, true));
 
   labelCell(ws, 4, 1, `Data KIB ${kib}`);
-  formulaCell(ws, 4, 2, `COUNTA(${xref(M, info.namaCol, info.dataStartRow)}:${colLetter(info.namaCol)}${info.dataEndRow})`);
-  formulaCell(ws, 4, 3, `SUM(${xref(M, info.hargaCol, info.dataStartRow)}:${colLetter(info.hargaCol)}${info.dataEndRow})`);
+  formulaCell(ws, 4, 2, `COUNTA(${xref(M, info.namaCol, info.dataStartRow)}:${colLetter(info.namaCol)}${info.dataEndRow})`, tally.administratifJml);
+  formulaCell(ws, 4, 3, `SUM(${xref(M, info.hargaCol, info.dataStartRow)}:${colLetter(info.hargaCol)}${info.dataEndRow})`, tally.administratifNilai);
   // Ditemukan = kategori pertama (index 0) pada blok Hasil Sensus
-  formulaCell(ws, 4, 4, xref(M, info.sensusColStart, info.jumlahRow));
-  formulaCell(ws, 4, 5, xref(M, info.sensusColStart + 1, info.jumlahRow));
+  formulaCell(ws, 4, 4, xref(M, info.sensusColStart, info.jumlahRow), tally.status.ditemukan.jml);
+  formulaCell(ws, 4, 5, xref(M, info.sensusColStart + 1, info.jumlahRow), tally.status.ditemukan.nilai);
   // Tidak Ditemukan = kategori kedua (index 1)
-  formulaCell(ws, 4, 6, xref(M, info.sensusColStart + 3, info.jumlahRow));
-  formulaCell(ws, 4, 7, xref(M, info.sensusColStart + 4, info.jumlahRow));
+  formulaCell(ws, 4, 6, xref(M, info.sensusColStart + 3, info.jumlahRow), tally.status.tidakDitemukan.jml);
+  formulaCell(ws, 4, 7, xref(M, info.sensusColStart + 4, info.jumlahRow), tally.status.tidakDitemukan.nilai);
   borderRange(ws, 3, 1, 4, 7);
-  void dataRange;
 
   labelCell(ws, 7, 1, 'Kondisi Fisik', true);
   ['Uraian', 'Jml', 'Nilai'].forEach((h, i) => labelCell(ws, 8, i + 1, h, true));
@@ -562,8 +563,9 @@ function addRekapSensusSheet(wb: ExcelJS.Workbook, kib: KibKey, info: KibSheetIn
     const r = 9 + i;
     labelCell(ws, r, 1, kondisiLabels[k.code]);
     const kcol = info.kondisiColStart + i * 2;
-    formulaCell(ws, r, 2, xref(M, kcol, info.jumlahRow));
-    formulaCell(ws, r, 3, xref(M, kcol + 1, info.jumlahRow));
+    const kt = tally.kondisi[k.code];
+    formulaCell(ws, r, 2, xref(M, kcol, info.jumlahRow), kt.jml);
+    formulaCell(ws, r, 3, xref(M, kcol + 1, info.jumlahRow), kt.nilai);
   });
   borderRange(ws, 8, 1, 11, 3);
 
@@ -573,29 +575,39 @@ function addRekapSensusSheet(wb: ExcelJS.Workbook, kib: KibKey, info: KibSheetIn
   return { sheetName: ws.name };
 }
 
-function addJganSheet(wb: ExcelJS.Workbook, kib: KibKey, rekap: { sheetName: string }): { sheetName: string } {
+function addJganSheet(wb: ExcelJS.Workbook, kib: KibKey, rekap: { sheetName: string }, tally: Tally): { sheetName: string } {
   const ws = wb.addWorksheet('jgan diganggu rumusnya');
   const R = rekap.sheetName;
 
   labelCell(ws, 1, 1, `Data Aset Tetap KIB ${kib} - Hasil Sensus (rujukan ke sheet "rekap sensus")`, true);
   ['Uraian', 'Jml', 'Nilai'].forEach((h, i) => labelCell(ws, 3, i + 1, h, true));
-  labelCell(ws, 4, 1, 'Aset Ditemukan'); formulaCell(ws, 4, 2, xref(R, 4, 4)); formulaCell(ws, 4, 3, xref(R, 5, 4));
-  labelCell(ws, 5, 1, 'Aset Tidak Ditemukan'); formulaCell(ws, 5, 2, xref(R, 6, 4)); formulaCell(ws, 5, 3, xref(R, 7, 4));
+  labelCell(ws, 4, 1, 'Aset Ditemukan');
+  formulaCell(ws, 4, 2, xref(R, 4, 4), tally.status.ditemukan.jml);
+  formulaCell(ws, 4, 3, xref(R, 5, 4), tally.status.ditemukan.nilai);
+  labelCell(ws, 5, 1, 'Aset Tidak Ditemukan');
+  formulaCell(ws, 5, 2, xref(R, 6, 4), tally.status.tidakDitemukan.jml);
+  formulaCell(ws, 5, 3, xref(R, 7, 4), tally.status.tidakDitemukan.nilai);
   borderRange(ws, 3, 1, 5, 3);
 
   labelCell(ws, 8, 1, 'Data Administratif vs Sensus', true);
   ['Uraian', 'Jml', 'Nilai'].forEach((h, i) => labelCell(ws, 9, i + 1, h, true));
-  labelCell(ws, 10, 1, 'Administratif'); formulaCell(ws, 10, 2, xref(R, 2, 4)); formulaCell(ws, 10, 3, xref(R, 3, 4));
-  labelCell(ws, 11, 1, 'Sudah Diopname (Ditemukan)'); formulaCell(ws, 11, 2, xref(R, 4, 4)); formulaCell(ws, 11, 3, xref(R, 5, 4));
+  labelCell(ws, 10, 1, 'Administratif');
+  formulaCell(ws, 10, 2, xref(R, 2, 4), tally.administratifJml);
+  formulaCell(ws, 10, 3, xref(R, 3, 4), tally.administratifNilai);
+  labelCell(ws, 11, 1, 'Sudah Diopname (Ditemukan)');
+  formulaCell(ws, 11, 2, xref(R, 4, 4), tally.status.ditemukan.jml);
+  formulaCell(ws, 11, 3, xref(R, 5, 4), tally.status.ditemukan.nilai);
   borderRange(ws, 9, 1, 11, 3);
 
   labelCell(ws, 14, 1, 'Kondisi', true);
   ['Kondisi', 'Jml', 'Nilai'].forEach((h, i) => labelCell(ws, 15, i + 1, h, true));
-  ['Baik', 'Rusak Ringan', 'Rusak Berat'].forEach((label, i) => {
+  (['B', 'KB', 'RB'] as const).forEach((code, i) => {
     const r = 16 + i;
+    const label = code === 'B' ? 'Baik' : code === 'KB' ? 'Rusak Ringan' : 'Rusak Berat';
+    const kt = tally.kondisi[code];
     labelCell(ws, r, 1, label);
-    formulaCell(ws, r, 2, xref(R, 2, 9 + i));
-    formulaCell(ws, r, 3, xref(R, 3, 9 + i));
+    formulaCell(ws, r, 2, xref(R, 2, 9 + i), kt.jml);
+    formulaCell(ws, r, 3, xref(R, 3, 9 + i), kt.nilai);
   });
   borderRange(ws, 15, 1, 18, 3);
 
@@ -606,30 +618,30 @@ function addJganSheet(wb: ExcelJS.Workbook, kib: KibKey, rekap: { sheetName: str
   return { sheetName: ws.name };
 }
 
-function addUntukLaporanSheet(wb: ExcelJS.Workbook, jgan: { sheetName: string }): void {
+function addUntukLaporanSheet(wb: ExcelJS.Workbook, jgan: { sheetName: string }, tally: Tally): void {
   const ws = wb.addWorksheet('UNTUK LAPORAN');
   const J = jgan.sheetName;
 
-  const table = (startRow: number, title: string, rows: { label: string; jmlRef: string; nilaiRef: string }[]) => {
+  const table = (startRow: number, title: string, rows: { label: string; jmlRef: string; jmlResult: number; nilaiRef: string; nilaiResult: number }[]) => {
     labelCell(ws, startRow, 1, title, true);
     ['Uraian', 'Jml', 'Nilai'].forEach((h, i) => labelCell(ws, startRow + 1, i + 1, h, true));
     rows.forEach((row, i) => {
       const r = startRow + 2 + i;
       labelCell(ws, r, 1, row.label);
-      formulaCell(ws, r, 2, row.jmlRef);
-      formulaCell(ws, r, 3, row.nilaiRef);
+      formulaCell(ws, r, 2, row.jmlRef, row.jmlResult);
+      formulaCell(ws, r, 3, row.nilaiRef, row.nilaiResult);
     });
     borderRange(ws, startRow + 1, 1, startRow + 1 + rows.length, 3);
     return startRow + 3 + rows.length;
   };
 
   let r = 1;
-  r = table(r, 'Tabel 1) Jumlah BMD Menurut Administrasi', [{ label: 'Administratif', jmlRef: xref(J, 2, 10), nilaiRef: xref(J, 3, 10) }]);
-  r = table(r, 'Tabel 2) Hasil Inventarisasi Fisik', [{ label: 'Ditemukan', jmlRef: xref(J, 2, 4), nilaiRef: xref(J, 3, 4) }]);
-  r = table(r, 'Tabel 3) BMD Tidak Ditemukan', [{ label: 'Tidak Ditemukan', jmlRef: xref(J, 2, 5), nilaiRef: xref(J, 3, 5) }]);
-  r = table(r, 'Tabel 4) Kondisi Baik', [{ label: 'Baik', jmlRef: xref(J, 2, 16), nilaiRef: xref(J, 3, 16) }]);
-  r = table(r, 'Tabel 5) Kondisi Rusak Ringan', [{ label: 'Rusak Ringan', jmlRef: xref(J, 2, 17), nilaiRef: xref(J, 3, 17) }]);
-  table(r, 'Tabel 6) Kondisi Rusak Berat', [{ label: 'Rusak Berat', jmlRef: xref(J, 2, 18), nilaiRef: xref(J, 3, 18) }]);
+  r = table(r, 'Tabel 1) Jumlah BMD Menurut Administrasi', [{ label: 'Administratif', jmlRef: xref(J, 2, 10), jmlResult: tally.administratifJml, nilaiRef: xref(J, 3, 10), nilaiResult: tally.administratifNilai }]);
+  r = table(r, 'Tabel 2) Hasil Inventarisasi Fisik', [{ label: 'Ditemukan', jmlRef: xref(J, 2, 4), jmlResult: tally.status.ditemukan.jml, nilaiRef: xref(J, 3, 4), nilaiResult: tally.status.ditemukan.nilai }]);
+  r = table(r, 'Tabel 3) BMD Tidak Ditemukan', [{ label: 'Tidak Ditemukan', jmlRef: xref(J, 2, 5), jmlResult: tally.status.tidakDitemukan.jml, nilaiRef: xref(J, 3, 5), nilaiResult: tally.status.tidakDitemukan.nilai }]);
+  r = table(r, 'Tabel 4) Kondisi Baik', [{ label: 'Baik', jmlRef: xref(J, 2, 16), jmlResult: tally.kondisi.B.jml, nilaiRef: xref(J, 3, 16), nilaiResult: tally.kondisi.B.nilai }]);
+  r = table(r, 'Tabel 5) Kondisi Rusak Ringan', [{ label: 'Rusak Ringan', jmlRef: xref(J, 2, 17), jmlResult: tally.kondisi.KB.jml, nilaiRef: xref(J, 3, 17), nilaiResult: tally.kondisi.KB.nilai }]);
+  table(r, 'Tabel 6) Kondisi Rusak Berat', [{ label: 'Rusak Berat', jmlRef: xref(J, 2, 18), jmlResult: tally.kondisi.RB.jml, nilaiRef: xref(J, 3, 18), nilaiResult: tally.kondisi.RB.nilai }]);
 
   ws.getColumn(1).width = 26;
   ws.getColumn(2).width = 14;
@@ -956,9 +968,9 @@ export async function exportLaporanOpnameZip(
     const wb = new ExcelJS.Workbook();
     addCoverSheet(wb, pengaturan, kib);
     const kibInfo = addKibWorksheet(wb, kib, pengaturan, masterList, entries, tally);
-    const rekap = addRekapSensusSheet(wb, kib, kibInfo);
-    const jgan = addJganSheet(wb, kib, rekap);
-    addUntukLaporanSheet(wb, jgan);
+    const rekap = addRekapSensusSheet(wb, kib, kibInfo, tally);
+    const jgan = addJganSheet(wb, kib, rekap, tally);
+    addUntukLaporanSheet(wb, jgan, tally);
     const xlsxBuffer = await wb.xlsx.writeBuffer();
     zip.folder(`KIB_${kib}`)!.file(`KIB_${kib}.xlsx`, xlsxBuffer);
 

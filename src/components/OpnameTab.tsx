@@ -147,8 +147,11 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
     setIsSaving(true);
     try {
       const existing = opnameByRefId.get(selectedItem.id);
+      // ID deterministik berdasarkan refId (bukan Date.now()) - supaya kalau item yang sama
+      // disimpan ulang di kondisi cache lokal sempat basi, tetap menimpa dokumen yang sama
+      // di Firestore, bukan membuat dokumen duplikat baru.
       const entry: OpnameEntry = {
-        id: existing?.id || `OPN-${Date.now()}`,
+        id: existing?.id || `OPN-${selectedItem.id}`,
         refId: selectedItem.id,
         kib: selectedItem.kib,
         namaBarang: selectedItem.nama,
