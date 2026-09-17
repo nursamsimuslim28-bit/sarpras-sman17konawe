@@ -120,8 +120,11 @@ function classifyEntry(entry: OpnameEntry, harga: number, tally: Tally) {
   }
 }
 
+// Data harga dari provinsi tersimpan dalam satuan "ribuan Rp" (dikonfirmasi dari header resmi
+// "Harga (ribuan Rp)" di file sumber rptrekapkib_b/c/e.xls) - kalikan 1000 supaya nilai Rupiah
+// yang ditampilkan di laporan adalah harga sesungguhnya, bukan angka ribuan mentah.
 function fmtRupiah(n: number): number {
-  return Math.round(n || 0);
+  return Math.round((n || 0) * 1000);
 }
 
 function formatRp(n: number): string {
@@ -166,7 +169,7 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
       { groupLabel: 'Asal Usul', cols: [{ label: 'Asal Usul', width: 20, get: m => m.asalUsul || '-' }] },
       { groupLabel: 'Penggunaan', cols: [{ label: 'Penggunaan', width: 14, get: blank }] },
       { groupLabel: 'Satuan', cols: [{ label: 'Satuan', width: 10, get: blank }] },
-      { groupLabel: 'Harga', cols: [{ label: 'Harga (ribuan Rp)', width: 16, get: m => fmtRupiah(m.harga || 0), isHarga: true }] },
+      { groupLabel: 'Harga', cols: [{ label: 'Harga (Rp)', width: 16, get: m => fmtRupiah(m.harga || 0), isHarga: true }] },
       { groupLabel: 'KET.', cols: [{ label: 'KET.', width: 24, get: m => m.keterangan || '-' }] }
     ];
   }
@@ -198,7 +201,7 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
       { groupLabel: 'Nomor Kode Tanah', cols: [{ label: 'Nomor Kode Tanah', width: 16, get: blank }] },
       { groupLabel: 'Asal Usul', cols: [{ label: 'Asal Usul', width: 20, get: m => m.asalUsul || '-' }] },
       { groupLabel: 'Harga Satuan', cols: [{ label: 'Harga Satuan', width: 14, get: blank }] },
-      { groupLabel: 'Harga (ribuan Rp)', cols: [{ label: 'Harga (ribuan Rp)', width: 16, get: m => fmtRupiah(m.harga || 0), isHarga: true }] },
+      { groupLabel: 'Harga (Rp)', cols: [{ label: 'Harga (Rp)', width: 16, get: m => fmtRupiah(m.harga || 0), isHarga: true }] },
       { groupLabel: 'Keterangan', cols: [{ label: 'Keterangan', width: 24, get: m => m.keterangan || '-' }] }
     ];
   }
@@ -233,7 +236,7 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
     { groupLabel: 'Asal Usul', cols: [{ label: 'Asal Usul', width: 20, get: m => m.asalUsul || '-' }] },
     { groupLabel: 'Tahun Pembelian', cols: [{ label: 'Tahun Pembelian', width: 10, get: m => m.tahun || '-' }] },
     { groupLabel: 'Penggunaan', cols: [{ label: 'Penggunaan', width: 14, get: blank }] },
-    { groupLabel: 'Harga (ribuan Rp)', cols: [{ label: 'Harga (ribuan Rp)', width: 16, get: m => fmtRupiah(m.harga || 0), isHarga: true }] },
+    { groupLabel: 'Harga (Rp)', cols: [{ label: 'Harga (Rp)', width: 16, get: m => fmtRupiah(m.harga || 0), isHarga: true }] },
     { groupLabel: 'KET.', cols: [{ label: 'KET.', width: 24, get: m => m.keterangan || '-' }] }
   ];
 }
