@@ -195,6 +195,15 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
     setForm(prev => ({ ...prev, jumlahUnit, fotoUnits: normalizeFotoUnits(prev, jumlahUnit) }));
   };
 
+  const handleNomorSeriChange = (unitIdx: number, nomorSeri: string) => {
+    setForm(prev => {
+      const units = [...(prev.fotoUnits || [])];
+      while (units.length <= unitIdx) units.push({});
+      units[unitIdx] = { ...units[unitIdx], nomorSeri };
+      return { ...prev, fotoUnits: units };
+    });
+  };
+
   const handleSave = async () => {
     if (!selectedItem) return;
     setIsSaving(true);
@@ -497,6 +506,18 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                   <div key={unitIdx} className="mb-3">
                     {(form.jumlahUnit || 1) > 1 && (
                       <p className="text-[10px] font-bold text-teal-700 uppercase tracking-wide mb-1.5">Unit {unitIdx + 1} dari {form.jumlahUnit}</p>
+                    )}
+                    {selectedItem.kib === 'B' && (
+                      <div className="mb-2">
+                        <label className="block text-[10px] font-semibold text-slate-500 mb-1">Nomor Seri/Pabrik (wajib untuk alat elektronik)</label>
+                        <input
+                          type="text"
+                          value={unit.nomorSeri || ''}
+                          onChange={(e) => handleNomorSeriChange(unitIdx, e.target.value)}
+                          placeholder="Contoh: SN-2024XJ0012345"
+                          className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                        />
+                      </div>
                     )}
                     <div className="grid grid-cols-2 gap-2.5">
                       {([1, 2] as const).map(slot => {

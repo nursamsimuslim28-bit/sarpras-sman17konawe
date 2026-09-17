@@ -216,6 +216,7 @@ export interface OpnameMasterItem {
 export interface OpnameFotoUnit {
   foto1?: string; // Base64 (dikompresi) - tampak depan unit fisik ini
   foto2?: string; // Base64 (dikompresi) - kondisi/detail unit fisik ini
+  nomorSeri?: string; // Nomor Seri/Pabrik - wajib untuk alat elektronik (KIB B), dicatat per unit fisik
 }
 
 export interface OpnameEntry {

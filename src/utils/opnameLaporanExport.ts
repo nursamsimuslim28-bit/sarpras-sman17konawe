@@ -136,7 +136,7 @@ function formatRp(n: number): string {
 interface LeadingCol {
   label: string;
   width: number;
-  get: (m: OpnameMasterItem, pengaturan: PengaturanSekolah) => string | number;
+  get: (m: OpnameMasterItem, pengaturan: PengaturanSekolah, entry?: OpnameEntry) => string | number;
   isHarga?: boolean;
 }
 interface LeadingGroup {
@@ -159,6 +159,15 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
       {
         groupLabel: 'Nomor',
         cols: [
+          {
+            label: 'Pabrik (Nomor Seri)',
+            width: 18,
+            get: (_m, _p, entry) => {
+              const units = entry?.fotoUnits || [];
+              const seris = units.map(u => u.nomorSeri).filter((s): s is string => !!s);
+              return seris.length > 0 ? seris.join('; ') : '-';
+            }
+          },
           { label: 'Rangka', width: 12, get: blank },
           { label: 'Mesin', width: 12, get: blank },
           { label: 'Polisi', width: 12, get: blank },
@@ -431,7 +440,7 @@ function addKibWorksheet(
     const harga = fmtRupiah(m.harga || 0);
 
     const leadingVals: any[] = [];
-    leadingGroups.forEach(g => g.cols.forEach(col => leadingVals.push(col.get(m, pengaturan) as any)));
+    leadingGroups.forEach(g => g.cols.forEach(col => leadingVals.push(col.get(m, pengaturan, entry) as any)));
     if (typeof leadingVals[0] !== 'number') leadingVals[0] = m.no || idx + 1;
 
     const sensusVals: any[] = new Array(SENSUS_COL_COUNT).fill('');
