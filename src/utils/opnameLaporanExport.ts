@@ -134,6 +134,7 @@ interface LeadingCol {
   label: string;
   width: number;
   get: (m: OpnameMasterItem, pengaturan: PengaturanSekolah) => string | number;
+  isHarga?: boolean;
 }
 interface LeadingGroup {
   groupLabel: string;
@@ -165,7 +166,7 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
       { groupLabel: 'Asal Usul', cols: [{ label: 'Asal Usul', width: 20, get: m => m.asalUsul || '-' }] },
       { groupLabel: 'Penggunaan', cols: [{ label: 'Penggunaan', width: 14, get: blank }] },
       { groupLabel: 'Satuan', cols: [{ label: 'Satuan', width: 10, get: blank }] },
-      { groupLabel: 'Harga', cols: [{ label: 'Harga (ribuan Rp)', width: 16, get: m => fmtRupiah(m.harga || 0) }] },
+      { groupLabel: 'Harga', cols: [{ label: 'Harga (ribuan Rp)', width: 16, get: m => fmtRupiah(m.harga || 0), isHarga: true }] },
       { groupLabel: 'KET.', cols: [{ label: 'KET.', width: 24, get: m => m.keterangan || '-' }] }
     ];
   }
@@ -197,7 +198,7 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
       { groupLabel: 'Nomor Kode Tanah', cols: [{ label: 'Nomor Kode Tanah', width: 16, get: blank }] },
       { groupLabel: 'Asal Usul', cols: [{ label: 'Asal Usul', width: 20, get: m => m.asalUsul || '-' }] },
       { groupLabel: 'Harga Satuan', cols: [{ label: 'Harga Satuan', width: 14, get: blank }] },
-      { groupLabel: 'Harga (ribuan Rp)', cols: [{ label: 'Harga (ribuan Rp)', width: 16, get: m => fmtRupiah(m.harga || 0) }] },
+      { groupLabel: 'Harga (ribuan Rp)', cols: [{ label: 'Harga (ribuan Rp)', width: 16, get: m => fmtRupiah(m.harga || 0), isHarga: true }] },
       { groupLabel: 'Keterangan', cols: [{ label: 'Keterangan', width: 24, get: m => m.keterangan || '-' }] }
     ];
   }
@@ -232,7 +233,7 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
     { groupLabel: 'Asal Usul', cols: [{ label: 'Asal Usul', width: 20, get: m => m.asalUsul || '-' }] },
     { groupLabel: 'Tahun Pembelian', cols: [{ label: 'Tahun Pembelian', width: 10, get: m => m.tahun || '-' }] },
     { groupLabel: 'Penggunaan', cols: [{ label: 'Penggunaan', width: 14, get: blank }] },
-    { groupLabel: 'Harga (ribuan Rp)', cols: [{ label: 'Harga (ribuan Rp)', width: 16, get: m => fmtRupiah(m.harga || 0) }] },
+    { groupLabel: 'Harga (ribuan Rp)', cols: [{ label: 'Harga (ribuan Rp)', width: 16, get: m => fmtRupiah(m.harga || 0), isHarga: true }] },
     { groupLabel: 'KET.', cols: [{ label: 'KET.', width: 24, get: m => m.keterangan || '-' }] }
   ];
 }
@@ -247,6 +248,31 @@ const THIN_BORDER: Partial<ExcelJS.Borders> = {
 };
 const CENTER: Partial<ExcelJS.Alignment> = { horizontal: 'center', vertical: 'middle', wrapText: true };
 const LEFT_MID: Partial<ExcelJS.Alignment> = { horizontal: 'left', vertical: 'middle' };
+
+function colLetter(n: number): string {
+  let s = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    s = String.fromCharCode(65 + rem) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
+function xref(sheetName: string, col: number, row: number): string {
+  return `'${sheetName}'!${colLetter(col)}${row}`;
+}
+
+interface KibSheetInfo {
+  sheetName: string;
+  dataStartRow: number;
+  dataEndRow: number;
+  jumlahRow: number;
+  namaCol: number;
+  hargaCol: number;
+  sensusColStart: number;
+  kondisiColStart: number;
+}
 
 function addLogo(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet) {
   try {
@@ -292,13 +318,24 @@ function addKibWorksheet(
   masterList: OpnameMasterItem[],
   entries: OpnameEntry[],
   tally: Tally
-) {
+): KibSheetInfo {
   const entryByRefId = new Map(entries.map(e => [e.refId, e]));
   const leadingGroups = leadingGroupsFor(kib);
   const leadingColCount = leadingGroups.reduce((n, g) => n + g.cols.length, 0);
   const SENSUS_COL_COUNT = SENSUS_CATEGORIES.length * 3; // Jml, Nilai, Tanpa Nilai
   const KONDISI_COL_COUNT = KONDISI_CODES.length * 2; // kode, Nilai
   const totalCols = leadingColCount + SENSUS_COL_COUNT + KONDISI_COL_COUNT;
+
+  // Cari posisi kolom Nama & Harga (untuk formula COUNT/SUM di sheet turunan)
+  let namaCol = 2, hargaCol = leadingColCount;
+  {
+    let ci = 1;
+    leadingGroups.forEach(g => g.cols.forEach(col => {
+      if (col.label.toLowerCase().includes('nama') || col.label.toLowerCase().includes('jenis barang')) namaCol = ci;
+      if (col.isHarga) hargaCol = ci;
+      ci++;
+    }));
+  }
 
   const ws = wb.addWorksheet(`KIB ${kib} Hasil Sensus`);
   addLogo(wb, ws);
@@ -384,7 +421,8 @@ function addKibWorksheet(
   }
 
   // ---- Baris data ----
-  let rowIdx = r4 + 1;
+  const dataStartRow = r4 + 1;
+  let rowIdx = dataStartRow;
   masterList.forEach((m, idx) => {
     const entry = entryByRefId.get(m.id);
     const harga = fmtRupiah(m.harga || 0);
@@ -424,22 +462,21 @@ function addKibWorksheet(
     rowIdx++;
   });
 
-  // ---- Baris JUMLAH ----
+  // ---- Baris JUMLAH (rumus SUM langsung dari baris data - bukan angka statis) ----
   const totalRowIdx = rowIdx;
+  const dataEndRow = rowIdx - 1;
   ws.mergeCells(totalRowIdx, 1, totalRowIdx, Math.max(1, leadingColCount));
   ws.getCell(totalRowIdx, 1).value = 'JUMLAH';
   let tc = leadingColCount + 1;
-  SENSUS_CATEGORIES.forEach(cat => {
-    const st = tally.status[cat.key];
-    ws.getCell(totalRowIdx, tc).value = st.jml;
-    ws.getCell(totalRowIdx, tc + 1).value = st.nilai;
-    ws.getCell(totalRowIdx, tc + 2).value = st.tanpaNilai;
+  SENSUS_CATEGORIES.forEach(() => {
+    ws.getCell(totalRowIdx, tc).value = { formula: `SUM(${colLetter(tc)}${dataStartRow}:${colLetter(tc)}${dataEndRow})` };
+    ws.getCell(totalRowIdx, tc + 1).value = { formula: `SUM(${colLetter(tc + 1)}${dataStartRow}:${colLetter(tc + 1)}${dataEndRow})` };
+    ws.getCell(totalRowIdx, tc + 2).value = { formula: `SUM(${colLetter(tc + 2)}${dataStartRow}:${colLetter(tc + 2)}${dataEndRow})` };
     tc += 3;
   });
-  KONDISI_CODES.forEach(k => {
-    const kt = tally.kondisi[k.code];
-    ws.getCell(totalRowIdx, tc).value = kt.jml;
-    ws.getCell(totalRowIdx, tc + 1).value = kt.nilai;
+  KONDISI_CODES.forEach(() => {
+    ws.getCell(totalRowIdx, tc).value = { formula: `SUM(${colLetter(tc)}${dataStartRow}:${colLetter(tc)}${dataEndRow})` };
+    ws.getCell(totalRowIdx, tc + 1).value = { formula: `SUM(${colLetter(tc + 1)}${dataStartRow}:${colLetter(tc + 1)}${dataEndRow})` };
     tc += 2;
   });
   for (let cc = 1; cc <= totalCols; cc++) {
@@ -448,6 +485,7 @@ function addKibWorksheet(
     cell.font = { bold: true, size: 9, name: 'Arial' };
     cell.alignment = CENTER;
   }
+  void tally;
 
   // ---- Lebar kolom ----
   let colIdx = 1;
@@ -456,6 +494,146 @@ function addKibWorksheet(
   for (let i = 0; i < KONDISI_COL_COUNT; i++) { ws.getColumn(colIdx).width = 7; colIdx++; }
 
   ws.views = [{ state: 'frozen', xSplit: leadingColCount, ySplit: r4 }];
+
+  return {
+    sheetName: ws.name,
+    dataStartRow,
+    dataEndRow,
+    jumlahRow: totalRowIdx,
+    namaCol,
+    hargaCol,
+    sensusColStart: leadingColCount + 1,
+    kondisiColStart: leadingColCount + 1 + SENSUS_COL_COUNT
+  };
+}
+
+// ============ SHEET TURUNAN (rekap sensus / jgan diganggu rumusnya / UNTUK LAPORAN) ============
+// Sheet-sheet ini TIDAK berisi angka statis - semua rumus Excel merujuk balik ke sheet utama,
+// persis seperti sistem asli: kalau baris data di sheet utama diedit, semua sheet turunan ikut
+// terhitung ulang otomatis.
+
+function labelCell(ws: ExcelJS.Worksheet, row: number, col: number, text: string, bold = false): void {
+  const cell = ws.getCell(row, col);
+  cell.value = text;
+  cell.font = { bold, size: 10, name: 'Arial' };
+}
+
+function formulaCell(ws: ExcelJS.Worksheet, row: number, col: number, formula: string, bold = false): void {
+  const cell = ws.getCell(row, col);
+  cell.value = { formula };
+  cell.font = { bold, size: 10, name: 'Arial' };
+  cell.numFmt = '#,##0';
+}
+
+function borderRange(ws: ExcelJS.Worksheet, r1: number, c1: number, r2: number, c2: number): void {
+  for (let r = r1; r <= r2; r++) {
+    for (let c = c1; c <= c2; c++) {
+      ws.getCell(r, c).border = THIN_BORDER;
+    }
+  }
+}
+
+function addRekapSensusSheet(wb: ExcelJS.Workbook, kib: KibKey, info: KibSheetInfo): { sheetName: string } {
+  const ws = wb.addWorksheet('rekap sensus');
+  const M = info.sheetName;
+  const dataRange = (col: number) => `${colLetter(col)}${info.dataStartRow}:${colLetter(col)}${info.dataEndRow}`;
+
+  labelCell(ws, 1, 1, `REKAP SENSUS - KIB ${kib}`, true);
+
+  const headers = ['Uraian', 'Jml Administratif', 'Nilai Administratif', 'Jml Ditemukan', 'Nilai Ditemukan', 'Jml Tidak Ditemukan', 'Nilai Tidak Ditemukan'];
+  headers.forEach((h, i) => labelCell(ws, 3, i + 1, h, true));
+
+  labelCell(ws, 4, 1, `Data KIB ${kib}`);
+  formulaCell(ws, 4, 2, `COUNTA(${xref(M, info.namaCol, info.dataStartRow)}:${colLetter(info.namaCol)}${info.dataEndRow})`);
+  formulaCell(ws, 4, 3, `SUM(${xref(M, info.hargaCol, info.dataStartRow)}:${colLetter(info.hargaCol)}${info.dataEndRow})`);
+  // Ditemukan = kategori pertama (index 0) pada blok Hasil Sensus
+  formulaCell(ws, 4, 4, xref(M, info.sensusColStart, info.jumlahRow));
+  formulaCell(ws, 4, 5, xref(M, info.sensusColStart + 1, info.jumlahRow));
+  // Tidak Ditemukan = kategori kedua (index 1)
+  formulaCell(ws, 4, 6, xref(M, info.sensusColStart + 3, info.jumlahRow));
+  formulaCell(ws, 4, 7, xref(M, info.sensusColStart + 4, info.jumlahRow));
+  borderRange(ws, 3, 1, 4, 7);
+  void dataRange;
+
+  labelCell(ws, 7, 1, 'Kondisi Fisik', true);
+  ['Uraian', 'Jml', 'Nilai'].forEach((h, i) => labelCell(ws, 8, i + 1, h, true));
+  const kondisiLabels: Record<'B' | 'KB' | 'RB', string> = { B: 'Baik', KB: 'Rusak Ringan', RB: 'Rusak Berat' };
+  KONDISI_CODES.forEach((k, i) => {
+    const r = 9 + i;
+    labelCell(ws, r, 1, kondisiLabels[k.code]);
+    const kcol = info.kondisiColStart + i * 2;
+    formulaCell(ws, r, 2, xref(M, kcol, info.jumlahRow));
+    formulaCell(ws, r, 3, xref(M, kcol + 1, info.jumlahRow));
+  });
+  borderRange(ws, 8, 1, 11, 3);
+
+  ws.getColumn(1).width = 22;
+  for (let c = 2; c <= 7; c++) ws.getColumn(c).width = 16;
+
+  return { sheetName: ws.name };
+}
+
+function addJganSheet(wb: ExcelJS.Workbook, kib: KibKey, rekap: { sheetName: string }): { sheetName: string } {
+  const ws = wb.addWorksheet('jgan diganggu rumusnya');
+  const R = rekap.sheetName;
+
+  labelCell(ws, 1, 1, `Data Aset Tetap KIB ${kib} - Hasil Sensus (rujukan ke sheet "rekap sensus")`, true);
+  ['Uraian', 'Jml', 'Nilai'].forEach((h, i) => labelCell(ws, 3, i + 1, h, true));
+  labelCell(ws, 4, 1, 'Aset Ditemukan'); formulaCell(ws, 4, 2, xref(R, 4, 4)); formulaCell(ws, 4, 3, xref(R, 5, 4));
+  labelCell(ws, 5, 1, 'Aset Tidak Ditemukan'); formulaCell(ws, 5, 2, xref(R, 6, 4)); formulaCell(ws, 5, 3, xref(R, 7, 4));
+  borderRange(ws, 3, 1, 5, 3);
+
+  labelCell(ws, 8, 1, 'Data Administratif vs Sensus', true);
+  ['Uraian', 'Jml', 'Nilai'].forEach((h, i) => labelCell(ws, 9, i + 1, h, true));
+  labelCell(ws, 10, 1, 'Administratif'); formulaCell(ws, 10, 2, xref(R, 2, 4)); formulaCell(ws, 10, 3, xref(R, 3, 4));
+  labelCell(ws, 11, 1, 'Sudah Diopname (Ditemukan)'); formulaCell(ws, 11, 2, xref(R, 4, 4)); formulaCell(ws, 11, 3, xref(R, 5, 4));
+  borderRange(ws, 9, 1, 11, 3);
+
+  labelCell(ws, 14, 1, 'Kondisi', true);
+  ['Kondisi', 'Jml', 'Nilai'].forEach((h, i) => labelCell(ws, 15, i + 1, h, true));
+  ['Baik', 'Rusak Ringan', 'Rusak Berat'].forEach((label, i) => {
+    const r = 16 + i;
+    labelCell(ws, r, 1, label);
+    formulaCell(ws, r, 2, xref(R, 2, 9 + i));
+    formulaCell(ws, r, 3, xref(R, 3, 9 + i));
+  });
+  borderRange(ws, 15, 1, 18, 3);
+
+  ws.getColumn(1).width = 26;
+  ws.getColumn(2).width = 14;
+  ws.getColumn(3).width = 16;
+
+  return { sheetName: ws.name };
+}
+
+function addUntukLaporanSheet(wb: ExcelJS.Workbook, jgan: { sheetName: string }): void {
+  const ws = wb.addWorksheet('UNTUK LAPORAN');
+  const J = jgan.sheetName;
+
+  const table = (startRow: number, title: string, rows: { label: string; jmlRef: string; nilaiRef: string }[]) => {
+    labelCell(ws, startRow, 1, title, true);
+    ['Uraian', 'Jml', 'Nilai'].forEach((h, i) => labelCell(ws, startRow + 1, i + 1, h, true));
+    rows.forEach((row, i) => {
+      const r = startRow + 2 + i;
+      labelCell(ws, r, 1, row.label);
+      formulaCell(ws, r, 2, row.jmlRef);
+      formulaCell(ws, r, 3, row.nilaiRef);
+    });
+    borderRange(ws, startRow + 1, 1, startRow + 1 + rows.length, 3);
+    return startRow + 3 + rows.length;
+  };
+
+  let r = 1;
+  r = table(r, 'Tabel 1) Jumlah BMD Menurut Administrasi', [{ label: 'Administratif', jmlRef: xref(J, 2, 10), nilaiRef: xref(J, 3, 10) }]);
+  r = table(r, 'Tabel 2) Hasil Inventarisasi Fisik', [{ label: 'Ditemukan', jmlRef: xref(J, 2, 4), nilaiRef: xref(J, 3, 4) }]);
+  r = table(r, 'Tabel 3) BMD Tidak Ditemukan', [{ label: 'Tidak Ditemukan', jmlRef: xref(J, 2, 5), nilaiRef: xref(J, 3, 5) }]);
+  r = table(r, 'Tabel 4) Kondisi Baik', [{ label: 'Baik', jmlRef: xref(J, 2, 16), nilaiRef: xref(J, 3, 16) }]);
+  r = table(r, 'Tabel 5) Kondisi Rusak Ringan', [{ label: 'Rusak Ringan', jmlRef: xref(J, 2, 17), nilaiRef: xref(J, 3, 17) }]);
+  table(r, 'Tabel 6) Kondisi Rusak Berat', [{ label: 'Rusak Berat', jmlRef: xref(J, 2, 18), nilaiRef: xref(J, 3, 18) }]);
+
+  ws.getColumn(1).width = 26;
+  ws.getColumn(2).width = 14;
+  ws.getColumn(3).width = 16;
 }
 
 // ============ SURAT LAPORAN NARATIF (DOCX) - 6 tabel terpisah sesuai format resmi ============
@@ -777,7 +955,10 @@ export async function exportLaporanOpnameZip(
 
     const wb = new ExcelJS.Workbook();
     addCoverSheet(wb, pengaturan, kib);
-    addKibWorksheet(wb, kib, pengaturan, masterList, entries, tally);
+    const kibInfo = addKibWorksheet(wb, kib, pengaturan, masterList, entries, tally);
+    const rekap = addRekapSensusSheet(wb, kib, kibInfo);
+    const jgan = addJganSheet(wb, kib, rekap);
+    addUntukLaporanSheet(wb, jgan);
     const xlsxBuffer = await wb.xlsx.writeBuffer();
     zip.folder(`KIB_${kib}`)!.file(`KIB_${kib}.xlsx`, xlsxBuffer);
 
