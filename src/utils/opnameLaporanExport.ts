@@ -25,101 +25,240 @@ const KIB_TITLE: Record<KibKey, string> = {
   E: 'KARTU INVENTARIS BARANG (KIB) E - ASET TETAP LAINNYA'
 };
 
-interface CategoryColumn {
-  key: keyof OpnameMasterItem;
-  label: string;
-  width: number;
+// ============ HASIL SENSUS - struktur sama persis format resmi (6 kategori x Jml/Nilai/Tanpa Nilai) ============
+
+type SensusStatusKey = 'ditemukan' | 'tidakDitemukan' | 'dikuasaiPegawai' | 'tidakDiketahui' | 'digunakanUnitLain' | 'dikuasaiPihakKetiga';
+
+const SENSUS_CATEGORIES: { key: SensusStatusKey; label: string }[] = [
+  { key: 'ditemukan', label: 'Aset Ditemukan' },
+  { key: 'tidakDitemukan', label: 'Aset Tidak Ditemukan' },
+  { key: 'dikuasaiPegawai', label: 'Aset Dikuasai Pegawai' },
+  { key: 'tidakDiketahui', label: 'Tidak Diketahui' },
+  { key: 'digunakanUnitLain', label: 'Digunakan SKPD/Unit Lain' },
+  { key: 'dikuasaiPihakKetiga', label: 'Dikuasai Pihak Ke-3' }
+];
+
+const KONDISI_CODES: { code: 'B' | 'KB' | 'RB'; kondisi: OpnameEntry['kondisi'] }[] = [
+  { code: 'B', kondisi: 'Baik' },
+  { code: 'KB', kondisi: 'Rusak Ringan' },
+  { code: 'RB', kondisi: 'Rusak Berat' }
+];
+
+interface StatusTally {
+  jml: number;
+  nilai: number;
+  tanpaNilai: number;
+}
+function emptyStatusTally(): StatusTally {
+  return { jml: 0, nilai: 0, tanpaNilai: 0 };
 }
 
-const CATEGORY_COLUMNS: Record<KibKey, CategoryColumn[]> = {
-  B: [
-    { key: 'merk', label: 'Merk/Type', width: 18 },
-    { key: 'bahan', label: 'Bahan', width: 14 }
-  ],
-  C: [
-    { key: 'konstruksi', label: 'Konstruksi', width: 16 },
-    { key: 'letakLokasi', label: 'Letak/Lokasi', width: 20 },
-    { key: 'luasLantai', label: 'Luas Lantai (M2)', width: 14 }
-  ],
-  E: [
-    { key: 'judulPencipta', label: 'Judul/Pencipta', width: 26 }
-  ]
-};
+interface KondisiTally {
+  jml: number;
+  nilai: number;
+}
+function emptyKondisiTally(): KondisiTally {
+  return { jml: 0, nilai: 0 };
+}
 
 interface Tally {
   administratifJml: number;
   administratifNilai: number;
   sudahDiopnameJml: number;
-  ditemukanJml: number;
-  ditemukanNilai: number;
-  tidakDitemukanJml: number;
-  tidakDitemukanNilai: number;
-  dikuasaiPegawaiJml: number;
-  dikuasaiPegawaiNilai: number;
-  digunakanUnitLainJml: number;
-  digunakanUnitLainNilai: number;
-  dikuasaiPihakKetigaJml: number;
-  dikuasaiPihakKetigaNilai: number;
-  kondisiBaik: number;
-  kondisiRusakRingan: number;
-  kondisiRusakBerat: number;
+  status: Record<SensusStatusKey, StatusTally>;
+  kondisi: Record<'B' | 'KB' | 'RB', KondisiTally>;
 }
 
 function emptyTally(): Tally {
   return {
-    administratifJml: 0, administratifNilai: 0, sudahDiopnameJml: 0,
-    ditemukanJml: 0, ditemukanNilai: 0,
-    tidakDitemukanJml: 0, tidakDitemukanNilai: 0,
-    dikuasaiPegawaiJml: 0, dikuasaiPegawaiNilai: 0,
-    digunakanUnitLainJml: 0, digunakanUnitLainNilai: 0,
-    dikuasaiPihakKetigaJml: 0, dikuasaiPihakKetigaNilai: 0,
-    kondisiBaik: 0, kondisiRusakRingan: 0, kondisiRusakBerat: 0
+    administratifJml: 0,
+    administratifNilai: 0,
+    sudahDiopnameJml: 0,
+    status: {
+      ditemukan: emptyStatusTally(),
+      tidakDitemukan: emptyStatusTally(),
+      dikuasaiPegawai: emptyStatusTally(),
+      tidakDiketahui: emptyStatusTally(),
+      digunakanUnitLain: emptyStatusTally(),
+      dikuasaiPihakKetiga: emptyStatusTally()
+    },
+    kondisi: { B: emptyKondisiTally(), KB: emptyKondisiTally(), RB: emptyKondisiTally() }
   };
+}
+
+function statusKeyForEntry(entry: OpnameEntry): SensusStatusKey {
+  if (entry.ditemukan === 'Tidak') return 'tidakDitemukan';
+  switch (entry.statusPenguasaan) {
+    case 'Dikuasai Pegawai': return 'dikuasaiPegawai';
+    case 'Digunakan Unit Lain': return 'digunakanUnitLain';
+    case 'Dikuasai Pihak Ketiga': return 'dikuasaiPihakKetiga';
+    default: return 'ditemukan';
+  }
+}
+
+function kondisiCodeForEntry(kondisi: OpnameEntry['kondisi']): 'B' | 'KB' | 'RB' | null {
+  if (kondisi === 'Baik') return 'B';
+  if (kondisi === 'Rusak Ringan') return 'KB';
+  if (kondisi === 'Rusak Berat') return 'RB';
+  return null;
 }
 
 function classifyEntry(entry: OpnameEntry, harga: number, tally: Tally) {
   tally.sudahDiopnameJml += 1;
 
-  if (entry.ditemukan === 'Tidak') {
-    tally.tidakDitemukanJml += 1;
-    tally.tidakDitemukanNilai += harga;
-  } else {
-    switch (entry.statusPenguasaan) {
-      case 'Dikuasai Pegawai':
-        tally.dikuasaiPegawaiJml += 1;
-        tally.dikuasaiPegawaiNilai += harga;
-        break;
-      case 'Digunakan Unit Lain':
-        tally.digunakanUnitLainJml += 1;
-        tally.digunakanUnitLainNilai += harga;
-        break;
-      case 'Dikuasai Pihak Ketiga':
-        tally.dikuasaiPihakKetigaJml += 1;
-        tally.dikuasaiPihakKetigaNilai += harga;
-        break;
-      default:
-        tally.ditemukanJml += 1;
-        tally.ditemukanNilai += harga;
-    }
+  const statusKey = statusKeyForEntry(entry);
+  const st = tally.status[statusKey];
+  st.jml += 1;
+  if (harga > 0) st.nilai += harga;
+  else st.tanpaNilai += 1;
+
+  const kCode = kondisiCodeForEntry(entry.kondisi);
+  if (kCode) {
+    tally.kondisi[kCode].jml += 1;
+    tally.kondisi[kCode].nilai += harga;
   }
-
-  if (entry.kondisi === 'Baik') tally.kondisiBaik += 1;
-  else if (entry.kondisi === 'Rusak Ringan') tally.kondisiRusakRingan += 1;
-  else if (entry.kondisi === 'Rusak Berat') tally.kondisiRusakBerat += 1;
-}
-
-function kondisiKode(kondisi: OpnameEntry['kondisi']): string {
-  if (kondisi === 'Baik') return 'B';
-  if (kondisi === 'Rusak Ringan') return 'KB';
-  if (kondisi === 'Rusak Berat') return 'RB';
-  return '-';
 }
 
 function fmtRupiah(n: number): number {
   return Math.round(n || 0);
 }
 
-// ============ EXCEL PER-KIB (KARTU INVENTARIS BARANG HASIL SENSUS) ============
+function formatRp(n: number): string {
+  return 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
+}
+
+// ============ KOLOM DEPAN (item detail) PER KIB - mengikuti urutan & label resmi ============
+
+interface LeadingCol {
+  label: string;
+  width: number;
+  get: (m: OpnameMasterItem, pengaturan: PengaturanSekolah) => string | number;
+}
+interface LeadingGroup {
+  groupLabel: string;
+  cols: LeadingCol[]; // 1 kolom = standar (merge vertikal), >1 kolom = grup (merge horizontal di baris grup)
+}
+
+const blank = () => '-';
+
+function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
+  if (kib === 'B') {
+    return [
+      { groupLabel: 'Nomor Urut', cols: [{ label: 'Nomor Urut', width: 6, get: m => m.no || '' }] },
+      { groupLabel: 'Nama Barang/Jenis Aset', cols: [{ label: 'Nama Barang/Jenis Aset', width: 32, get: m => m.nama || '-' }] },
+      { groupLabel: 'Nomor Register', cols: [{ label: 'Nomor Register', width: 14, get: m => m.register || '-' }] },
+      { groupLabel: 'Merk/Type', cols: [{ label: 'Merk/Type', width: 18, get: m => m.merk || '-' }] },
+      { groupLabel: 'Ukuran/CC', cols: [{ label: 'Ukuran/CC', width: 10, get: blank }] },
+      { groupLabel: 'Bahan', cols: [{ label: 'Bahan', width: 14, get: m => m.bahan || '-' }] },
+      { groupLabel: 'Tahun Pembelian', cols: [{ label: 'Tahun Pembelian', width: 10, get: m => m.tahun || '-' }] },
+      {
+        groupLabel: 'Nomor',
+        cols: [
+          { label: 'Rangka', width: 12, get: blank },
+          { label: 'Mesin', width: 12, get: blank },
+          { label: 'Polisi', width: 12, get: blank },
+          { label: 'BPKB', width: 12, get: blank }
+        ]
+      },
+      { groupLabel: 'Keadaan Barang (B/KB/RB)', cols: [{ label: 'Keadaan Barang (B/KB/RB)', width: 12, get: blank }] },
+      { groupLabel: 'Asal Usul', cols: [{ label: 'Asal Usul', width: 20, get: m => m.asalUsul || '-' }] },
+      { groupLabel: 'Penggunaan', cols: [{ label: 'Penggunaan', width: 14, get: blank }] },
+      { groupLabel: 'Satuan', cols: [{ label: 'Satuan', width: 10, get: blank }] },
+      { groupLabel: 'Harga', cols: [{ label: 'Harga (ribuan Rp)', width: 16, get: m => fmtRupiah(m.harga || 0) }] },
+      { groupLabel: 'KET.', cols: [{ label: 'KET.', width: 24, get: m => m.keterangan || '-' }] }
+    ];
+  }
+  if (kib === 'C') {
+    return [
+      { groupLabel: 'No. Simda', cols: [{ label: 'No. Simda', width: 6, get: m => m.no || '' }] },
+      { groupLabel: 'OPD', cols: [{ label: 'OPD', width: 20, get: (_m, p) => p.namaSekolah || '-' }] },
+      { groupLabel: 'Jenis Barang / Nama Barang', cols: [{ label: 'Jenis Barang / Nama Barang', width: 32, get: m => m.nama || '-' }] },
+      { groupLabel: 'Register', cols: [{ label: 'Register', width: 14, get: m => m.register || '-' }] },
+      {
+        groupLabel: 'Konstruksi Bangunan',
+        cols: [
+          { label: 'Kondisi Bangunan (B/KB/RB)', width: 12, get: blank },
+          { label: 'Bertingkat/Tidak', width: 12, get: blank },
+          { label: 'Beton/Tidak', width: 12, get: blank },
+          { label: 'Luas Lantai (M2)', width: 14, get: m => m.luasLantai || '-' }
+        ]
+      },
+      { groupLabel: 'Letak/Lokasi Alamat', cols: [{ label: 'Letak/Lokasi Alamat', width: 20, get: m => m.letakLokasi || '-' }] },
+      {
+        groupLabel: 'Dokumen Gedung',
+        cols: [
+          { label: 'Tanggal', width: 12, get: blank },
+          { label: 'Nomor', width: 12, get: blank }
+        ]
+      },
+      { groupLabel: 'Status Tanah', cols: [{ label: 'Status Tanah', width: 12, get: blank }] },
+      { groupLabel: 'Nomor Kode Tanah', cols: [{ label: 'Nomor Kode Tanah', width: 16, get: blank }] },
+      { groupLabel: 'Asal Usul', cols: [{ label: 'Asal Usul', width: 20, get: m => m.asalUsul || '-' }] },
+      { groupLabel: 'Harga Satuan', cols: [{ label: 'Harga Satuan', width: 14, get: blank }] },
+      { groupLabel: 'Harga (ribuan Rp)', cols: [{ label: 'Harga (ribuan Rp)', width: 16, get: m => fmtRupiah(m.harga || 0) }] },
+      { groupLabel: 'Keterangan', cols: [{ label: 'Keterangan', width: 24, get: m => m.keterangan || '-' }] }
+    ];
+  }
+  // KIB E
+  return [
+    { groupLabel: 'Nomor Simda', cols: [{ label: 'Nomor Simda', width: 6, get: m => m.no || '' }] },
+    { groupLabel: 'SKPD', cols: [{ label: 'SKPD', width: 20, get: (_m, p) => p.namaSekolah || '-' }] },
+    { groupLabel: 'Nama Barang/Jenis Aset', cols: [{ label: 'Nama Barang/Jenis Aset', width: 32, get: m => m.nama || '-' }] },
+    { groupLabel: 'Nomor Register', cols: [{ label: 'Nomor Register', width: 14, get: m => m.register || '-' }] },
+    {
+      groupLabel: 'Buku dan Alat Perpustakaan',
+      cols: [
+        { label: 'Judul', width: 26, get: m => m.judulPencipta || '-' },
+        { label: 'Spesifikasi', width: 16, get: blank }
+      ]
+    },
+    {
+      groupLabel: 'Alat Bercorak Kebudayaan',
+      cols: [
+        { label: 'Asal Daerah', width: 14, get: blank },
+        { label: 'Pencipta', width: 16, get: blank },
+        { label: 'Bahan', width: 12, get: blank }
+      ]
+    },
+    {
+      groupLabel: 'Hewan/Ternak dan Tumbuhan',
+      cols: [
+        { label: 'Jenis', width: 12, get: blank },
+        { label: 'Ukuran', width: 12, get: blank }
+      ]
+    },
+    { groupLabel: 'Asal Usul', cols: [{ label: 'Asal Usul', width: 20, get: m => m.asalUsul || '-' }] },
+    { groupLabel: 'Tahun Pembelian', cols: [{ label: 'Tahun Pembelian', width: 10, get: m => m.tahun || '-' }] },
+    { groupLabel: 'Penggunaan', cols: [{ label: 'Penggunaan', width: 14, get: blank }] },
+    { groupLabel: 'Harga (ribuan Rp)', cols: [{ label: 'Harga (ribuan Rp)', width: 16, get: m => fmtRupiah(m.harga || 0) }] },
+    { groupLabel: 'KET.', cols: [{ label: 'KET.', width: 24, get: m => m.keterangan || '-' }] }
+  ];
+}
+
+// ============ COVER SHEET ============
+
+function buildCoverSheet(pengaturan: PengaturanSekolah, kib: KibKey): XLSX.WorkSheet {
+  const tahun = new Date().getFullYear();
+  const rows: any[][] = [
+    [], [], [], [], [], [], [], [],
+    ['PEMERINTAH PROVINSI SULAWESI TENGGARA'],
+    ['DINAS PENDIDIKAN DAN KEBUDAYAAN'],
+    [(pengaturan.namaSekolah || 'SMA Negeri 17 Konawe').toUpperCase()],
+    [], [],
+    [`LAPORAN HASIL INVENTARISASI DAN PENILAIAN BMD ${tahun}`],
+    [`KARTU INVENTARIS BARANG (KIB) ${kib}`],
+    [`SAMPAI DENGAN TANGGAL 31 DESEMBER ${tahun}`],
+    [], [], [],
+    [`NPSN: ${pengaturan.npsn || '-'}`],
+    [`Alamat: ${pengaturan.alamat || '-'}`]
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!merges'] = rows.map((_r, idx) => ({ s: { r: idx, c: 0 }, e: { r: idx, c: 10 } }));
+  ws['!cols'] = [{ wch: 14 }];
+  return ws;
+}
+
+// ============ EXCEL PER-KIB (KARTU INVENTARIS BARANG HASIL SENSUS) - replika format resmi ============
 
 function buildKibWorkbook(
   kib: KibKey,
@@ -129,113 +268,157 @@ function buildKibWorkbook(
   tally: Tally
 ): ArrayBuffer {
   const entryByRefId = new Map(entries.map(e => [e.refId, e]));
-  const catCols = CATEGORY_COLUMNS[kib];
+  const leadingGroups = leadingGroupsFor(kib);
+  const leadingColCount = leadingGroups.reduce((n, g) => n + g.cols.length, 0);
+  const SENSUS_COL_COUNT = SENSUS_CATEGORIES.length * 3; // Jml, Nilai, Tanpa Nilai
+  const KONDISI_COL_COUNT = KONDISI_CODES.length * 2; // kode, Nilai
+  const totalCols = leadingColCount + SENSUS_COL_COUNT + KONDISI_COL_COUNT;
 
-  const baseHeader = ['No.', 'Nama Barang / Jenis Aset', 'Nomor Register', 'Tahun'];
-  const catHeader = catCols.map(c => c.label);
-  const tailHeader = ['Asal Usul', 'Harga Perolehan (Rp)', 'Keterangan'];
-  const sensusHeader = [
-    'Ditemukan (Jml)', 'Ditemukan (Nilai Rp)',
-    'Tidak Ditemukan (Jml)', 'Tidak Ditemukan (Nilai Rp)',
-    'Dikuasai Pegawai (Jml)', 'Dikuasai Pegawai (Nilai Rp)',
-    'Digunakan Unit Lain (Jml)', 'Digunakan Unit Lain (Nilai Rp)',
-    'Dikuasai Pihak Ketiga (Jml)', 'Dikuasai Pihak Ketiga (Nilai Rp)',
-    'Kondisi (B/KB/RB)', 'Kode Stiker', 'Tanggal Opname', 'Petugas'
+  const kopRows: any[][] = [
+    ['PEMERINTAH PROVINSI SULAWESI TENGGARA'],
+    ['DINAS PENDIDIKAN DAN KEBUDAYAAN'],
+    [(pengaturan.namaSekolah || 'SMA Negeri 17 Konawe').toUpperCase()],
+    [KIB_TITLE[kib]],
+    [`OPD : ${pengaturan.namaSekolah || '-'}`],
+    [`PROVINSI : Sulawesi Tenggara`],
+    [`ALAMAT : ${pengaturan.alamat || '-'}`],
+    []
   ];
 
-  const rows: any[][] = [];
-  rows.push([`PEMERINTAH PROVINSI SULAWESI TENGGARA`]);
-  rows.push([`DINAS PENDIDIKAN DAN KEBUDAYAAN`]);
-  rows.push([(pengaturan.namaSekolah || 'SMA Negeri 17 Konawe').toUpperCase()]);
-  rows.push([KIB_TITLE[kib]]);
-  rows.push([`NPSN: ${pengaturan.npsn || '-'} | Alamat: ${pengaturan.alamat || '-'}`]);
-  rows.push([`Dicetak: ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}`]);
-  rows.push([]);
+  const HEADER_ROWS = 4; // grup, sub-grup, nomor, jml/nilai/tanpaNilai
+  const headerBase = kopRows.length; // baris awal blok header tabel (0-based)
 
-  const headerRowIdx = rows.length; // 0-based index of header row
-  rows.push([...baseHeader, ...catHeader, ...tailHeader, ...sensusHeader]);
+  // Row 1 (grup): leading group labels (merge horizontal jika group.cols>1, vertikal 2 baris jika 1 kolom) + "Hasil Sensus" (merge horizontal semua kolom trailing)
+  const row1: any[] = [];
+  const row2: any[] = [];
+  leadingGroups.forEach(g => {
+    row1.push(g.groupLabel);
+    for (let i = 1; i < g.cols.length; i++) row1.push('');
+    if (g.cols.length > 1) {
+      g.cols.forEach(c => row2.push(c.label));
+    } else {
+      row2.push(''); // akan di-merge vertikal dengan row1
+    }
+  });
+  row1.push('Hasil Sensus');
+  for (let i = 1; i < SENSUS_COL_COUNT + KONDISI_COL_COUNT; i++) row1.push('');
+  SENSUS_CATEGORIES.forEach(cat => {
+    row2.push(cat.label, '', '');
+  });
+  row2.push('Kondisi (B/KB/RB)');
+  for (let i = 1; i < KONDISI_COL_COUNT; i++) row2.push('');
+
+  // Row 3 (nomor urut kolom, hanya untuk leading columns)
+  const row3: any[] = [];
+  for (let i = 1; i <= leadingColCount; i++) row3.push(i);
+  for (let i = 0; i < SENSUS_COL_COUNT + KONDISI_COL_COUNT; i++) row3.push('');
+
+  // Row 4 (Jml/Nilai/Tanpa Nilai per kategori sensus, kode/Nilai per kondisi)
+  const row4: any[] = [];
+  for (let i = 0; i < leadingColCount; i++) row4.push('');
+  SENSUS_CATEGORIES.forEach(() => row4.push('Jml', 'Nilai', 'Tanpa Nilai'));
+  KONDISI_CODES.forEach(k => row4.push(k.code, 'Nilai'));
+
+  const rows: any[][] = [...kopRows, row1, row2, row3, row4];
 
   masterList.forEach((m, idx) => {
     const entry = entryByRefId.get(m.id);
     const harga = fmtRupiah(m.harga || 0);
-    const catVals = catCols.map(c => (m[c.key] as any) ?? '-');
 
-    const sensusVals: any[] = ['', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+    const leadingVals: any[] = [];
+    leadingGroups.forEach(g => g.cols.forEach(c => leadingVals.push(c.get(m, pengaturan) as any)));
+    if (typeof leadingVals[0] !== 'number') leadingVals[0] = m.no || idx + 1;
+
+    const sensusVals: any[] = new Array(SENSUS_COL_COUNT).fill('');
+    const kondisiVals: any[] = new Array(KONDISI_COL_COUNT).fill('');
+
     if (entry) {
-      if (entry.ditemukan === 'Tidak') {
-        sensusVals[2] = 1; sensusVals[3] = harga;
-      } else if (entry.statusPenguasaan === 'Dikuasai Pegawai') {
-        sensusVals[4] = 1; sensusVals[5] = harga;
-      } else if (entry.statusPenguasaan === 'Digunakan Unit Lain') {
-        sensusVals[6] = 1; sensusVals[7] = harga;
-      } else if (entry.statusPenguasaan === 'Dikuasai Pihak Ketiga') {
-        sensusVals[8] = 1; sensusVals[9] = harga;
-      } else {
-        sensusVals[0] = 1; sensusVals[1] = harga;
+      const statusKey = statusKeyForEntry(entry);
+      const catIdx = SENSUS_CATEGORIES.findIndex(c => c.key === statusKey);
+      if (catIdx >= 0) {
+        sensusVals[catIdx * 3] = 1;
+        if (harga > 0) sensusVals[catIdx * 3 + 1] = harga;
+        else sensusVals[catIdx * 3 + 2] = 1;
       }
-      sensusVals[10] = kondisiKode(entry.kondisi);
-      sensusVals[11] = entry.kodeStiker || '-';
-      sensusVals[12] = entry.tanggalOpname || '-';
-      sensusVals[13] = entry.petugas || '-';
-    } else {
-      sensusVals[10] = 'BELUM DIOPNAME';
+      const kCode = kondisiCodeForEntry(entry.kondisi);
+      if (kCode) {
+        const kIdx = KONDISI_CODES.findIndex(k => k.code === kCode);
+        kondisiVals[kIdx * 2] = 1;
+        kondisiVals[kIdx * 2 + 1] = harga;
+      }
     }
 
-    rows.push([
-      m.no || idx + 1,
-      m.nama || '-',
-      m.register || '-',
-      m.tahun || '-',
-      ...catVals,
-      m.asalUsul || '-',
-      harga,
-      m.keterangan || '-',
-      ...sensusVals
-    ]);
+    rows.push([...leadingVals, ...sensusVals, ...kondisiVals]);
   });
 
-  // Total row
-  const totalRow = new Array(baseHeader.length + catCols.length + tailHeader.length).fill('');
+  // Baris JUMLAH
+  const totalRow: any[] = new Array(leadingColCount).fill('');
   totalRow[0] = 'JUMLAH';
-  totalRow.push(
-    tally.ditemukanJml, tally.ditemukanNilai,
-    tally.tidakDitemukanJml, tally.tidakDitemukanNilai,
-    tally.dikuasaiPegawaiJml, tally.dikuasaiPegawaiNilai,
-    tally.digunakanUnitLainJml, tally.digunakanUnitLainNilai,
-    tally.dikuasaiPihakKetigaJml, tally.dikuasaiPihakKetigaNilai,
-    '', '', '', ''
-  );
+  SENSUS_CATEGORIES.forEach(cat => {
+    const st = tally.status[cat.key];
+    totalRow.push(st.jml, st.nilai, st.tanpaNilai);
+  });
+  KONDISI_CODES.forEach(k => {
+    const kt = tally.kondisi[k.code];
+    totalRow.push(kt.jml, kt.nilai);
+  });
   rows.push(totalRow);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
 
-  const totalCols = baseHeader.length + catCols.length + tailHeader.length + sensusHeader.length;
-  ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: totalCols - 1 } },
-    { s: { r: 2, c: 0 }, e: { r: 2, c: totalCols - 1 } },
-    { s: { r: 3, c: 0 }, e: { r: 3, c: totalCols - 1 } },
-    { s: { r: 4, c: 0 }, e: { r: 4, c: totalCols - 1 } },
-    { s: { r: 5, c: 0 }, e: { r: 5, c: totalCols - 1 } }
-  ];
+  const merges: XLSX.Range[] = [];
+  // Kop surat (baris 0-6) full-width merge
+  for (let r = 0; r < kopRows.length - 1; r++) {
+    merges.push({ s: { r, c: 0 }, e: { r, c: totalCols - 1 } });
+  }
 
+  const r1i = headerBase, r2i = headerBase + 1, r3i = headerBase + 2, r4i = headerBase + 3;
+
+  // Merge grup leading columns
+  let c = 0;
+  leadingGroups.forEach(g => {
+    if (g.cols.length > 1) {
+      merges.push({ s: { r: r1i, c }, e: { r: r1i, c: c + g.cols.length - 1 } });
+    } else {
+      merges.push({ s: { r: r1i, c }, e: { r: r2i, c } }); // merge vertikal
+    }
+    c += g.cols.length;
+  });
+  // Merge "Hasil Sensus" super header
+  merges.push({ s: { r: r1i, c }, e: { r: r1i, c: totalCols - 1 } });
+
+  // Merge tiap kategori sensus (3 kolom) di row2
+  let sc = leadingColCount;
+  SENSUS_CATEGORIES.forEach(() => {
+    merges.push({ s: { r: r2i, c: sc }, e: { r: r2i, c: sc + 2 } });
+    sc += 3;
+  });
+  // Merge "Kondisi (B/KB/RB)" - satu label membentang semua kolom kondisi
+  merges.push({ s: { r: r2i, c: sc }, e: { r: r2i, c: sc + KONDISI_COL_COUNT - 1 } });
+  sc += KONDISI_COL_COUNT;
+
+  // Merge baris JUMLAH label (kolom leading selain kolom pertama)
+  const jumlahRowIdx = rows.length - 1;
+  if (leadingColCount > 1) {
+    merges.push({ s: { r: jumlahRowIdx, c: 0 }, e: { r: jumlahRowIdx, c: leadingColCount - 1 } });
+  }
+
+  ws['!merges'] = merges;
   ws['!cols'] = [
-    { wch: 5 }, { wch: 32 }, { wch: 16 }, { wch: 8 },
-    ...catCols.map(c => ({ wch: c.width })),
-    { wch: 20 }, { wch: 16 }, { wch: 22 },
-    { wch: 10 }, { wch: 14 }, { wch: 10 }, { wch: 14 }, { wch: 10 }, { wch: 14 },
-    { wch: 10 }, { wch: 14 }, { wch: 10 }, { wch: 14 },
-    { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 18 }
+    ...leadingGroups.flatMap(g => g.cols.map(col => ({ wch: col.width }))),
+    ...Array.from({ length: SENSUS_COL_COUNT }, () => ({ wch: 10 })),
+    ...Array.from({ length: KONDISI_COL_COUNT }, () => ({ wch: 8 }))
   ];
 
-  void headerRowIdx;
+  void row3; void row4;
 
   const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, buildCoverSheet(pengaturan, kib), 'cover');
   XLSX.utils.book_append_sheet(wb, ws, `KIB ${kib} Hasil Sensus`);
   return XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
 }
 
-// ============ SURAT LAPORAN NARATIF (DOCX) ============
+// ============ SURAT LAPORAN NARATIF (DOCX) - 6 tabel terpisah sesuai format resmi ============
 
 function kopSurat(pengaturan: PengaturanSekolah): Paragraph[] {
   return [
@@ -283,76 +466,111 @@ function headCell(text: string): TableCell {
   return new TableCell({
     borders: tCellBorder,
     shading: { type: ShadingType.SOLID, color: 'E5E7EB', fill: 'E5E7EB' },
-    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text, bold: true, size: 18, font: 'Times New Roman' })] })]
+    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text, bold: true, size: 17, font: 'Times New Roman' })] })]
   });
 }
 
 function dataCell(text: string, align: any = AlignmentType.CENTER): TableCell {
   return new TableCell({
     borders: tCellBorder,
-    children: [new Paragraph({ alignment: align, children: [new TextRun({ text, size: 18, font: 'Times New Roman' })] })]
+    children: [new Paragraph({ alignment: align, children: [new TextRun({ text, size: 17, font: 'Times New Roman' })] })]
   });
 }
 
-function formatRp(n: number): string {
-  return 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
+function statusJmlTotal(t: Tally): number {
+  return (['ditemukan', 'dikuasaiPegawai', 'digunakanUnitLain', 'dikuasaiPihakKetiga'] as SensusStatusKey[])
+    .reduce((sum, k) => sum + t.status[k].jml, 0);
+}
+function statusNilaiTotal(t: Tally): number {
+  return (['ditemukan', 'dikuasaiPegawai', 'digunakanUnitLain', 'dikuasaiPihakKetiga'] as SensusStatusKey[])
+    .reduce((sum, k) => sum + t.status[k].nilai, 0);
 }
 
-function buildRekapTable(tallies: Record<KibKey, Tally>): Table {
+function sectionTitle(text: string): Paragraph {
+  return p(text, { bold: true, spacingAfter: 100 });
+}
+
+// Tabel 1: Jumlah BMD Menurut Administrasi
+function buildTabelAdministratif(tallies: Record<KibKey, Tally>): Table {
+  const rows: TableRow[] = [
+    new TableRow({ children: [headCell('Jenis KIB'), headCell('Jumlah Item'), headCell('Nilai (Rp)')] })
+  ];
+  let totJml = 0, totNilai = 0;
+  (['B', 'C', 'E'] as KibKey[]).forEach(kib => {
+    const t = tallies[kib];
+    totJml += t.administratifJml;
+    totNilai += t.administratifNilai;
+    rows.push(new TableRow({ children: [dataCell(`KIB ${kib}`), dataCell(String(t.administratifJml)), dataCell(formatRp(t.administratifNilai), AlignmentType.RIGHT)] }));
+  });
+  rows.push(new TableRow({ children: [dataCell('JUMLAH', AlignmentType.LEFT), dataCell(String(totJml)), dataCell(formatRp(totNilai), AlignmentType.RIGHT)] }));
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows });
+}
+
+// Tabel 2: Hasil Inventarisasi Fisik yang Dilakukan
+function buildTabelInventarisasiFisik(tallies: Record<KibKey, Tally>): Table {
   const rows: TableRow[] = [
     new TableRow({
       children: [
-        headCell('Jenis KIB'), headCell('Jml Item\nAdministratif'), headCell('Nilai Administratif'),
-        headCell('Jml Sudah\nDiopname'), headCell('Jml Ditemukan'), headCell('Jml Tidak\nDitemukan'),
-        headCell('Kondisi Baik'), headCell('Rusak\nRingan'), headCell('Rusak\nBerat')
+        headCell('Jenis KIB'), headCell('Jml Item\nTercatat'), headCell('Nilai Tercatat'),
+        headCell('Jml Item\nSudah Diopname'), headCell('Nilai\nSudah Diopname')
       ]
     })
   ];
-
+  let acc = { adm: 0, admNilai: 0, opn: 0, opnNilai: 0 };
   (['B', 'C', 'E'] as KibKey[]).forEach(kib => {
     const t = tallies[kib];
+    const opnNilai = statusNilaiTotal(t) + t.status.tidakDitemukan.nilai;
+    acc.adm += t.administratifJml; acc.admNilai += t.administratifNilai;
+    acc.opn += t.sudahDiopnameJml; acc.opnNilai += opnNilai;
     rows.push(new TableRow({
       children: [
-        dataCell(`KIB ${kib}`),
-        dataCell(String(t.administratifJml)),
-        dataCell(formatRp(t.administratifNilai), AlignmentType.RIGHT),
-        dataCell(String(t.sudahDiopnameJml)),
-        dataCell(String(t.ditemukanJml + t.dikuasaiPegawaiJml + t.digunakanUnitLainJml + t.dikuasaiPihakKetigaJml)),
-        dataCell(String(t.tidakDitemukanJml)),
-        dataCell(String(t.kondisiBaik)),
-        dataCell(String(t.kondisiRusakRingan)),
-        dataCell(String(t.kondisiRusakBerat))
+        dataCell(`KIB ${kib}`), dataCell(String(t.administratifJml)), dataCell(formatRp(t.administratifNilai), AlignmentType.RIGHT),
+        dataCell(String(t.sudahDiopnameJml)), dataCell(formatRp(opnNilai), AlignmentType.RIGHT)
       ]
     }));
   });
-
-  const grand = (['B', 'C', 'E'] as KibKey[]).reduce((acc, kib) => {
-    const t = tallies[kib];
-    acc.administratifJml += t.administratifJml;
-    acc.administratifNilai += t.administratifNilai;
-    acc.sudahDiopnameJml += t.sudahDiopnameJml;
-    acc.ditemukan += t.ditemukanJml + t.dikuasaiPegawaiJml + t.digunakanUnitLainJml + t.dikuasaiPihakKetigaJml;
-    acc.tidakDitemukan += t.tidakDitemukanJml;
-    acc.baik += t.kondisiBaik;
-    acc.rr += t.kondisiRusakRingan;
-    acc.rb += t.kondisiRusakBerat;
-    return acc;
-  }, { administratifJml: 0, administratifNilai: 0, sudahDiopnameJml: 0, ditemukan: 0, tidakDitemukan: 0, baik: 0, rr: 0, rb: 0 });
-
   rows.push(new TableRow({
     children: [
-      dataCell('JUMLAH', AlignmentType.LEFT),
-      dataCell(String(grand.administratifJml)),
-      dataCell(formatRp(grand.administratifNilai), AlignmentType.RIGHT),
-      dataCell(String(grand.sudahDiopnameJml)),
-      dataCell(String(grand.ditemukan)),
-      dataCell(String(grand.tidakDitemukan)),
-      dataCell(String(grand.baik)),
-      dataCell(String(grand.rr)),
-      dataCell(String(grand.rb))
+      dataCell('JUMLAH', AlignmentType.LEFT), dataCell(String(acc.adm)), dataCell(formatRp(acc.admNilai), AlignmentType.RIGHT),
+      dataCell(String(acc.opn)), dataCell(formatRp(acc.opnNilai), AlignmentType.RIGHT)
     ]
   }));
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows });
+}
 
+// Tabel 3: BMD Tidak Ditemukan
+function buildTabelTidakDitemukan(tallies: Record<KibKey, Tally>): Table {
+  const rows: TableRow[] = [
+    new TableRow({
+      children: [headCell('Jenis KIB'), headCell('Jml\nAdministratif'), headCell('Jml\nTidak Ditemukan'), headCell('Nilai\nTidak Ditemukan')]
+    })
+  ];
+  let acc = { adm: 0, td: 0, tdNilai: 0 };
+  (['B', 'C', 'E'] as KibKey[]).forEach(kib => {
+    const t = tallies[kib];
+    acc.adm += t.administratifJml; acc.td += t.status.tidakDitemukan.jml; acc.tdNilai += t.status.tidakDitemukan.nilai;
+    rows.push(new TableRow({
+      children: [dataCell(`KIB ${kib}`), dataCell(String(t.administratifJml)), dataCell(String(t.status.tidakDitemukan.jml)), dataCell(formatRp(t.status.tidakDitemukan.nilai), AlignmentType.RIGHT)]
+    }));
+  });
+  rows.push(new TableRow({
+    children: [dataCell('JUMLAH', AlignmentType.LEFT), dataCell(String(acc.adm)), dataCell(String(acc.td)), dataCell(formatRp(acc.tdNilai), AlignmentType.RIGHT)]
+  }));
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows });
+}
+
+// Tabel 4/5/6: BMD Kondisi Baik / Rusak Ringan / Rusak Berat
+function buildTabelKondisi(tallies: Record<KibKey, Tally>, code: 'B' | 'KB' | 'RB'): Table {
+  const rows: TableRow[] = [
+    new TableRow({ children: [headCell('Jenis KIB'), headCell('Jumlah/Volume Fisik'), headCell('Nilai (Rp)')] })
+  ];
+  let totJml = 0, totNilai = 0;
+  (['B', 'C', 'E'] as KibKey[]).forEach(kib => {
+    const kt = tallies[kib].kondisi[code];
+    totJml += kt.jml; totNilai += kt.nilai;
+    rows.push(new TableRow({ children: [dataCell(`KIB ${kib}`), dataCell(String(kt.jml)), dataCell(formatRp(kt.nilai), AlignmentType.RIGHT)] }));
+  });
+  rows.push(new TableRow({ children: [dataCell('JUMLAH', AlignmentType.LEFT), dataCell(String(totJml)), dataCell(formatRp(totNilai), AlignmentType.RIGHT)] }));
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows });
 }
 
@@ -404,6 +622,14 @@ function buildSignature(pengaturan: PengaturanSekolah, tanggalStr: string): Tabl
 
 async function buildLaporanNaratifDocx(pengaturan: PengaturanSekolah, tallies: Record<KibKey, Tally>): Promise<Blob> {
   const tanggalStr = `${(pengaturan.alamat || 'Konawe').split(',')[0].split(' ').pop() || 'Konawe'}, ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+  const tahun = new Date().getFullYear();
+
+  const grandJmlAdm = (['B', 'C', 'E'] as KibKey[]).reduce((s, k) => s + tallies[k].administratifJml, 0);
+  const grandNilaiAdm = (['B', 'C', 'E'] as KibKey[]).reduce((s, k) => s + tallies[k].administratifNilai, 0);
+  const grandTidakDitemukan = (['B', 'C', 'E'] as KibKey[]).reduce((s, k) => s + tallies[k].status.tidakDitemukan.jml, 0);
+  const grandNilaiTidakDitemukan = (['B', 'C', 'E'] as KibKey[]).reduce((s, k) => s + tallies[k].status.tidakDitemukan.nilai, 0);
+  const grandBaik = (['B', 'C', 'E'] as KibKey[]).reduce((s, k) => s + tallies[k].kondisi.B.jml, 0);
+  const grandRB = (['B', 'C', 'E'] as KibKey[]).reduce((s, k) => s + tallies[k].kondisi.RB.jml, 0);
 
   const doc = new Document({
     sections: [
@@ -411,24 +637,44 @@ async function buildLaporanNaratifDocx(pengaturan: PengaturanSekolah, tallies: R
         properties: {},
         children: [
           ...kopSurat(pengaturan),
-          p('LAPORAN HASIL SENSUS / OPNAME FISIK BARANG MILIK DAERAH (BMD)', { bold: true, alignment: AlignmentType.CENTER, spacingAfter: 60 }),
-          p(`Tahun ${new Date().getFullYear()}`, { alignment: AlignmentType.CENTER, spacingAfter: 300 }),
-
-          p('Nomor', {}),
+          p('LAPORAN HASIL INVENTARISASI BMD', { bold: true, alignment: AlignmentType.CENTER, spacingAfter: 60 }),
+          p(`${tanggalStr}`, { alignment: AlignmentType.CENTER, spacingAfter: 20 }),
+          p('Nomor    : -', {}),
           p('Lampiran : 1 (satu) set', {}),
-          p('Perihal   : Laporan Hasil Sensus / Opname Fisik Barang Milik Daerah (BMD)', { spacingAfter: 300 }),
+          p('Perihal  : Laporan Hasil Inventarisasi Barang Milik Daerah (BMD)', { spacingAfter: 300 }),
 
           p('Yth. Kepala Dinas Pendidikan dan Kebudayaan', {}),
           p('Provinsi Sulawesi Tenggara', {}),
           p('di -', {}),
           p('    Kendari', { spacingAfter: 300 }),
 
-          p(`Dengan ini kami sampaikan Laporan Hasil Sensus/Opname Fisik atas Barang Milik Daerah (BMD) ${pengaturan.namaSekolah || 'SMA Negeri 17 Konawe'}, dengan rincian sebagai berikut:`, { spacingAfter: 200 }),
+          p(`Dengan ini kami sampaikan laporan Hasil Inventarisasi atas BMD ${pengaturan.namaSekolah || 'SMA Negeri 17 Konawe'}, yang inventarisasinya (opname fisik) dilaksanakan pada Tahun ${tahun}, dengan informasi sebagai berikut:`, { spacingAfter: 200 }),
 
-          buildRekapTable(tallies),
+          p(`1. Jumlah BMD yang ada menurut administrasi/Daftar BMD sebanyak ${grandJmlAdm} item dengan nilai seluruhnya ${formatRp(grandNilaiAdm)}, dengan rincian sebagai berikut:`, { spacingAfter: 150 }),
+          buildTabelAdministratif(tallies),
 
-          new Paragraph({ spacing: { after: 200 }, children: [] }),
-          p('Catatan / Lain-lain:', { bold: true, spacingAfter: 100 }),
+          new Paragraph({ spacing: { after: 250 }, children: [] }),
+          sectionTitle('2. Inventarisasi Fisik yang Dilakukan'),
+          buildTabelInventarisasiFisik(tallies),
+
+          new Paragraph({ spacing: { after: 250 }, children: [] }),
+          sectionTitle(`3. Dari hasil inventarisasi fisik, terdapat BMD yang tidak ditemukan sebanyak ${grandTidakDitemukan} item dengan nilai ${formatRp(grandNilaiTidakDitemukan)}, dengan rincian sebagai berikut:`),
+          buildTabelTidakDitemukan(tallies),
+
+          new Paragraph({ spacing: { after: 250 }, children: [] }),
+          sectionTitle(`4. Terdapat BMD dengan kondisi Baik sebanyak ${grandBaik} item, dengan rincian sebagai berikut:`),
+          buildTabelKondisi(tallies, 'B'),
+
+          new Paragraph({ spacing: { after: 250 }, children: [] }),
+          sectionTitle('5. Terdapat BMD dengan kondisi Rusak Ringan, dengan rincian sebagai berikut:'),
+          buildTabelKondisi(tallies, 'KB'),
+
+          new Paragraph({ spacing: { after: 250 }, children: [] }),
+          sectionTitle(`6. Terdapat BMD dengan kondisi Rusak Berat sebanyak ${grandRB} item, dengan rincian sebagai berikut:`),
+          buildTabelKondisi(tallies, 'RB'),
+
+          new Paragraph({ spacing: { after: 250 }, children: [] }),
+          p('7. Lain-lain:', { bold: true, spacingAfter: 100 }),
           p('(Isi catatan tambahan di sini bila ada, misalnya aset yang perlu diusulkan penghapusan atau kondisi khusus lainnya.)', { italics: true, spacingAfter: 300 }),
 
           p('Demikian laporan ini kami sampaikan, untuk dipergunakan seperlunya.', { spacingAfter: 400 }),
