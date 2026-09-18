@@ -25,6 +25,13 @@ const NAMA_SEKOLAH_OPNAME = 'SMA Negeri 1 Amonggedo';
 
 type KibKey = 'B' | 'C' | 'E';
 
+// Format resmi surat laporan selalu mencantumkan KIB A-F lengkap (tanah, peralatan, gedung,
+// jalan/jaringan/irigasi, aset tetap lainnya, konstruksi dalam pengerjaan) walau nilainya "-"
+// untuk kategori yang tidak dimiliki/tidak dilacak sekolah. Aplikasi ini hanya melacak KIB
+// B/C/E (peralatan, gedung, buku) - KIB A/D/F ditampilkan sebagai baris kosong ("-") supaya
+// strukturnya tetap lengkap sesuai contoh resmi dari provinsi.
+const KIB_ALL_ORDER: string[] = ['A', 'B', 'C', 'D', 'E', 'F'];
+
 const KIB_TITLE: Record<KibKey, string> = {
   B: 'KARTU INVENTARIS BARANG (KIB) B - PERALATAN DAN MESIN',
   C: 'KARTU INVENTARIS BARANG (KIB) C - GEDUNG DAN BANGUNAN',
@@ -744,71 +751,106 @@ function sectionTitle(text: string): Paragraph {
   return p(text, { bold: true, spacingAfter: 100 });
 }
 
+// Kolom "Unit Kerja" diulang di tiap baris (bukan digabung/merge vertikal seperti contoh resmi)
+// supaya tidak menambah risiko bug pada penggabungan sel - isinya tetap sama & lengkap.
+function unitKerjaCell(): TableCell {
+  return dataCell(NAMA_SEKOLAH_OPNAME, AlignmentType.LEFT);
+}
+
 // Tabel 1: Jumlah BMD Menurut Administrasi
 function buildTabelAdministratif(tallies: Record<KibKey, Tally>): Table {
   const rows: TableRow[] = [
-    new TableRow({ children: [headCell('Jenis KIB'), headCell('Jumlah Item'), headCell('Nilai (Rp)')] })
+    new TableRow({ children: [headCell('Unit Kerja'), headCell('UPB'), headCell('Jenis KIB'), headCell('Jumlah Item'), headCell('Nilai (Rp)'), headCell('Lampiran')] })
   ];
   let totJml = 0, totNilai = 0;
-  (['B', 'C', 'E'] as KibKey[]).forEach(kib => {
-    const t = tallies[kib];
-    totJml += t.administratifJml;
-    totNilai += t.administratifNilai;
-    rows.push(new TableRow({ children: [dataCell(`KIB ${kib}`), dataCell(String(t.administratifJml)), dataCell(formatRp(t.administratifNilai), AlignmentType.RIGHT)] }));
+  KIB_ALL_ORDER.forEach(kib => {
+    const t = (tallies as Record<string, Tally>)[kib];
+    if (t) {
+      totJml += t.administratifJml;
+      totNilai += t.administratifNilai;
+      rows.push(new TableRow({ children: [
+        unitKerjaCell(), dataCell('-'), dataCell(`KIB ${kib}`), dataCell(String(t.administratifJml)),
+        dataCell(formatRp(t.administratifNilai), AlignmentType.RIGHT), dataCell(t.administratifJml > 0 ? 'Terlampir' : '-')
+      ] }));
+    } else {
+      rows.push(new TableRow({ children: [unitKerjaCell(), dataCell('-'), dataCell(`KIB ${kib}`), dataCell('-'), dataCell('-', AlignmentType.RIGHT), dataCell('-')] }));
+    }
   });
-  rows.push(new TableRow({ children: [dataCell('JUMLAH', AlignmentType.LEFT), dataCell(String(totJml)), dataCell(formatRp(totNilai), AlignmentType.RIGHT)] }));
+  rows.push(new TableRow({ children: [dataCell('JUMLAH', AlignmentType.LEFT), dataCell(''), dataCell(''), dataCell(String(totJml)), dataCell(formatRp(totNilai), AlignmentType.RIGHT), dataCell('')] }));
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows });
 }
 
-// Tabel 2: Hasil Inventarisasi Fisik yang Dilakukan
+// Tabel 2: Inventarisasi Fisik yang Dilakukan - progres opname sejauh ini (opname masih
+// berjalan, belum tentu semua barang administratif sudah dicek), bukan angka final.
 function buildTabelInventarisasiFisik(tallies: Record<KibKey, Tally>): Table {
   const rows: TableRow[] = [
     new TableRow({
       children: [
-        headCell('Jenis KIB'), headCell('Jml Item\nTercatat'), headCell('Nilai Tercatat'),
+        headCell('Unit Kerja'), headCell('Jenis KIB'), headCell('Jml Item\nTercatat (Administratif)'), headCell('Nilai Tercatat'),
         headCell('Jml Item\nSudah Diopname'), headCell('Nilai\nSudah Diopname')
       ]
     })
   ];
   let acc = { adm: 0, admNilai: 0, opn: 0, opnNilai: 0 };
-  (['B', 'C', 'E'] as KibKey[]).forEach(kib => {
-    const t = tallies[kib];
-    const opnNilai = statusNilaiTotal(t) + t.status.tidakDitemukan.nilai;
-    acc.adm += t.administratifJml; acc.admNilai += t.administratifNilai;
-    acc.opn += t.sudahDiopnameJml; acc.opnNilai += opnNilai;
-    rows.push(new TableRow({
-      children: [
-        dataCell(`KIB ${kib}`), dataCell(String(t.administratifJml)), dataCell(formatRp(t.administratifNilai), AlignmentType.RIGHT),
-        dataCell(String(t.sudahDiopnameJml)), dataCell(formatRp(opnNilai), AlignmentType.RIGHT)
-      ]
-    }));
+  KIB_ALL_ORDER.forEach(kib => {
+    const t = (tallies as Record<string, Tally>)[kib];
+    if (t) {
+      const opnNilai = statusNilaiTotal(t) + t.status.tidakDitemukan.nilai;
+      acc.adm += t.administratifJml; acc.admNilai += t.administratifNilai;
+      acc.opn += t.sudahDiopnameJml; acc.opnNilai += opnNilai;
+      rows.push(new TableRow({
+        children: [
+          unitKerjaCell(), dataCell(`KIB ${kib}`), dataCell(String(t.administratifJml)), dataCell(formatRp(t.administratifNilai), AlignmentType.RIGHT),
+          dataCell(String(t.sudahDiopnameJml)), dataCell(formatRp(opnNilai), AlignmentType.RIGHT)
+        ]
+      }));
+    } else {
+      rows.push(new TableRow({ children: [unitKerjaCell(), dataCell(`KIB ${kib}`), dataCell('-'), dataCell('-', AlignmentType.RIGHT), dataCell('-'), dataCell('-', AlignmentType.RIGHT)] }));
+    }
   });
   rows.push(new TableRow({
     children: [
-      dataCell('JUMLAH', AlignmentType.LEFT), dataCell(String(acc.adm)), dataCell(formatRp(acc.admNilai), AlignmentType.RIGHT),
+      dataCell('JUMLAH', AlignmentType.LEFT), dataCell(''), dataCell(String(acc.adm)), dataCell(formatRp(acc.admNilai), AlignmentType.RIGHT),
       dataCell(String(acc.opn)), dataCell(formatRp(acc.opnNilai), AlignmentType.RIGHT)
     ]
   }));
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows });
 }
 
-// Tabel 3: BMD Tidak Ditemukan
+// Tabel 3: BMD Tidak Ditemukan - kolom mengikuti format resmi (Administratif / Inventarisasi
+// yang ditemukan / Selisih Volume & Nilai = yang tidak ditemukan).
 function buildTabelTidakDitemukan(tallies: Record<KibKey, Tally>): Table {
   const rows: TableRow[] = [
     new TableRow({
-      children: [headCell('Jenis KIB'), headCell('Jml\nAdministratif'), headCell('Jml\nTidak Ditemukan'), headCell('Nilai\nTidak Ditemukan')]
+      children: [
+        headCell('Unit Kerja'), headCell('Jenis KIB'), headCell('Administratif'), headCell('Inventarisasi\n(Ditemukan)'),
+        headCell('Selisih\nVolume'), headCell('Selisih\nNilai'), headCell('Lampiran')
+      ]
     })
   ];
-  let acc = { adm: 0, td: 0, tdNilai: 0 };
-  (['B', 'C', 'E'] as KibKey[]).forEach(kib => {
-    const t = tallies[kib];
-    acc.adm += t.administratifJml; acc.td += t.status.tidakDitemukan.jml; acc.tdNilai += t.status.tidakDitemukan.nilai;
-    rows.push(new TableRow({
-      children: [dataCell(`KIB ${kib}`), dataCell(String(t.administratifJml)), dataCell(String(t.status.tidakDitemukan.jml)), dataCell(formatRp(t.status.tidakDitemukan.nilai), AlignmentType.RIGHT)]
-    }));
+  let acc = { adm: 0, ditemukan: 0, td: 0, tdNilai: 0 };
+  KIB_ALL_ORDER.forEach(kib => {
+    const t = (tallies as Record<string, Tally>)[kib];
+    if (t) {
+      const ditemukan = t.administratifJml - t.status.tidakDitemukan.jml;
+      acc.adm += t.administratifJml; acc.ditemukan += ditemukan;
+      acc.td += t.status.tidakDitemukan.jml; acc.tdNilai += t.status.tidakDitemukan.nilai;
+      rows.push(new TableRow({
+        children: [
+          unitKerjaCell(), dataCell(`KIB ${kib}`), dataCell(String(t.administratifJml)), dataCell(String(ditemukan)),
+          dataCell(String(t.status.tidakDitemukan.jml)), dataCell(formatRp(t.status.tidakDitemukan.nilai), AlignmentType.RIGHT),
+          dataCell(t.status.tidakDitemukan.jml > 0 ? 'Terlampir' : '-')
+        ]
+      }));
+    } else {
+      rows.push(new TableRow({ children: [unitKerjaCell(), dataCell(`KIB ${kib}`), dataCell('-'), dataCell('-'), dataCell('-'), dataCell('-', AlignmentType.RIGHT), dataCell('-')] }));
+    }
   });
   rows.push(new TableRow({
-    children: [dataCell('JUMLAH', AlignmentType.LEFT), dataCell(String(acc.adm)), dataCell(String(acc.td)), dataCell(formatRp(acc.tdNilai), AlignmentType.RIGHT)]
+    children: [
+      dataCell('JUMLAH', AlignmentType.LEFT), dataCell(''), dataCell(String(acc.adm)), dataCell(String(acc.ditemukan)),
+      dataCell(String(acc.td)), dataCell(formatRp(acc.tdNilai), AlignmentType.RIGHT), dataCell('')
+    ]
   }));
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows });
 }
@@ -816,15 +858,20 @@ function buildTabelTidakDitemukan(tallies: Record<KibKey, Tally>): Table {
 // Tabel 4/5/6: BMD Kondisi Baik / Rusak Ringan / Rusak Berat
 function buildTabelKondisi(tallies: Record<KibKey, Tally>, code: 'B' | 'KB' | 'RB'): Table {
   const rows: TableRow[] = [
-    new TableRow({ children: [headCell('Jenis KIB'), headCell('Jumlah/Volume Fisik'), headCell('Nilai (Rp)')] })
+    new TableRow({ children: [headCell('Unit Kerja'), headCell('Jenis KIB'), headCell('Jumlah/Volume Fisik'), headCell('Nilai (Rp)'), headCell('Lampiran')] })
   ];
   let totJml = 0, totNilai = 0;
-  (['B', 'C', 'E'] as KibKey[]).forEach(kib => {
-    const kt = tallies[kib].kondisi[code];
-    totJml += kt.jml; totNilai += kt.nilai;
-    rows.push(new TableRow({ children: [dataCell(`KIB ${kib}`), dataCell(String(kt.jml)), dataCell(formatRp(kt.nilai), AlignmentType.RIGHT)] }));
+  KIB_ALL_ORDER.forEach(kib => {
+    const t = (tallies as Record<string, Tally>)[kib];
+    if (t) {
+      const kt = t.kondisi[code];
+      totJml += kt.jml; totNilai += kt.nilai;
+      rows.push(new TableRow({ children: [unitKerjaCell(), dataCell(`KIB ${kib}`), dataCell(String(kt.jml)), dataCell(formatRp(kt.nilai), AlignmentType.RIGHT), dataCell(kt.jml > 0 ? 'Terlampir' : '-')] }));
+    } else {
+      rows.push(new TableRow({ children: [unitKerjaCell(), dataCell(`KIB ${kib}`), dataCell('-'), dataCell('-', AlignmentType.RIGHT), dataCell('-')] }));
+    }
   });
-  rows.push(new TableRow({ children: [dataCell('JUMLAH', AlignmentType.LEFT), dataCell(String(totJml)), dataCell(formatRp(totNilai), AlignmentType.RIGHT)] }));
+  rows.push(new TableRow({ children: [dataCell('JUMLAH', AlignmentType.LEFT), dataCell(''), dataCell(String(totJml)), dataCell(formatRp(totNilai), AlignmentType.RIGHT), dataCell('')] }));
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows });
 }
 
@@ -884,6 +931,8 @@ async function buildLaporanNaratifDocx(pengaturan: PengaturanSekolah, tallies: R
   const grandNilaiTidakDitemukan = (['B', 'C', 'E'] as KibKey[]).reduce((s, k) => s + tallies[k].status.tidakDitemukan.nilai, 0);
   const grandBaik = (['B', 'C', 'E'] as KibKey[]).reduce((s, k) => s + tallies[k].kondisi.B.jml, 0);
   const grandRB = (['B', 'C', 'E'] as KibKey[]).reduce((s, k) => s + tallies[k].kondisi.RB.jml, 0);
+  const grandSudahDiopname = (['B', 'C', 'E'] as KibKey[]).reduce((s, k) => s + tallies[k].sudahDiopnameJml, 0);
+  const tanggalUnduh = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
 
   const doc = new Document({
     sections: [
@@ -908,7 +957,7 @@ async function buildLaporanNaratifDocx(pengaturan: PengaturanSekolah, tallies: R
           buildTabelAdministratif(tallies),
 
           new Paragraph({ spacing: { after: 250 }, children: [] }),
-          sectionTitle('2. Inventarisasi Fisik yang Dilakukan'),
+          sectionTitle(`2. Inventarisasi Fisik yang Dilakukan (progres per ${tanggalUnduh} - opname masih berjalan, sebanyak ${grandSudahDiopname} dari ${grandJmlAdm} item sudah dicek), dengan rincian sebagai berikut:`),
           buildTabelInventarisasiFisik(tallies),
 
           new Paragraph({ spacing: { after: 250 }, children: [] }),
