@@ -190,7 +190,7 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
     const jumlahUnit = existing?.jumlahUnit || guessJumlahUnit(item);
     const photoSlots = getPhotoSlotCount(item.kib, jumlahUnit);
     setSelectedItem(item);
-    setForm(existing ? { ...existing, jumlahUnit, fotoUnits: normalizeFotoUnits(existing, photoSlots) } : {
+    setForm(existing ? { ...existing, jumlahUnit, fotoUnits: normalizeFotoUnits(existing, photoSlots), merk: existing.merk || item.merk || '' } : {
       ditemukan: 'Ya',
       statusPenguasaan: 'Digunakan',
       kondisi: 'Baik',
@@ -198,6 +198,8 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
       keterangan: '',
       jumlahUnit,
       fotoUnits: normalizeFotoUnits(undefined, photoSlots),
+      // Isi awal dari data provinsi kalau ada - operator tinggal koreksi kalau salah/kosong
+      merk: item.merk || '',
     });
   };
 
@@ -309,6 +311,7 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
         nomorKodeTanah: form.nomorKodeTanah || undefined,
         hargaSatuan: form.hargaSatuan ?? undefined,
         spesifikasi: form.spesifikasi || undefined,
+        merk: form.merk || undefined,
       };
       await onSaveOpnameEntry(entry);
       setSelectedItem(null);
@@ -566,6 +569,23 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Merek/Type - khusus KIB B, tampilkan & bisa dikoreksi */}
+              {selectedItem.kib === 'B' && (
+                <div className="mb-3">
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Merek/Type</label>
+                  <input
+                    type="text"
+                    value={form.merk || ''}
+                    onChange={(e) => setForm({ ...form, merk: e.target.value })}
+                    placeholder="Contoh: Epson, Acer, Lokal"
+                    className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    {selectedItem.merk ? 'Terisi otomatis dari data provinsi - koreksi kalau salah atau berbeda dengan fisiknya.' : 'Data provinsi kosong - isi merek/tipe sesuai fisik barang.'}
+                  </p>
                 </div>
               )}
 

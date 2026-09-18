@@ -159,7 +159,7 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
       { groupLabel: 'Nomor Urut', cols: [{ label: 'Nomor Urut', width: 6, get: m => m.no || '' }] },
       { groupLabel: 'Nama Barang/Jenis Aset', cols: [{ label: 'Nama Barang/Jenis Aset', width: 32, get: m => m.nama || '-' }] },
       { groupLabel: 'Nomor Register', cols: [{ label: 'Nomor Register', width: 14, get: m => m.register || '-' }] },
-      { groupLabel: 'Merk/Type', cols: [{ label: 'Merk/Type', width: 18, get: m => m.merk || '-' }] },
+      { groupLabel: 'Merk/Type', cols: [{ label: 'Merk/Type', width: 18, get: (m, _p, entry) => entry?.merk || m.merk || '-' }] },
       { groupLabel: 'Ukuran/CC', cols: [{ label: 'Ukuran/CC', width: 10, get: (_m, _p, entry) => entry?.ukuranCC || '-' }] },
       { groupLabel: 'Bahan', cols: [{ label: 'Bahan', width: 14, get: m => m.bahan || '-' }] },
       { groupLabel: 'Tahun Pembelian', cols: [{ label: 'Tahun Pembelian', width: 10, get: m => m.tahun || '-' }] },

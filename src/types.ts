@@ -257,6 +257,7 @@ export interface OpnameEntry {
   nomorKodeTanah?: string; // khusus KIB C
   hargaSatuan?: number; // khusus KIB C
   spesifikasi?: string; // khusus KIB E
+  merk?: string; // khusus KIB B - koreksi/isian Merk/Type kalau data provinsi kosong atau salah
 }
 
 export const AUTHORIZED_USERS = [
