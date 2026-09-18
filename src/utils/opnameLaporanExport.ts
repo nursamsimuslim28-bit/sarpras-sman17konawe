@@ -12,7 +12,8 @@ import {
   AlignmentType,
   BorderStyle,
   UnderlineType,
-  ShadingType
+  ShadingType,
+  VerticalMergeType
 } from 'docx';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -25,12 +26,9 @@ const NAMA_SEKOLAH_OPNAME = 'SMA Negeri 1 Amonggedo';
 
 type KibKey = 'B' | 'C' | 'E';
 
-// Format resmi surat laporan selalu mencantumkan KIB A-F lengkap (tanah, peralatan, gedung,
-// jalan/jaringan/irigasi, aset tetap lainnya, konstruksi dalam pengerjaan) walau nilainya "-"
-// untuk kategori yang tidak dimiliki/tidak dilacak sekolah. Aplikasi ini hanya melacak KIB
-// B/C/E (peralatan, gedung, buku) - KIB A/D/F ditampilkan sebagai baris kosong ("-") supaya
-// strukturnya tetap lengkap sesuai contoh resmi dari provinsi.
-const KIB_ALL_ORDER: string[] = ['A', 'B', 'C', 'D', 'E', 'F'];
+// Hanya tampilkan KIB yang benar-benar ada datanya dari provinsi (B/C/E) - KIB A/D/F tidak
+// dicantumkan sama sekali karena aplikasi ini tidak punya data untuk kategori tersebut.
+const KIB_ORDER: KibKey[] = ['B', 'C', 'E'];
 
 const KIB_TITLE: Record<KibKey, string> = {
   B: 'KARTU INVENTARIS BARANG (KIB) B - PERALATAN DAN MESIN',
@@ -751,10 +749,18 @@ function sectionTitle(text: string): Paragraph {
   return p(text, { bold: true, spacingAfter: 100 });
 }
 
-// Kolom "Unit Kerja" diulang di tiap baris (bukan digabung/merge vertikal seperti contoh resmi)
-// supaya tidak menambah risiko bug pada penggabungan sel - isinya tetap sama & lengkap.
-function unitKerjaCell(): TableCell {
-  return dataCell(NAMA_SEKOLAH_OPNAME, AlignmentType.LEFT);
+// Kolom "Unit Kerja" digabung (merge) vertikal jadi 1 sel saja yang membentang semua baris
+// data - sesuai contoh format resmi. isFirst=true -> sel pertama (RESTART, berisi teks),
+// isFirst=false -> sel lanjutan (CONTINUE, kosong, ikut tampilan sel pertama).
+function unitKerjaCell(isFirst: boolean): TableCell {
+  if (isFirst) {
+    return new TableCell({
+      borders: tCellBorder,
+      verticalMerge: VerticalMergeType.RESTART,
+      children: [new Paragraph({ alignment: AlignmentType.LEFT, children: [new TextRun({ text: NAMA_SEKOLAH_OPNAME, size: 17, font: 'Times New Roman' })] })]
+    });
+  }
+  return new TableCell({ borders: tCellBorder, verticalMerge: VerticalMergeType.CONTINUE, children: [new Paragraph({ children: [] })] });
 }
 
 // Tabel 1: Jumlah BMD Menurut Administrasi
@@ -763,20 +769,16 @@ function buildTabelAdministratif(tallies: Record<KibKey, Tally>): Table {
     new TableRow({ children: [headCell('Unit Kerja'), headCell('UPB'), headCell('Jenis KIB'), headCell('Jumlah Item'), headCell('Nilai (Rp)'), headCell('Lampiran')] })
   ];
   let totJml = 0, totNilai = 0;
-  KIB_ALL_ORDER.forEach(kib => {
-    const t = (tallies as Record<string, Tally>)[kib];
-    if (t) {
-      totJml += t.administratifJml;
-      totNilai += t.administratifNilai;
-      rows.push(new TableRow({ children: [
-        unitKerjaCell(), dataCell('-'), dataCell(`KIB ${kib}`), dataCell(String(t.administratifJml)),
-        dataCell(formatRp(t.administratifNilai), AlignmentType.RIGHT), dataCell(t.administratifJml > 0 ? 'Terlampir' : '-')
-      ] }));
-    } else {
-      rows.push(new TableRow({ children: [unitKerjaCell(), dataCell('-'), dataCell(`KIB ${kib}`), dataCell('-'), dataCell('-', AlignmentType.RIGHT), dataCell('-')] }));
-    }
+  KIB_ORDER.forEach((kib, i) => {
+    const t = tallies[kib];
+    totJml += t.administratifJml;
+    totNilai += t.administratifNilai;
+    rows.push(new TableRow({ children: [
+      unitKerjaCell(i === 0), dataCell('-'), dataCell(`KIB ${kib}`), dataCell(String(t.administratifJml)),
+      dataCell(formatRp(t.administratifNilai), AlignmentType.RIGHT), dataCell(t.administratifJml > 0 ? 'Terlampir' : '-')
+    ] }));
   });
-  rows.push(new TableRow({ children: [dataCell('JUMLAH', AlignmentType.LEFT), dataCell(''), dataCell(''), dataCell(String(totJml)), dataCell(formatRp(totNilai), AlignmentType.RIGHT), dataCell('')] }));
+  rows.push(new TableRow({ children: [unitKerjaCell(false), dataCell(''), dataCell('JUMLAH', AlignmentType.LEFT), dataCell(String(totJml)), dataCell(formatRp(totNilai), AlignmentType.RIGHT), dataCell('')] }));
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows });
 }
 
@@ -792,25 +794,21 @@ function buildTabelInventarisasiFisik(tallies: Record<KibKey, Tally>): Table {
     })
   ];
   let acc = { adm: 0, admNilai: 0, opn: 0, opnNilai: 0 };
-  KIB_ALL_ORDER.forEach(kib => {
-    const t = (tallies as Record<string, Tally>)[kib];
-    if (t) {
-      const opnNilai = statusNilaiTotal(t) + t.status.tidakDitemukan.nilai;
-      acc.adm += t.administratifJml; acc.admNilai += t.administratifNilai;
-      acc.opn += t.sudahDiopnameJml; acc.opnNilai += opnNilai;
-      rows.push(new TableRow({
-        children: [
-          unitKerjaCell(), dataCell(`KIB ${kib}`), dataCell(String(t.administratifJml)), dataCell(formatRp(t.administratifNilai), AlignmentType.RIGHT),
-          dataCell(String(t.sudahDiopnameJml)), dataCell(formatRp(opnNilai), AlignmentType.RIGHT)
-        ]
-      }));
-    } else {
-      rows.push(new TableRow({ children: [unitKerjaCell(), dataCell(`KIB ${kib}`), dataCell('-'), dataCell('-', AlignmentType.RIGHT), dataCell('-'), dataCell('-', AlignmentType.RIGHT)] }));
-    }
+  KIB_ORDER.forEach((kib, i) => {
+    const t = tallies[kib];
+    const opnNilai = statusNilaiTotal(t) + t.status.tidakDitemukan.nilai;
+    acc.adm += t.administratifJml; acc.admNilai += t.administratifNilai;
+    acc.opn += t.sudahDiopnameJml; acc.opnNilai += opnNilai;
+    rows.push(new TableRow({
+      children: [
+        unitKerjaCell(i === 0), dataCell(`KIB ${kib}`), dataCell(String(t.administratifJml)), dataCell(formatRp(t.administratifNilai), AlignmentType.RIGHT),
+        dataCell(String(t.sudahDiopnameJml)), dataCell(formatRp(opnNilai), AlignmentType.RIGHT)
+      ]
+    }));
   });
   rows.push(new TableRow({
     children: [
-      dataCell('JUMLAH', AlignmentType.LEFT), dataCell(''), dataCell(String(acc.adm)), dataCell(formatRp(acc.admNilai), AlignmentType.RIGHT),
+      unitKerjaCell(false), dataCell('JUMLAH', AlignmentType.LEFT), dataCell(String(acc.adm)), dataCell(formatRp(acc.admNilai), AlignmentType.RIGHT),
       dataCell(String(acc.opn)), dataCell(formatRp(acc.opnNilai), AlignmentType.RIGHT)
     ]
   }));
@@ -829,26 +827,22 @@ function buildTabelTidakDitemukan(tallies: Record<KibKey, Tally>): Table {
     })
   ];
   let acc = { adm: 0, ditemukan: 0, td: 0, tdNilai: 0 };
-  KIB_ALL_ORDER.forEach(kib => {
-    const t = (tallies as Record<string, Tally>)[kib];
-    if (t) {
-      const ditemukan = t.administratifJml - t.status.tidakDitemukan.jml;
-      acc.adm += t.administratifJml; acc.ditemukan += ditemukan;
-      acc.td += t.status.tidakDitemukan.jml; acc.tdNilai += t.status.tidakDitemukan.nilai;
-      rows.push(new TableRow({
-        children: [
-          unitKerjaCell(), dataCell(`KIB ${kib}`), dataCell(String(t.administratifJml)), dataCell(String(ditemukan)),
-          dataCell(String(t.status.tidakDitemukan.jml)), dataCell(formatRp(t.status.tidakDitemukan.nilai), AlignmentType.RIGHT),
-          dataCell(t.status.tidakDitemukan.jml > 0 ? 'Terlampir' : '-')
-        ]
-      }));
-    } else {
-      rows.push(new TableRow({ children: [unitKerjaCell(), dataCell(`KIB ${kib}`), dataCell('-'), dataCell('-'), dataCell('-'), dataCell('-', AlignmentType.RIGHT), dataCell('-')] }));
-    }
+  KIB_ORDER.forEach((kib, i) => {
+    const t = tallies[kib];
+    const ditemukan = t.administratifJml - t.status.tidakDitemukan.jml;
+    acc.adm += t.administratifJml; acc.ditemukan += ditemukan;
+    acc.td += t.status.tidakDitemukan.jml; acc.tdNilai += t.status.tidakDitemukan.nilai;
+    rows.push(new TableRow({
+      children: [
+        unitKerjaCell(i === 0), dataCell(`KIB ${kib}`), dataCell(String(t.administratifJml)), dataCell(String(ditemukan)),
+        dataCell(String(t.status.tidakDitemukan.jml)), dataCell(formatRp(t.status.tidakDitemukan.nilai), AlignmentType.RIGHT),
+        dataCell(t.status.tidakDitemukan.jml > 0 ? 'Terlampir' : '-')
+      ]
+    }));
   });
   rows.push(new TableRow({
     children: [
-      dataCell('JUMLAH', AlignmentType.LEFT), dataCell(''), dataCell(String(acc.adm)), dataCell(String(acc.ditemukan)),
+      unitKerjaCell(false), dataCell('JUMLAH', AlignmentType.LEFT), dataCell(String(acc.adm)), dataCell(String(acc.ditemukan)),
       dataCell(String(acc.td)), dataCell(formatRp(acc.tdNilai), AlignmentType.RIGHT), dataCell('')
     ]
   }));
@@ -861,17 +855,12 @@ function buildTabelKondisi(tallies: Record<KibKey, Tally>, code: 'B' | 'KB' | 'R
     new TableRow({ children: [headCell('Unit Kerja'), headCell('Jenis KIB'), headCell('Jumlah/Volume Fisik'), headCell('Nilai (Rp)'), headCell('Lampiran')] })
   ];
   let totJml = 0, totNilai = 0;
-  KIB_ALL_ORDER.forEach(kib => {
-    const t = (tallies as Record<string, Tally>)[kib];
-    if (t) {
-      const kt = t.kondisi[code];
-      totJml += kt.jml; totNilai += kt.nilai;
-      rows.push(new TableRow({ children: [unitKerjaCell(), dataCell(`KIB ${kib}`), dataCell(String(kt.jml)), dataCell(formatRp(kt.nilai), AlignmentType.RIGHT), dataCell(kt.jml > 0 ? 'Terlampir' : '-')] }));
-    } else {
-      rows.push(new TableRow({ children: [unitKerjaCell(), dataCell(`KIB ${kib}`), dataCell('-'), dataCell('-', AlignmentType.RIGHT), dataCell('-')] }));
-    }
+  KIB_ORDER.forEach((kib, i) => {
+    const kt = tallies[kib].kondisi[code];
+    totJml += kt.jml; totNilai += kt.nilai;
+    rows.push(new TableRow({ children: [unitKerjaCell(i === 0), dataCell(`KIB ${kib}`), dataCell(String(kt.jml)), dataCell(formatRp(kt.nilai), AlignmentType.RIGHT), dataCell(kt.jml > 0 ? 'Terlampir' : '-')] }));
   });
-  rows.push(new TableRow({ children: [dataCell('JUMLAH', AlignmentType.LEFT), dataCell(''), dataCell(String(totJml)), dataCell(formatRp(totNilai), AlignmentType.RIGHT), dataCell('')] }));
+  rows.push(new TableRow({ children: [unitKerjaCell(false), dataCell('JUMLAH', AlignmentType.LEFT), dataCell(String(totJml)), dataCell(formatRp(totNilai), AlignmentType.RIGHT), dataCell('')] }));
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows });
 }
 
