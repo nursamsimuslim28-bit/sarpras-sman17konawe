@@ -503,10 +503,39 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                 {KIB_LABEL[selectedItem.kib]} · Kode {selectedItem.kode} · Reg. {selectedItem.register}
               </p>
               {selectedItem.keterangan && (
-                <p className="text-[11px] text-slate-500 italic mb-4 bg-slate-50 rounded-lg p-2">
+                <p className="text-[11px] text-slate-500 italic mb-2 bg-slate-50 rounded-lg p-2">
                   Keterangan provinsi: {selectedItem.keterangan}
                 </p>
               )}
+
+              {/* Info tambahan dari data provinsi - supaya operator tahu konteksnya saat cek fisik */}
+              {(() => {
+                const infoRows: { label: string; value: string }[] = [];
+                if (selectedItem.kib === 'C') {
+                  if (selectedItem.letakLokasi) infoRows.push({ label: 'Letak/Lokasi', value: selectedItem.letakLokasi });
+                  if (selectedItem.kondisiBangunan) infoRows.push({ label: 'Kondisi Bangunan (Admin)', value: selectedItem.kondisiBangunan });
+                  if (selectedItem.bertingkat) infoRows.push({ label: 'Bertingkat/Tidak', value: selectedItem.bertingkat });
+                  if (selectedItem.konstruksi) infoRows.push({ label: 'Konstruksi', value: selectedItem.konstruksi });
+                  if (selectedItem.statusTanah) infoRows.push({ label: 'Status Tanah', value: selectedItem.statusTanah });
+                  if (selectedItem.dokumenNomor || selectedItem.dokumenTanggal) {
+                    infoRows.push({ label: 'Dokumen Gedung', value: [selectedItem.dokumenNomor, selectedItem.dokumenTanggal].filter(Boolean).join(' · ') });
+                  }
+                }
+                if (selectedItem.kib === 'E' && selectedItem.judulPencipta) {
+                  infoRows.push({ label: 'Judul/Pencipta', value: selectedItem.judulPencipta });
+                }
+                if (selectedItem.asalUsul) infoRows.push({ label: 'Asal Usul', value: selectedItem.asalUsul });
+                if (infoRows.length === 0) return null;
+                return (
+                  <div className="mb-4 bg-slate-50 rounded-lg p-2.5 space-y-1">
+                    {infoRows.map(row => (
+                      <p key={row.label} className="text-[11px] text-slate-500">
+                        <span className="font-semibold text-slate-600">{row.label}:</span> {row.value}
+                      </p>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {/* Ditemukan */}
               <div className="mb-3">
