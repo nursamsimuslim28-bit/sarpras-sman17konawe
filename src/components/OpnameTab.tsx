@@ -62,6 +62,13 @@ function worstKondisi(kondisiList: (KondisiAset | undefined)[], fallback: Kondis
   return worstScore >= 0 ? worst : fallback;
 }
 
+// Data harga dari provinsi tersimpan dalam satuan "ribuan Rp" (sama seperti di
+// opnameLaporanExport.ts) - dikalikan 1000 supaya tampil harga Rupiah sesungguhnya.
+function fmtHargaPerolehan(n: number | undefined): string {
+  if (!n) return '-';
+  return 'Rp ' + Math.round(n * 1000).toLocaleString('id-ID');
+}
+
 // Coba tebak jumlah unit fisik dari data provinsi, dua pola yang umum ditemukan:
 // 1. Rentang nomor register, mis. register "0001 s/d 0005" -> 5 unit
 // 2. Kalimat di keterangan, mis. "...Jumlah Barang 3 Harga Satuan..." -> 3 unit
@@ -525,6 +532,7 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                   infoRows.push({ label: 'Judul/Pencipta', value: selectedItem.judulPencipta });
                 }
                 if (selectedItem.asalUsul) infoRows.push({ label: 'Asal Usul', value: selectedItem.asalUsul });
+                if (selectedItem.harga) infoRows.push({ label: 'Harga Perolehan', value: fmtHargaPerolehan(selectedItem.harga) });
                 if (infoRows.length === 0) return null;
                 return (
                   <div className="mb-4 bg-slate-50 rounded-lg p-2.5 space-y-1">
