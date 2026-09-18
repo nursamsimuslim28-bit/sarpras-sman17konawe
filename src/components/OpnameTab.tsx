@@ -27,6 +27,23 @@ const KIB_LABEL: Record<string, string> = {
   E: 'KIB E - Aset Tetap Lainnya (Buku)',
 };
 
+// Angka wajar maksimum untuk "Jumlah Unit Fisik" (mis. buku ratusan kopi per judul) - ini
+// hanya batas catatan angka, bukan batas jumlah foto (lihat MAX_PHOTO_SLOTS di bawah).
+const MAX_JUMLAH_UNIT = 9999;
+
+// Foto per unit fisik hanya masuk akal untuk barang/perabot (KIB B) yang jumlahnya wajar
+// (mis. 45 kursi rapat) - dibatasi supaya tidak kebablasan jadi ratusan slot foto yang
+// bisa bikin 1 dokumen Firestore kelebihan ukuran.
+const MAX_PHOTO_SLOTS = 100;
+
+// Untuk buku (KIB E), 1 judul bisa punya ratusan kopi identik - tidak realistis dan tidak
+// perlu difoto satu-satu. Cukup 1 foto mewakili semua kopi; jumlah unit tetap dicatat
+// sebagai angka saja (untuk referensi operator, bukan kolom laporan resmi).
+function getPhotoSlotCount(kib: 'B' | 'C' | 'E', jumlahUnit: number): number {
+  if (kib === 'E') return 1;
+  return Math.min(Math.max(1, jumlahUnit || 1), MAX_PHOTO_SLOTS);
+}
+
 // Coba tebak jumlah unit fisik dari data provinsi, dua pola yang umum ditemukan:
 // 1. Rentang nomor register, mis. register "0001 s/d 0005" -> 5 unit
 // 2. Kalimat di keterangan, mis. "...Jumlah Barang 3 Harga Satuan..." -> 3 unit
@@ -36,25 +53,25 @@ function guessJumlahUnit(item: Pick<OpnameMasterItem, 'register' | 'keterangan'>
     if (rangeMatch) {
       const start = parseInt(rangeMatch[1], 10);
       const end = parseInt(rangeMatch[2], 10);
-      if (end >= start && (end - start + 1) <= 100) return end - start + 1;
+      if (end >= start && (end - start + 1) <= MAX_JUMLAH_UNIT) return end - start + 1;
     }
   }
   if (item.keterangan) {
     const match = item.keterangan.match(/jumlah\s*(?:barang|unit)?\s*[:=]?\s*(\d+)/i);
     if (match) {
       const n = parseInt(match[1], 10);
-      if (n > 0 && n <= 100) return n;
+      if (n > 0 && n <= MAX_JUMLAH_UNIT) return n;
     }
   }
   return 1;
 }
 
-function normalizeFotoUnits(entry: Partial<OpnameEntry> | undefined, jumlahUnit: number): OpnameFotoUnit[] {
+function normalizeFotoUnits(entry: Partial<OpnameEntry> | undefined, photoSlotCount: number): OpnameFotoUnit[] {
   let units: OpnameFotoUnit[] = entry?.fotoUnits ? [...entry.fotoUnits] : [];
   if (units.length === 0 && (entry?.foto1 || entry?.foto2)) {
     units = [{ foto1: entry.foto1, foto2: entry.foto2 }];
   }
-  while (units.length < jumlahUnit) units.push({});
+  while (units.length < photoSlotCount) units.push({});
   return units;
 }
 
@@ -153,15 +170,16 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
   const openForm = (item: OpnameMasterItem) => {
     const existing = opnameByRefId.get(item.id);
     const jumlahUnit = existing?.jumlahUnit || guessJumlahUnit(item);
+    const photoSlots = getPhotoSlotCount(item.kib, jumlahUnit);
     setSelectedItem(item);
-    setForm(existing ? { ...existing, jumlahUnit, fotoUnits: normalizeFotoUnits(existing, jumlahUnit) } : {
+    setForm(existing ? { ...existing, jumlahUnit, fotoUnits: normalizeFotoUnits(existing, photoSlots) } : {
       ditemukan: 'Ya',
       statusPenguasaan: 'Digunakan',
       kondisi: 'Baik',
       kodeStiker: '',
       keterangan: '',
       jumlahUnit,
-      fotoUnits: normalizeFotoUnits(undefined, jumlahUnit),
+      fotoUnits: normalizeFotoUnits(undefined, photoSlots),
     });
   };
 
@@ -201,13 +219,15 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
     }
     const n = parseInt(raw, 10);
     if (isNaN(n)) return;
-    const jumlahUnit = Math.max(1, Math.min(100, n));
-    setForm(prev => ({ ...prev, jumlahUnit, fotoUnits: normalizeFotoUnits(prev, jumlahUnit) }));
+    const jumlahUnit = Math.max(1, Math.min(MAX_JUMLAH_UNIT, n));
+    const photoSlots = getPhotoSlotCount(selectedItem?.kib || 'B', jumlahUnit);
+    setForm(prev => ({ ...prev, jumlahUnit, fotoUnits: normalizeFotoUnits(prev, photoSlots) }));
   };
 
   const handleJumlahUnitBlur = () => {
     if (!form.jumlahUnit) {
-      setForm(prev => ({ ...prev, jumlahUnit: 1, fotoUnits: normalizeFotoUnits(prev, 1) }));
+      const photoSlots = getPhotoSlotCount(selectedItem?.kib || 'B', 1);
+      setForm(prev => ({ ...prev, jumlahUnit: 1, fotoUnits: normalizeFotoUnits(prev, photoSlots) }));
     }
   };
 
@@ -229,7 +249,8 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
       // disimpan ulang di kondisi cache lokal sempat basi, tetap menimpa dokumen yang sama
       // di Firestore, bukan membuat dokumen duplikat baru.
       const jumlahUnit = Math.max(1, form.jumlahUnit || 1);
-      const fotoUnits = normalizeFotoUnits(form, jumlahUnit).slice(0, jumlahUnit);
+      const photoSlots = getPhotoSlotCount(selectedItem.kib, jumlahUnit);
+      const fotoUnits = normalizeFotoUnits(form, photoSlots).slice(0, photoSlots);
       const entry: OpnameEntry = {
         id: existing?.id || `OPN-${selectedItem.id}`,
         refId: selectedItem.id,
@@ -651,23 +672,33 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                 <input
                   type="number"
                   min={1}
-                  max={100}
+                  max={MAX_JUMLAH_UNIT}
                   value={form.jumlahUnit ?? ''}
                   onChange={(e) => handleJumlahUnitChange(e.target.value)}
                   onBlur={handleJumlahUnitBlur}
                   className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
                 />
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Kalau 1 baris data ini mewakili beberapa barang fisik sekaligus (mis. "...Jumlah Barang 3..." di keterangan), isi sesuai jumlahnya - tiap unit butuh 2 foto sendiri-sendiri.
-                </p>
+                {selectedItem.kib === 'E' ? (
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Untuk buku, isi jumlah kopi/eksemplar judul ini. Tidak perlu foto satu-satu - cukup 1 foto mewakili semua kopi di bawah.
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Kalau 1 baris data ini mewakili beberapa barang fisik sekaligus (mis. "...Jumlah Barang 3..." di keterangan), isi sesuai jumlahnya - tiap unit butuh 2 foto sendiri-sendiri
+                    {(form.jumlahUnit || 1) > MAX_PHOTO_SLOTS ? ` (foto dibatasi ${MAX_PHOTO_SLOTS} slot pertama supaya data tidak kegedean).` : '.'}
+                  </p>
+                )}
               </div>
 
               {/* Foto per Unit Fisik */}
-              {Array.from({ length: Math.max(1, form.jumlahUnit || 1) }, (_, unitIdx) => {
+              {Array.from({ length: getPhotoSlotCount(selectedItem.kib, form.jumlahUnit || 1) }, (_, unitIdx) => {
                 const unit = form.fotoUnits?.[unitIdx] || {};
                 return (
                   <div key={unitIdx} className="mb-3">
-                    {(form.jumlahUnit || 1) > 1 && (
+                    {selectedItem.kib === 'E' && (form.jumlahUnit || 1) > 1 && (
+                      <p className="text-[10px] font-bold text-teal-700 uppercase tracking-wide mb-1.5">Foto Mewakili Semua Kopi ({form.jumlahUnit} eksemplar)</p>
+                    )}
+                    {selectedItem.kib !== 'E' && (form.jumlahUnit || 1) > 1 && (
                       <p className="text-[10px] font-bold text-teal-700 uppercase tracking-wide mb-1.5">Unit {unitIdx + 1} dari {form.jumlahUnit}</p>
                     )}
                     {selectedItem.kib === 'B' && (
