@@ -18,6 +18,11 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { OpnameEntry, OpnameMasterItem, PengaturanSekolah } from '../types';
 
+// Data BMD di provinsi masih terdaftar atas nama lama sekolah (sebelum penggabungan/perubahan
+// nama jadi SMA Negeri 17 Konawe) - khusus laporan opname 2026 ini, pakai nama lama supaya
+// konsisten dengan data resmi provinsi, terlepas dari nama sekolah yang diisi di Pengaturan.
+const NAMA_SEKOLAH_OPNAME = 'SMA Negeri 1 Amonggedo';
+
 type KibKey = 'B' | 'C' | 'E';
 
 const KIB_TITLE: Record<KibKey, string> = {
@@ -192,7 +197,7 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
   if (kib === 'C') {
     return [
       { groupLabel: 'No. Simda', cols: [{ label: 'No. Simda', width: 6, get: m => m.no || '' }] },
-      { groupLabel: 'OPD', cols: [{ label: 'OPD', width: 20, get: (_m, p) => p.namaSekolah || '-' }] },
+      { groupLabel: 'OPD', cols: [{ label: 'OPD', width: 20, get: () => NAMA_SEKOLAH_OPNAME }] },
       { groupLabel: 'Jenis Barang / Nama Barang', cols: [{ label: 'Jenis Barang / Nama Barang', width: 32, get: m => m.nama || '-' }] },
       { groupLabel: 'Register', cols: [{ label: 'Register', width: 14, get: m => m.register || '-' }] },
       {
@@ -224,7 +229,7 @@ function leadingGroupsFor(kib: KibKey): LeadingGroup[] {
   // KIB E
   return [
     { groupLabel: 'Nomor Simda', cols: [{ label: 'Nomor Simda', width: 6, get: m => m.no || '' }] },
-    { groupLabel: 'SKPD', cols: [{ label: 'SKPD', width: 20, get: (_m, p) => p.namaSekolah || '-' }] },
+    { groupLabel: 'SKPD', cols: [{ label: 'SKPD', width: 20, get: () => NAMA_SEKOLAH_OPNAME }] },
     { groupLabel: 'Nama Barang/Jenis Aset', cols: [{ label: 'Nama Barang/Jenis Aset', width: 32, get: m => m.nama || '-' }] },
     { groupLabel: 'Nomor Register', cols: [{ label: 'Nomor Register', width: 14, get: m => m.register || '-' }] },
     {
@@ -320,7 +325,7 @@ function addCoverSheet(wb: ExcelJS.Workbook, pengaturan: PengaturanSekolah, kib:
 
   titleRow(9, 'PEMERINTAH PROVINSI SULAWESI TENGGARA', 13);
   titleRow(10, 'DINAS PENDIDIKAN DAN KEBUDAYAAN', 12);
-  titleRow(11, (pengaturan.namaSekolah || 'SMA Negeri 17 Konawe').toUpperCase(), 12);
+  titleRow(11, NAMA_SEKOLAH_OPNAME.toUpperCase(), 12);
   titleRow(13, `LAPORAN HASIL INVENTARISASI DAN PENILAIAN BMD ${tahun}`, 14);
   titleRow(14, `KARTU INVENTARIS BARANG (KIB) ${kib}`, 12, false);
   titleRow(15, `SAMPAI DENGAN TANGGAL 31 DESEMBER ${tahun}`, 11, false);
@@ -362,10 +367,10 @@ function addKibWorksheet(
   const kopLines = [
     { text: 'PEMERINTAH PROVINSI SULAWESI TENGGARA', size: 13, bold: true, center: true },
     { text: 'DINAS PENDIDIKAN DAN KEBUDAYAAN', size: 12, bold: true, center: true },
-    { text: (pengaturan.namaSekolah || 'SMA Negeri 17 Konawe').toUpperCase(), size: 12, bold: true, center: true },
+    { text: NAMA_SEKOLAH_OPNAME.toUpperCase(), size: 12, bold: true, center: true },
     { text: KIB_TITLE[kib], size: 11, bold: true, center: true },
     { text: '', size: 10, bold: false, center: false },
-    { text: `OPD           : ${pengaturan.namaSekolah || '-'}`, size: 10, bold: false, center: false },
+    { text: `OPD           : ${NAMA_SEKOLAH_OPNAME}`, size: 10, bold: false, center: false },
     { text: `PROVINSI      : Sulawesi Tenggara`, size: 10, bold: false, center: false },
     { text: `ALAMAT        : ${pengaturan.alamat || '-'}`, size: 10, bold: false, center: false },
     { text: '', size: 10, bold: false, center: false }
@@ -681,7 +686,7 @@ function kopSurat(pengaturan: PengaturanSekolah): Paragraph[] {
     }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: (pengaturan.namaSekolah || 'SMA NEGERI 17 KONAWE').toUpperCase(), bold: true, size: 26, font: 'Times New Roman' })]
+      children: [new TextRun({ text: NAMA_SEKOLAH_OPNAME.toUpperCase(), bold: true, size: 26, font: 'Times New Roman' })]
     }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
@@ -897,7 +902,7 @@ async function buildLaporanNaratifDocx(pengaturan: PengaturanSekolah, tallies: R
           p('di -', {}),
           p('    Kendari', { spacingAfter: 300 }),
 
-          p(`Dengan ini kami sampaikan laporan Hasil Inventarisasi atas BMD ${pengaturan.namaSekolah || 'SMA Negeri 17 Konawe'}, yang inventarisasinya (opname fisik) dilaksanakan pada Tahun ${tahun}, dengan informasi sebagai berikut:`, { spacingAfter: 200 }),
+          p(`Dengan ini kami sampaikan laporan Hasil Inventarisasi atas BMD ${NAMA_SEKOLAH_OPNAME}, yang inventarisasinya (opname fisik) dilaksanakan pada Tahun ${tahun}, dengan informasi sebagai berikut:`, { spacingAfter: 200 }),
 
           p(`1. Jumlah BMD yang ada menurut administrasi/Daftar BMD sebanyak ${grandJmlAdm} item dengan nilai seluruhnya ${formatRp(grandNilaiAdm)}, dengan rincian sebagai berikut:`, { spacingAfter: 150 }),
           buildTabelAdministratif(tallies),
@@ -1018,9 +1023,9 @@ export async function exportLaporanOpnameZip(
   }
 
   const docxBlob = await buildLaporanNaratifDocx(pengaturan, tallies);
-  zip.file(`Laporan_Hasil_Sensus_BMD_${(pengaturan.namaSekolah || 'Sekolah').replace(/\s+/g, '_')}.docx`, docxBlob);
+  zip.file(`Laporan_Hasil_Sensus_BMD_${NAMA_SEKOLAH_OPNAME.replace(/\s+/g, '_')}.docx`, docxBlob);
 
   const zipBlob = await zip.generateAsync({ type: 'blob' });
   const tanggal = new Date().toISOString().split('T')[0];
-  saveAs(zipBlob, `Laporan_Opname_BMD_${(pengaturan.namaSekolah || 'Sekolah').replace(/\s+/g, '_')}_${tanggal}.zip`);
+  saveAs(zipBlob, `Laporan_Opname_BMD_${NAMA_SEKOLAH_OPNAME.replace(/\s+/g, '_')}_${tanggal}.zip`);
 }
