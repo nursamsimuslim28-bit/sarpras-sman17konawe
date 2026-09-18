@@ -945,7 +945,7 @@ export default function App() {
                 className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0 py-3' : 'gap-3.5 px-4 py-3 text-left'} rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
                   isActive
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+                    : 'text-indigo-300 hover:bg-slate-800 hover:text-white'
                 }`}
               >
                 {item.icon}
@@ -1012,7 +1012,7 @@ export default function App() {
                     className={`w-full flex items-center gap-3.5 px-4 py-3 text-left rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
                       activeTab === item.id
                         ? 'bg-indigo-600 text-white shadow-md'
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+                        : 'text-indigo-300 hover:bg-slate-800 hover:text-white'
                     }`}
                   >
                     {item.icon}
