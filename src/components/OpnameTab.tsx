@@ -44,6 +44,24 @@ function getPhotoSlotCount(kib: 'B' | 'C' | 'E', jumlahUnit: number): number {
   return Math.min(Math.max(1, jumlahUnit || 1), MAX_PHOTO_SLOTS);
 }
 
+// Kalau unit fisik kondisinya beda-beda (mis. 2 laptop, 1 Baik 1 Rusak Ringan), kondisi
+// baris/entry keseluruhan (dipakai di laporan resmi & rekap sensus) diambil dari yang
+// PALING PARAH - supaya tidak ada kerusakan yang "tertutupi" oleh unit lain yang masih baik.
+const KONDISI_SEVERITY: Record<string, number> = { 'Baik': 0, 'Rusak Ringan': 1, 'Rusak Berat': 2 };
+function worstKondisi(kondisiList: (KondisiAset | undefined)[], fallback: KondisiAset): KondisiAset {
+  let worst: KondisiAset = fallback;
+  let worstScore = -1;
+  for (const k of kondisiList) {
+    if (!k) continue;
+    const score = KONDISI_SEVERITY[k] ?? -1;
+    if (score > worstScore) {
+      worstScore = score;
+      worst = k;
+    }
+  }
+  return worstScore >= 0 ? worst : fallback;
+}
+
 // Coba tebak jumlah unit fisik dari data provinsi, dua pola yang umum ditemukan:
 // 1. Rentang nomor register, mis. register "0001 s/d 0005" -> 5 unit
 // 2. Kalimat di keterangan, mis. "...Jumlah Barang 3 Harga Satuan..." -> 3 unit
@@ -240,6 +258,15 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
     });
   };
 
+  const handleUnitKondisiChange = (unitIdx: number, kondisi: KondisiAset) => {
+    setForm(prev => {
+      const units = [...(prev.fotoUnits || [])];
+      while (units.length <= unitIdx) units.push({});
+      units[unitIdx] = { ...units[unitIdx], kondisi };
+      return { ...prev, fotoUnits: units };
+    });
+  };
+
   const handleSave = async () => {
     if (!selectedItem) return;
     setIsSaving(true);
@@ -251,6 +278,12 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
       const jumlahUnit = Math.max(1, form.jumlahUnit || 1);
       const photoSlots = getPhotoSlotCount(selectedItem.kib, jumlahUnit);
       const fotoUnits = normalizeFotoUnits(form, photoSlots).slice(0, photoSlots);
+      // Kalau ada lebih dari 1 unit dan tiap unit punya pilihan kondisi sendiri, kondisi
+      // baris/entry keseluruhan diambil dari yang paling parah di antara semua unit.
+      const isMultiUnitKondisi = selectedItem.kib !== 'E' && photoSlots > 1;
+      const kondisi = isMultiUnitKondisi
+        ? worstKondisi(fotoUnits.map(u => u.kondisi), form.kondisi || 'Baik')
+        : (form.kondisi || 'Baik');
       const entry: OpnameEntry = {
         id: existing?.id || `OPN-${selectedItem.id}`,
         refId: selectedItem.id,
@@ -261,7 +294,7 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
         tanggalOpname: new Date().toISOString().slice(0, 10),
         ditemukan: form.ditemukan || 'Ya',
         statusPenguasaan: form.statusPenguasaan || 'Digunakan',
-        kondisi: form.kondisi || 'Baik',
+        kondisi,
         kodeStiker: form.kodeStiker || '',
         jumlahUnit,
         fotoUnits,
@@ -511,24 +544,30 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                 </select>
               </div>
 
-              {/* Kondisi */}
-              <div className="mb-3">
-                <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Kondisi Saat Ini</label>
-                <div className="flex gap-2">
-                  {(['Baik', 'Rusak Ringan', 'Rusak Berat'] as KondisiAset[]).map(k => (
-                    <button
-                      key={k}
-                      type="button"
-                      onClick={() => setForm({ ...form, kondisi: k })}
-                      className={`flex-1 py-2 rounded-lg border text-[10px] font-bold transition cursor-pointer ${
-                        form.kondisi === k ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 text-slate-500'
-                      }`}
-                    >
-                      {k}
-                    </button>
-                  ))}
+              {/* Kondisi - kalau lebih dari 1 unit, kondisi diisi per unit di bawah (bisa beda-beda) */}
+              {selectedItem.kib !== 'E' && getPhotoSlotCount(selectedItem.kib, form.jumlahUnit || 1) > 1 ? (
+                <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-2.5 mb-3">
+                  Ada lebih dari 1 unit - kondisi diisi untuk masing-masing unit di bagian foto di bawah, karena kondisinya bisa berbeda-beda.
+                </p>
+              ) : (
+                <div className="mb-3">
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Kondisi Saat Ini</label>
+                  <div className="flex gap-2">
+                    {(['Baik', 'Rusak Ringan', 'Rusak Berat'] as KondisiAset[]).map(k => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => setForm({ ...form, kondisi: k })}
+                        className={`flex-1 py-2 rounded-lg border text-[10px] font-bold transition cursor-pointer ${
+                          form.kondisi === k ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 text-slate-500'
+                        }`}
+                      >
+                        {k}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Kode Stiker */}
               <div className="mb-3">
@@ -699,7 +738,26 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                       <p className="text-[10px] font-bold text-teal-700 uppercase tracking-wide mb-1.5">Foto Mewakili Semua Kopi ({form.jumlahUnit} eksemplar)</p>
                     )}
                     {selectedItem.kib !== 'E' && (form.jumlahUnit || 1) > 1 && (
-                      <p className="text-[10px] font-bold text-teal-700 uppercase tracking-wide mb-1.5">Unit {unitIdx + 1} dari {form.jumlahUnit}</p>
+                      <>
+                        <p className="text-[10px] font-bold text-teal-700 uppercase tracking-wide mb-1.5">Unit {unitIdx + 1} dari {form.jumlahUnit}</p>
+                        <div className="mb-2">
+                          <label className="block text-[10px] font-semibold text-slate-500 mb-1">Kondisi Unit Ini</label>
+                          <div className="flex gap-1.5">
+                            {(['Baik', 'Rusak Ringan', 'Rusak Berat'] as KondisiAset[]).map(k => (
+                              <button
+                                key={k}
+                                type="button"
+                                onClick={() => handleUnitKondisiChange(unitIdx, k)}
+                                className={`flex-1 py-1.5 rounded-lg border text-[9.5px] font-bold transition cursor-pointer ${
+                                  (unit.kondisi || 'Baik') === k ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 text-slate-500'
+                                }`}
+                              >
+                                {k}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </>
                     )}
                     {selectedItem.kib === 'B' && (
                       <div className="mb-2">
