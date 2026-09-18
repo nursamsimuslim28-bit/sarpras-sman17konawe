@@ -259,6 +259,9 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
       await onSaveOpnameEntry(entry);
       setSelectedItem(null);
       setForm({});
+    } catch (e) {
+      console.error('Gagal menyimpan data opname:', e);
+      alert('Gagal menyimpan ke server - kemungkinan koneksi internet terputus. Data BELUM tersimpan, silakan periksa koneksi lalu tekan Simpan lagi.');
     } finally {
       setIsSaving(false);
     }
@@ -274,6 +277,9 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
       await onDeleteOpnameEntry(existing.id);
       setSelectedItem(null);
       setForm({});
+    } catch (e) {
+      console.error('Gagal menghapus data opname:', e);
+      alert('Gagal menghapus di server - kemungkinan koneksi internet terputus. Coba lagi setelah koneksi stabil.');
     } finally {
       setIsSaving(false);
     }
@@ -464,6 +470,14 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                 </div>
               </div>
 
+              {form.ditemukan === 'Tidak' && (
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2.5 mb-3">
+                  Aset ditandai tidak ditemukan - kondisi, foto, dan data lain tidak perlu diisi. Boleh tambahkan catatan di bawah kalau perlu, lalu Simpan.
+                </p>
+              )}
+
+              {form.ditemukan !== 'Tidak' && (
+              <>
               {/* Status Penguasaan */}
               <div className="mb-3">
                 <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Status Penguasaan</label>
@@ -763,6 +777,8 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                   </div>
                 );
               })}
+              </>
+              )}
 
               {/* Keterangan */}
               <div className="mb-5">

@@ -488,12 +488,12 @@ export const api = {
     }
     safeSetStorage(KEY_OPNAME, local);
 
+    // Tidak ditelan diam-diam seperti tab lain - kalau sinkron ke server gagal,
+    // pemanggil (OpnameTab) perlu tahu supaya bisa kasih tahu operator dan coba lagi.
+    // Data opname lebih kritis (dasar laporan resmi ke provinsi), jadi harus jelas
+    // kalau baru tersimpan lokal tapi belum sampai ke server.
     if (isFirebaseClientConfigured()) {
-      try {
-        await saveDocumentClient('opname_2026', entry.id, entry);
-      } catch (e) {
-        console.error('[API] Gagal menyimpan data opname ke Firebase Client:', e);
-      }
+      await saveDocumentClient('opname_2026', entry.id, entry);
     }
 
     return local;
@@ -506,11 +506,7 @@ export const api = {
     safeSetStorage(KEY_OPNAME, filtered);
 
     if (isFirebaseClientConfigured()) {
-      try {
-        await deleteDocumentClient('opname_2026', id);
-      } catch (e) {
-        console.error('[API] Gagal menghapus data opname di Firebase Client:', e);
-      }
+      await deleteDocumentClient('opname_2026', id);
     }
 
     return filtered;
