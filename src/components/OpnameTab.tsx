@@ -192,9 +192,23 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
     });
   };
 
-  const handleJumlahUnitChange = (n: number) => {
-    const jumlahUnit = Math.max(1, Math.min(100, n || 1));
+  const handleJumlahUnitChange = (raw: string) => {
+    // Kalau lagi dikosongkan (mau ganti angka), biarkan kosong dulu - jangan
+    // dipaksa balik ke 1, supaya tidak numpuk jadi "13" saat ganti 1 -> 3
+    if (raw === '') {
+      setForm(prev => ({ ...prev, jumlahUnit: undefined }));
+      return;
+    }
+    const n = parseInt(raw, 10);
+    if (isNaN(n)) return;
+    const jumlahUnit = Math.max(1, Math.min(100, n));
     setForm(prev => ({ ...prev, jumlahUnit, fotoUnits: normalizeFotoUnits(prev, jumlahUnit) }));
+  };
+
+  const handleJumlahUnitBlur = () => {
+    if (!form.jumlahUnit) {
+      setForm(prev => ({ ...prev, jumlahUnit: 1, fotoUnits: normalizeFotoUnits(prev, 1) }));
+    }
   };
 
   const handleNomorSeriChange = (unitIdx: number, nomorSeri: string) => {
@@ -624,8 +638,9 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                   type="number"
                   min={1}
                   max={100}
-                  value={form.jumlahUnit || 1}
-                  onChange={(e) => handleJumlahUnitChange(parseInt(e.target.value, 10))}
+                  value={form.jumlahUnit ?? ''}
+                  onChange={(e) => handleJumlahUnitChange(e.target.value)}
+                  onBlur={handleJumlahUnitBlur}
                   className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
                 />
                 <p className="text-[10px] text-slate-400 mt-1">
