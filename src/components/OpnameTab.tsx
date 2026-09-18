@@ -135,6 +135,8 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
   const [searchTerm, setSearchTerm] = useState('');
   const [filterKib, setFilterKib] = useState<'Semua' | 'B' | 'C' | 'E'>('Semua');
   const [filterStatus, setFilterStatus] = useState<'Semua' | 'Sudah' | 'Belum'>('Semua');
+  const [filterKondisi, setFilterKondisi] = useState<'Semua' | KondisiAset>('Semua');
+  const [filterTahun, setFilterTahun] = useState<string>('Semua');
   const [selectedItem, setSelectedItem] = useState<OpnameMasterItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingFoto, setIsUploadingFoto] = useState<{ unit: number; slot: 1 | 2 } | null>(null);
@@ -185,8 +187,21 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
     } else if (filterStatus === 'Belum') {
       list = list.filter(a => !opnameByRefId.has(a.id));
     }
+    if (filterKondisi !== 'Semua') {
+      list = list.filter(a => opnameByRefId.get(a.id)?.kondisi === filterKondisi);
+    }
+    if (filterTahun !== 'Semua') {
+      list = list.filter(a => (a.tahun || '-') === filterTahun);
+    }
     return list;
-  }, [opnameMasterList, searchTerm, filterKib, filterStatus, opnameByRefId]);
+  }, [opnameMasterList, searchTerm, filterKib, filterStatus, filterKondisi, filterTahun, opnameByRefId]);
+
+  // Daftar tahun pengadaan yang benar-benar ada di data, buat isi dropdown filter tahun
+  const availableTahun = useMemo(() => {
+    const set = new Set<string>();
+    opnameMasterList.forEach(a => set.add(a.tahun || '-'));
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [opnameMasterList]);
 
   const totalItem = opnameMasterList.length;
   const totalSudah = opnameMasterList.filter(a => opnameByRefId.has(a.id)).length;
@@ -422,6 +437,28 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
               {s}
             </button>
           ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <select
+            value={filterKondisi}
+            onChange={(e) => setFilterKondisi(e.target.value as 'Semua' | KondisiAset)}
+            className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 cursor-pointer"
+          >
+            <option value="Semua">Semua Kondisi</option>
+            <option value="Baik">Baik</option>
+            <option value="Rusak Ringan">Rusak Ringan</option>
+            <option value="Rusak Berat">Rusak Berat</option>
+          </select>
+          <select
+            value={filterTahun}
+            onChange={(e) => setFilterTahun(e.target.value)}
+            className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 cursor-pointer"
+          >
+            <option value="Semua">Semua Tahun</option>
+            {availableTahun.map(t => (
+              <option key={t} value={t}>{t === '-' ? 'Tahun Kosong' : t}</option>
+            ))}
+          </select>
         </div>
       </div>
 
