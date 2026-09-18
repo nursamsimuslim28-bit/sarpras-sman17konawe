@@ -484,6 +484,10 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
             <option value="Ya">Ditemukan</option>
             <option value="Tidak">Tidak Ditemukan</option>
           </select>
+          <div className="ml-auto flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 shadow-sm shadow-indigo-600/20">
+            <span className="text-lg font-black text-white leading-none">{filteredItems.length}</span>
+            <span className="text-[10px] font-bold text-indigo-100 uppercase tracking-wide">item tampil</span>
+          </div>
         </div>
       </div>
 
