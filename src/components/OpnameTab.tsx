@@ -137,6 +137,7 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
   const [filterStatus, setFilterStatus] = useState<'Semua' | 'Sudah' | 'Belum'>('Semua');
   const [filterKondisi, setFilterKondisi] = useState<'Semua' | KondisiAset>('Semua');
   const [filterTahun, setFilterTahun] = useState<string>('Semua');
+  const [filterDitemukan, setFilterDitemukan] = useState<'Semua' | 'Ya' | 'Tidak'>('Semua');
   const [selectedItem, setSelectedItem] = useState<OpnameMasterItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingFoto, setIsUploadingFoto] = useState<{ unit: number; slot: 1 | 2 } | null>(null);
@@ -188,13 +189,28 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
       list = list.filter(a => !opnameByRefId.has(a.id));
     }
     if (filterKondisi !== 'Semua') {
-      list = list.filter(a => opnameByRefId.get(a.id)?.kondisi === filterKondisi);
+      // Kondisi cuma relevan untuk barang yang ditemukan - barang "Tidak Ditemukan" tidak
+      // dianggap match kondisi apapun, walau field kondisinya masih nyimpan nilai bawaan lama.
+      list = list.filter(a => {
+        const entry = opnameByRefId.get(a.id);
+        return entry?.ditemukan !== 'Tidak' && entry?.kondisi === filterKondisi;
+      });
+    }
+    if (filterDitemukan !== 'Semua') {
+      list = list.filter(a => opnameByRefId.get(a.id)?.ditemukan === filterDitemukan);
     }
     if (filterTahun !== 'Semua') {
       list = list.filter(a => (a.tahun || '-') === filterTahun);
     }
+    // Urutkan sesuai nomor urut resmi provinsi (per KIB) supaya urutannya sama seperti Excel asli
+    list = [...list].sort((a, b) => {
+      if (a.kib !== b.kib) return a.kib.localeCompare(b.kib);
+      const na = parseFloat(a.no || '0') || 0;
+      const nb = parseFloat(b.no || '0') || 0;
+      return na - nb;
+    });
     return list;
-  }, [opnameMasterList, searchTerm, filterKib, filterStatus, filterKondisi, filterTahun, opnameByRefId]);
+  }, [opnameMasterList, searchTerm, filterKib, filterStatus, filterKondisi, filterDitemukan, filterTahun, opnameByRefId]);
 
   // Daftar tahun pengadaan yang benar-benar ada di data, buat isi dropdown filter tahun
   const availableTahun = useMemo(() => {
@@ -459,6 +475,15 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
               <option key={t} value={t}>{t === '-' ? 'Tahun Kosong' : t}</option>
             ))}
           </select>
+          <select
+            value={filterDitemukan}
+            onChange={(e) => setFilterDitemukan(e.target.value as 'Semua' | 'Ya' | 'Tidak')}
+            className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 cursor-pointer"
+          >
+            <option value="Semua">Ditemukan/Tidak (Semua)</option>
+            <option value="Ya">Ditemukan</option>
+            <option value="Tidak">Tidak Ditemukan</option>
+          </select>
         </div>
       </div>
 
@@ -479,25 +504,31 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                   onClick={() => openForm(item)}
                   className="w-full flex items-center gap-3 p-3.5 hover:bg-slate-50 transition text-left cursor-pointer"
                 >
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${done ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${!done ? 'bg-slate-300' : done.ditemukan === 'Tidak' ? 'bg-slate-400' : 'bg-emerald-500'}`} />
                   <span className="px-1.5 py-0.5 rounded text-[9px] font-black border bg-slate-50 text-slate-500 border-slate-200 shrink-0">{item.kib}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-slate-800 truncate">{item.nama}</p>
                     <p className="text-[11px] text-slate-400 font-mono truncate">
-                      {item.kode} · Reg. {item.register}{item.tahun ? ` · ${item.tahun}` : ''}
+                      {item.no ? `No. ${item.no} · ` : ''}{item.kode} · Reg. {item.register}{item.tahun ? ` · ${item.tahun}` : ''}
                     </p>
                     {item.keterangan && (
                       <p className="text-[10px] text-orange-600 font-semibold truncate italic">{item.keterangan}</p>
                     )}
                   </div>
                   {done ? (
-                    <span className={`px-2 py-1 rounded-lg text-[10px] font-black border shrink-0 ${
-                      done.kondisi === 'Baik' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                      done.kondisi === 'Rusak Ringan' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                      'bg-rose-50 text-rose-700 border-rose-200'
-                    }`}>
-                      {done.kondisi}
-                    </span>
+                    done.ditemukan === 'Tidak' ? (
+                      <span className="px-2 py-1 rounded-lg text-[10px] font-black border shrink-0 bg-slate-100 text-slate-500 border-slate-300">
+                        Tidak Ditemukan
+                      </span>
+                    ) : (
+                      <span className={`px-2 py-1 rounded-lg text-[10px] font-black border shrink-0 ${
+                        done.kondisi === 'Baik' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                        done.kondisi === 'Rusak Ringan' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                        'bg-rose-50 text-rose-700 border-rose-200'
+                      }`}>
+                        {done.kondisi}
+                      </span>
+                    )
                   ) : (
                     <span className="px-2 py-1 rounded-lg text-[10px] font-black border bg-slate-50 text-slate-400 border-slate-200 shrink-0">
                       Belum
@@ -544,7 +575,7 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                 <strong className="text-slate-900">{selectedItem.nama}</strong>
               </p>
               <p className="text-[11px] text-slate-400 font-mono mb-4">
-                {KIB_LABEL[selectedItem.kib]} · Kode {selectedItem.kode} · Reg. {selectedItem.register}
+                {KIB_LABEL[selectedItem.kib]}{selectedItem.no ? ` · No. ${selectedItem.no}` : ''} · Kode {selectedItem.kode} · Reg. {selectedItem.register}
               </p>
               {selectedItem.keterangan && (
                 <p className="text-[11px] text-slate-500 italic mb-2 bg-slate-50 rounded-lg p-2">
