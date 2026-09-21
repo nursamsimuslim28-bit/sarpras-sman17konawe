@@ -713,8 +713,8 @@ export default function BhpTab({
     doc.text('Mengetahui,', leftSignX, finalY);
     doc.text('Kepala Sekolah,', leftSignX, finalY + 5);
 
-    // Document location date format: Amonggedo, ........................ 2026
-    doc.text('Amonggedo, ........................ 2026', rightSignX, finalY);
+    // Document location date format: "<Lokasi>, ........................ 2026"
+    doc.text(`${pengaturan.lokasiTandaTangan || 'Amonggedo'}, ........................ 2026`, rightSignX, finalY);
     doc.text('Petugas / Penanggung Jawab Sarpras,', rightSignX, finalY + 5);
 
     const signY = finalY + 22;
@@ -1015,7 +1015,7 @@ export default function BhpTab({
     doc.text('Mengetahui,', 15, currentY);
     doc.text(`Kepala Sekolah ${pengaturan.namaSekolah || 'SMA Negeri 17 Konawe'}`, 15, currentY + 5);
     
-    doc.text('Amonggedo, ....................................', 130, currentY);
+    doc.text(`${pengaturan.lokasiTandaTangan || 'Amonggedo'}, ....................................`, 130, currentY);
     doc.text('Petugas Sarpras / Penanggung Jawab,', 130, currentY + 5);
 
     const signY = currentY + 22;

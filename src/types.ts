@@ -294,6 +294,11 @@ export interface PengaturanSekolah {
   adminPassword?: string;
   logoUrl?: string;
   updatedAt?: string;
+  // Nama kota/kecamatan yang dipakai sebagai lokasi tanda tangan di semua dokumen resmi
+  // (format baku surat: "<Lokasi>, <tanggal>"). Dulu ini hardcode "Amonggedo" di banyak
+  // tempat - sekarang bisa diatur di Pengaturan supaya aplikasi ini bisa dipakai sekolah lain
+  // tanpa perlu ubah kode.
+  lokasiTandaTangan?: string;
 }
 
 // Default state bersih tanpa hardcode URL produksi / data privat
@@ -311,7 +316,8 @@ export const DEFAULT_PENGATURAN: PengaturanSekolah = {
   googleAppsScriptUrl: "",
   googleSpreadsheetUrl: "",
   googleDriveFolderId: "",
-  adminPassword: (import.meta as any).env?.VITE_ADMIN_PASSWORD || "admin123"
+  adminPassword: (import.meta as any).env?.VITE_ADMIN_PASSWORD || "admin123",
+  lokasiTandaTangan: "Amonggedo"
 };
 
 // Initial state data (kosong secara default untuk penggunaan data real)

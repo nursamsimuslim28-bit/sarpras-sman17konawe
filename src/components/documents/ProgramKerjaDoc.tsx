@@ -814,7 +814,7 @@ export default function ProgramKerjaDoc({ pengaturan, initialData }: Props) {
             </div>
 
             <div className="text-right space-y-1">
-              <p className="text-slate-600">Amonggedo, {progja.tanggalPengesahan || 'Juli 2026'}</p>
+              <p className="text-slate-600">{pengaturan.lokasiTandaTangan || 'Amonggedo'}, {progja.tanggalPengesahan || 'Juli 2026'}</p>
               <p className="font-bold text-slate-800">Wakasek Sarana dan Prasarana</p>
               <div className="h-14"></div>
               <p className="font-bold underline text-slate-900 text-sm tracking-wide">{pengaturan.namaPetugasSarpras}</p>

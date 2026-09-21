@@ -621,7 +621,7 @@ export default function LaporanTab({ asets, pemusnahans, pengaturan, auditLogs =
       doc.text(`NIP. ${pengaturan.nipKepalaSekolah || '....................................................'}`, colLeftX, signY + 28);
 
       // Kanan: Wakasek / Petugas Sarpras
-      doc.text(`Amonggedo, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, colRightX, signY);
+      doc.text(`${pengaturan.lokasiTandaTangan || 'Amonggedo'}, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, colRightX, signY);
       doc.setFont('times', 'bold');
       doc.text('Wakasek Sarana dan Prasarana / Pengurus Barang', colRightX, signY + 4.5);
       doc.text(pengaturan.namaPetugasSarpras, colRightX, signY + 23);
@@ -794,7 +794,7 @@ export default function LaporanTab({ asets, pemusnahans, pengaturan, auditLogs =
       doc.text(`NIP. ${pengaturan.nipKepalaSekolah || '....................................................'}`, colLeftX, signY + 28);
 
       // Kanan: Wakasek / Petugas Sarpras
-      doc.text(`Amonggedo, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, colRightX, signY);
+      doc.text(`${pengaturan.lokasiTandaTangan || 'Amonggedo'}, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, colRightX, signY);
       doc.setFont('times', 'bold');
       doc.text('Wakasek Sarana dan Prasarana / Pengurus Barang', colRightX, signY + 4.5);
       doc.text(pengaturan.namaPetugasSarpras, colRightX, signY + 23);
@@ -812,10 +812,11 @@ export default function LaporanTab({ asets, pemusnahans, pengaturan, auditLogs =
       const isPortrait = kirOrientation === 'portrait';
       const isF4 = kirPaperType === 'F4';
 
-      // Signature date string as requested: "Amonggedo, .................................... 2026"
-      const dateSignatureString = isCetakKosong 
-        ? 'Amonggedo, .................................... 2026'
-        : `Amonggedo, ${new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+      // Signature date string as requested: "<Lokasi>, .................................... 2026"
+      const lokasiTtd = pengaturan.lokasiTandaTangan || 'Amonggedo';
+      const dateSignatureString = isCetakKosong
+        ? `${lokasiTtd}, .................................... 2026`
+        : `${lokasiTtd}, ${new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}`;
 
       if (isPortrait) {
         // --- PORTRAIT MODE ---
@@ -1257,7 +1258,7 @@ export default function LaporanTab({ asets, pemusnahans, pengaturan, auditLogs =
     doc.setFont('times', 'normal');
     doc.text(`NIP. ${pengaturan.nipKepalaSekolah || '-'}`, 30, signY + 35);
 
-    doc.text('Amonggedo, ' + new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }), 130, signY);
+    doc.text((pengaturan.lokasiTandaTangan || 'Amonggedo') + ', ' + new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }), 130, signY);
     doc.text('Wakasek Sarpras', 130, signY + 5);
     doc.text(pengaturan.namaPetugasSarpras, 130, signY + 30);
     doc.setFont('times', 'bold');
@@ -2048,7 +2049,7 @@ export default function LaporanTab({ asets, pemusnahans, pengaturan, auditLogs =
                       <span>Mode Blanko Penuh 1 Halaman {kirPaperType}</span>
                     </p>
                     <p className="text-[9px] text-blue-700 leading-normal">
-                      Menghasilkan lembar blanko presisi yang memenuhi 1 halaman kertas {kirPaperType === 'F4' ? 'F4 / Folio (215 x 330 mm)' : 'A4'} dari kop surat sampai tanda tangan dengan tanggal bertuliskan <strong>"Amonggedo, .................................... 2026"</strong>.
+                      Menghasilkan lembar blanko presisi yang memenuhi 1 halaman kertas {kirPaperType === 'F4' ? 'F4 / Folio (215 x 330 mm)' : 'A4'} dari kop surat sampai tanda tangan dengan tanggal bertuliskan <strong>"{pengaturan.lokasiTandaTangan || 'Amonggedo'}, .................................... 2026"</strong>.
                     </p>
                   </div>
                 ) : (
@@ -2311,7 +2312,7 @@ export default function LaporanTab({ asets, pemusnahans, pengaturan, auditLogs =
                   </div>
 
                   <div className="text-right space-y-1">
-                    <p className="text-slate-600">Amonggedo, {new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    <p className="text-slate-600">{pengaturan.lokasiTandaTangan || 'Amonggedo'}, {new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                     <p className="font-bold text-slate-800">Wakasek Sarana dan Prasarana / Pengurus Barang</p>
                     <div className="h-14"></div>
                     <p className="font-bold underline text-slate-900 text-sm tracking-wide">{pengaturan.namaPetugasSarpras}</p>
@@ -2630,7 +2631,7 @@ export default function LaporanTab({ asets, pemusnahans, pengaturan, auditLogs =
                     <p className="text-slate-600">NIP. {pengaturan.nipKepalaSekolah || '....................................................'}</p>
                   </div>
                   <div className="text-right pr-4">
-                    <p className="text-slate-600">Amonggedo, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    <p className="text-slate-600">{pengaturan.lokasiTandaTangan || 'Amonggedo'}, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                     <p className="font-bold text-slate-900 font-serif">Wakasek Sarana dan Prasarana / Pengurus Barang</p>
                     <div className="h-14"></div>
                     <p className="font-bold text-slate-900 underline font-serif">{pengaturan.namaPetugasSarpras}</p>
@@ -2752,7 +2753,7 @@ export default function LaporanTab({ asets, pemusnahans, pengaturan, auditLogs =
                     <p className="text-slate-500">NIP. {pengaturan.nipKepalaSekolah || '-'}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-slate-500">Amonggedo, {new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    <p className="text-slate-500">{pengaturan.lokasiTandaTangan || 'Amonggedo'}, {new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                     <p className="font-bold text-slate-800">Wakasek Sarpras</p>
                     <div className="h-12"></div>
                     <p className="font-bold text-slate-800 underline">{pengaturan.namaPetugasSarpras}</p>
@@ -2872,9 +2873,9 @@ export default function LaporanTab({ asets, pemusnahans, pengaturan, auditLogs =
                   </div>
                   <div className="text-right">
                     <p className="text-slate-500">
-                      {isCetakKosong 
-                        ? 'Amonggedo, .................................... 2026' 
-                        : `Amonggedo, ${new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}`}
+                      {isCetakKosong
+                        ? `${pengaturan.lokasiTandaTangan || 'Amonggedo'}, .................................... 2026`
+                        : `${pengaturan.lokasiTandaTangan || 'Amonggedo'}, ${new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}`}
                     </p>
                     <p className="font-bold text-slate-800">Wakasek Sarpras,</p>
                     <div className="h-10"></div>

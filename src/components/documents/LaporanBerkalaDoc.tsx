@@ -737,7 +737,7 @@ export default function LaporanBerkalaDoc({ pengaturan, initialData, asets }: Pr
             </div>
 
             <div className="text-right space-y-1">
-              <p className="text-slate-600">Amonggedo, 2026</p>
+              <p className="text-slate-600">{pengaturan.lokasiTandaTangan || 'Amonggedo'}, 2026</p>
               <p className="font-bold text-slate-800">Wakasek Sarana dan Prasarana</p>
               <div className="h-14"></div>
               <p className="font-bold underline text-slate-900 text-sm tracking-wide">{pengaturan.namaPetugasSarpras}</p>

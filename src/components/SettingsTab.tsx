@@ -592,6 +592,15 @@ VITE_FIREBASE_APP_ID=${cfg?.appId || ''}`;
               <textarea name="alamat" rows={2} value={formData.alamat} onChange={handleInputChange}
                 className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none" required />
             </div>
+            <div>
+              <label className="block text-[11px] font-medium text-slate-600 mb-1">Lokasi Tanda Tangan Dokumen (Kota/Kecamatan)</label>
+              <input type="text" name="lokasiTandaTangan" value={formData.lokasiTandaTangan || ''} onChange={handleInputChange}
+                placeholder="Contoh: Amonggedo, Kendari, Unaaha"
+                className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Nama kota/kecamatan yang tertulis di baris tanda tangan semua dokumen (format: "&lt;Lokasi&gt;, &lt;tanggal&gt;"). Ubah ini kalau sekolah Ibu/Bapak ada di lokasi berbeda.
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-medium text-slate-600 mb-1">Kepala Sekolah</label>
