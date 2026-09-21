@@ -55,8 +55,10 @@ export default function SarprasKhususDoc({
     'Ruang Pimpinan / Administrasi', 'Ruang Guru', 'Tempat Beribadah',
     'Ruang Konseling / UKS', 'Toilet', 'Tempat Bermain / Olahraga', 'Ruang Sirkulasi'
   ];
+  // Master Ruangan (kalau sudah diisi) satu-satunya sumber pilihan - tidak dicampur lagi
+  // dengan daftar bawaan generik.
   const spaces: StandardRuang[] = masterRuangs && masterRuangs.length > 0
-    ? Array.from(new Set([...masterRuangs.map(r => r.nama), ...defaultSpaces]))
+    ? masterRuangs.map(r => r.nama)
     : defaultSpaces;
 
   const [alatList, setAlatList] = useState<AlatPeragaItem[]>(() => {

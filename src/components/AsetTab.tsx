@@ -388,8 +388,12 @@ export default function AsetTab({
     'Ruang Sirkulasi'
   ];
 
+  // Kalau Master Ruangan sudah diisi, itu satu-satunya sumber pilihan ruangan - jangan
+  // dicampur dengan daftar bawaan generik lagi (dulu begitu, bikin ruangan "asing" di luar
+  // Master Ruangan tetap muncul di dropdown). Daftar bawaan cuma dipakai kalau Master Ruangan
+  // benar-benar masih kosong (aplikasi baru dipasang, belum sempat diisi sama sekali).
   const spaces: StandardRuang[] = masterRuangs && masterRuangs.length > 0
-    ? Array.from(new Set([...masterRuangs.map(r => r.nama), ...defaultSpaces]))
+    ? masterRuangs.map(r => r.nama)
     : defaultSpaces;
 
   const conditions: KondisiAset[] = ['Baik', 'Rusak Ringan', 'Rusak Berat', 'Dihapuskan'];
