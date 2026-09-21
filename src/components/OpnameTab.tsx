@@ -189,12 +189,19 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
     let list = opnameMasterList;
     const term = searchTerm.trim().toLowerCase();
     if (term) {
-      list = list.filter(a =>
-        a.nama.toLowerCase().includes(term) ||
-        a.kode.toLowerCase().includes(term) ||
-        a.register.toLowerCase().includes(term) ||
-        (a.keterangan || '').toLowerCase().includes(term)
-      );
+      list = list.filter(a => {
+        // Merek bisa dari data provinsi (a.merk) atau koreksi operator saat opname
+        // (entry.merk) - cari di dua-duanya supaya tidak kelewatan.
+        const entryMerk = opnameByRefId.get(a.id)?.merk || '';
+        return (
+          a.nama.toLowerCase().includes(term) ||
+          a.kode.toLowerCase().includes(term) ||
+          a.register.toLowerCase().includes(term) ||
+          (a.keterangan || '').toLowerCase().includes(term) ||
+          (a.merk || '').toLowerCase().includes(term) ||
+          entryMerk.toLowerCase().includes(term)
+        );
+      });
     }
     if (filterKib !== 'Semua') {
       list = list.filter(a => a.kib === filterKib);
