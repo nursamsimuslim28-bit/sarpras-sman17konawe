@@ -6,8 +6,6 @@
 
 This contains everything you need to run your app locally.
 
-View your app in AI Studio: https://ai.studio/apps/36a8ac50-c5ef-4965-a378-e832efd62865
-
 > **Baca [PANDUAN_DARURAT.md](./PANDUAN_DARURAT.md) dulu** sebelum mengubah apa pun di project
 > ini - berisi konteks aplikasi, aturan kerja pemiliknya, dan peringatan penting soal sinkronisasi
 > GitHub dari AI Studio.
