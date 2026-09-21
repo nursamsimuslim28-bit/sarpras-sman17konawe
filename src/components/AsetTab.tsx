@@ -804,6 +804,16 @@ export default function AsetTab({
       const newSplitAsets: Aset[] = [];
       const snBase = targetAset.serialNumber || '';
 
+      // Harga Perolehan yang tersimpan di baris kolektif adalah TOTAL untuk semua unit
+      // (mis. 3 lemari = Rp 8.400.000 total), bukan harga per unit - jadi wajib dibagi rata,
+      // bukan disalin apa adanya ke tiap unit hasil pecahan (dulu begitu, bikin total nilai
+      // aset membengkak N kali lipat setelah dipecah). Sisa pembagian (kalau tidak habis rata)
+      // dimasukkan ke unit terakhir supaya jumlah totalnya tetap persis sama seperti sebelum
+      // dipecah, tidak berkurang/bertambah sepeser pun.
+      const totalHarga = targetAset.hargaPerolehan || 0;
+      const hargaPerUnitBase = Math.floor(totalHarga / totalCount);
+      const hargaSisa = totalHarga - (hargaPerUnitBase * totalCount);
+
       for (let i = 1; i <= totalCount; i++) {
         const subSuffix = String(i).padStart(2, '0');
         const nextRegNum = String(regNumRaw + i - 1).padStart(regLength, '0');
@@ -823,6 +833,7 @@ export default function AsetTab({
           nomorRegister: nextRegNum,
           nomorRegisterBmd: nextRegNum,
           serialNumber: unitSn,
+          hargaPerolehan: hargaPerUnitBase + (i === totalCount ? hargaSisa : 0),
           catatan: targetAset.catatan
             ? `${targetAset.catatan} (Unit ${i}/${totalCount})`
             : `Hasil pemecahan unit dari koleksi ${targetAset.id} (Unit ${i} dari ${totalCount})`
@@ -1257,14 +1268,21 @@ export default function AsetTab({
                   </div>
                 )}
                 
-                {/* Condition pill */}
-                <span className={`absolute top-3 left-3 text-[10px] font-bold px-2 py-1 rounded-full shadow-sm text-white ${
-                  aset.kondisi === 'Baik' ? 'bg-emerald-500' :
-                  aset.kondisi === 'Rusak Ringan' ? 'bg-amber-500' :
-                  aset.kondisi === 'Rusak Berat' ? 'bg-rose-500' : 'bg-slate-600'
-                }`}>
-                  {aset.kondisi}
-                </span>
+                {/* Condition pill - kalau ditandai tidak ditemukan, itu yang diutamakan tampil
+                    (bukan kondisi lama yang sudah tidak relevan) */}
+                {aset.ditemukan === 'Tidak' ? (
+                  <span className="absolute top-3 left-3 text-[10px] font-bold px-2 py-1 rounded-full shadow-sm text-white bg-slate-500">
+                    Tidak Ditemukan
+                  </span>
+                ) : (
+                  <span className={`absolute top-3 left-3 text-[10px] font-bold px-2 py-1 rounded-full shadow-sm text-white ${
+                    aset.kondisi === 'Baik' ? 'bg-emerald-500' :
+                    aset.kondisi === 'Rusak Ringan' ? 'bg-amber-500' :
+                    aset.kondisi === 'Rusak Berat' ? 'bg-rose-500' : 'bg-slate-600'
+                  }`}>
+                    {aset.kondisi}
+                  </span>
+                )}
 
                 {/* Amount pill */}
                 <span className="absolute bottom-3 right-3 text-[10px] font-bold bg-slate-900/80 text-white px-2.5 py-1 rounded-lg backdrop-blur-xs">
@@ -1295,9 +1313,14 @@ export default function AsetTab({
                   </div>
                   
                   <div className="mt-3 space-y-1.5 border-t border-slate-50 pt-3">
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-medium">
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-medium flex-wrap">
                       <RefreshCw size={12} className="text-slate-400" />
                       <span>Lokasi: <span className="text-slate-800 font-bold">{aset.ruangLokasi}</span></span>
+                      {aset.lokasiPerluVerifikasi && (
+                        <span className="text-[9px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded" title="Lokasi baru dirapikan otomatis dari data ARKAS - perlu dicek fisik saat opname">
+                          Perlu verifikasi
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
                       <Calendar size={12} className="text-slate-400 shrink-0" />
@@ -1523,6 +1546,47 @@ export default function AsetTab({
               </div>
 
               <form onSubmit={handleFormSubmit} className="space-y-4">
+                {/* Ditemukan? - sama seperti pola di Opname Fisik BMD 2026. Kalau "Tidak", field
+                    detail lain (kondisi, foto, spesifikasi, dst) disembunyikan karena tidak
+                    relevan diisi untuk barang yang belum/tidak ditemukan fisiknya. */}
+                <div className="p-3.5 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-2">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Ditemukan?</label>
+                  <div className="flex gap-2">
+                    {(['Ya', 'Tidak'] as const).map(v => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setCurrentAset(prev => ({ ...prev, ditemukan: v }))}
+                        className={`flex-1 py-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                          (currentAset.ditemukan || 'Ya') === v ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500'
+                        }`}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                  {currentAset.ditemukan === 'Tidak' && (
+                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2.5">
+                      Aset ditandai tidak ditemukan - kondisi, foto, dan data detail lain tidak perlu diisi. Boleh tambahkan catatan di bawah kalau perlu, lalu Simpan.
+                    </p>
+                  )}
+                </div>
+
+                {currentAset.ditemukan === 'Tidak' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Catatan</label>
+                    <input
+                      type="text"
+                      value={currentAset.catatan || ''}
+                      onChange={(e) => setCurrentAset(prev => ({ ...prev, catatan: e.target.value }))}
+                      className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:outline-none"
+                      placeholder="Catatan tambahan (opsional)"
+                    />
+                  </div>
+                )}
+
+                {currentAset.ditemukan !== 'Tidak' && (
+                <>
                 {/* SECTION 1: Identitas & Kodefikasi Resmi */}
                 <div className="p-3.5 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-3">
                   <div className="flex items-center justify-between pb-1 border-b border-slate-200">
@@ -3081,6 +3145,8 @@ export default function AsetTab({
                     placeholder="e.g. Berkala diuji kelayakannya"
                   />
                 </div>
+                </>
+                )}
 
                 {/* Saving Indicator Banner inside Modal */}
                 {isSaving && (
@@ -3314,6 +3380,12 @@ export default function AsetTab({
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
                   Pratinjau {selectedAsetForSplit.jumlah} Unit Satuan Yang Akan Dihasilkan:
                 </span>
+                {(selectedAsetForSplit.hargaPerolehan || 0) > 0 && (
+                  <p className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1.5 mb-2">
+                    Harga Perolehan total <strong>Rp {(selectedAsetForSplit.hargaPerolehan || 0).toLocaleString('id-ID')}</strong> akan dibagi rata ke {selectedAsetForSplit.jumlah} unit
+                    (±Rp {Math.floor((selectedAsetForSplit.hargaPerolehan || 0) / selectedAsetForSplit.jumlah).toLocaleString('id-ID')}/unit) - totalnya tetap sama, tidak bertambah.
+                  </p>
+                )}
                 <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
                   {Array.from({ length: Math.min(selectedAsetForSplit.jumlah, 10) }).map((_, idx) => {
                     const subSuffix = String(idx + 1).padStart(2, '0');

@@ -62,6 +62,13 @@ export interface Aset {
   tanggalRegister?: string;
   serialNumber?: string;
   hargaPerolehan?: number;
+  // Fisik aset ditemukan saat pengecekan/opname atau tidak. Kalau 'Tidak', field detail lain
+  // (kondisi, foto, dll) tidak relevan diisi - sama seperti pola di Opname Fisik BMD 2026.
+  ditemukan?: 'Ya' | 'Tidak';
+  // Ditandai true saat lokasi ruangan aset ini baru saja dirapikan otomatis (mis. dari label
+  // "(PERLU DIKONFIRMASI SAAT OPNAME)" data ARKAS) - operator masih perlu cek fisik manual
+  // untuk memastikan lokasinya benar-benar tepat, baru tanda ini dihapus.
+  lokasiPerluVerifikasi?: boolean;
   nomorBuktiPerolehan?: string;
 
   // Standar Permendagri No. 47 Tahun 2021 (Kodefikasi & Register BMD)
