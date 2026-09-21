@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Aset, KategoriAset, KondisiAset, StandardRuang, LogPemusnahan, LogPemeliharaan, PengaturanSekolah, MasterRuang } from '../types';
 import { searchMasterKodeBmd, MasterKodeBmd } from '../data/masterKodeBmd';
 import ImportExportModal from './ImportExportModal';
@@ -161,6 +161,10 @@ interface AsetTabProps {
   onOpenScanner: (actionType: 'search' | 'aset_form', callback?: (code: string) => void) => void;
   onQuickAddRuang?: (nama: string) => Promise<MasterRuang | void> | void;
   userRole?: 'admin' | 'guest';
+  // ID aset yang harus langsung dibuka form edit-nya begitu tab ini tampil (mis. dari klik baris
+  // di modal ringkasan Dashboard) - sekali dipakai, pemanggil membersihkannya via onFocusConsumed.
+  initialFocusAsetId?: string | null;
+  onFocusConsumed?: () => void;
 }
 
 export default function AsetTab({
@@ -176,7 +180,9 @@ export default function AsetTab({
   onLogPemeliharaan,
   onOpenScanner,
   onQuickAddRuang,
-  userRole = 'guest'
+  userRole = 'guest',
+  initialFocusAsetId,
+  onFocusConsumed
 }: AsetTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRuang, setFilterRuang] = useState<string>('Semua');
@@ -912,6 +918,19 @@ export default function AsetTab({
     setHasAttemptedSubmit(false);
     setIsModalOpen(true);
   };
+
+  // Buka otomatis form edit aset yang diminta dari luar (mis. klik baris di modal ringkasan
+  // Dashboard) - begitu dipakai, langsung dibersihkan lewat onFocusConsumed supaya tidak
+  // terbuka lagi sendiri kalau operator menutup form ini lalu berpindah-pindah tab.
+  useEffect(() => {
+    if (!initialFocusAsetId) return;
+    const target = asets.find(a => a.id === initialFocusAsetId);
+    if (target) {
+      handleEditClick(target);
+    }
+    onFocusConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFocusAsetId]);
 
   const handleAddClick = () => {
     const smartDefaults = generateSmartAsetDefaults('B', asets, pengaturan, spaces);

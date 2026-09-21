@@ -11,6 +11,7 @@ interface DashboardTabProps {
   bhp?: BarangHabisPakai[];
   pengaturan: PengaturanSekolah;
   onNavigateToTab: (tab: string) => void;
+  onOpenAsetDetail: (asetId: string) => void;
 }
 
 export default function DashboardTab({
@@ -19,7 +20,8 @@ export default function DashboardTab({
   pemusnahans,
   bhp = [],
   pengaturan,
-  onNavigateToTab
+  onNavigateToTab,
+  onOpenAsetDetail
 }: DashboardTabProps) {
   
   // Details Modal state
@@ -860,7 +862,12 @@ export default function DashboardTab({
                       <tbody className="divide-y divide-slate-50 text-xs">
                         {filteredActiveAsets.length > 0 ? (
                           filteredActiveAsets.map((aset) => (
-                            <tr key={aset.id} className="hover:bg-slate-50/50">
+                            <tr
+                              key={aset.id}
+                              onClick={() => { onOpenAsetDetail(aset.id); setSelectedStatModal(null); }}
+                              className="hover:bg-indigo-50/60 cursor-pointer transition"
+                              title="Klik untuk membuka detail aset ini"
+                            >
                               <td className="py-2.5 px-3 font-mono font-bold text-[10px] text-slate-500">{aset.id}</td>
                               <td className="py-2.5 px-3 font-bold text-slate-800">
                                 {aset.nama}
@@ -874,8 +881,8 @@ export default function DashboardTab({
                               <td className="py-2.5 px-3 text-center font-bold text-slate-800">{aset.jumlah} {aset.satuan}</td>
                               <td className="py-2.5 px-3 text-center">
                                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-                                  aset.kondisi === 'Baik' 
-                                    ? 'bg-emerald-50 text-emerald-600' 
+                                  aset.kondisi === 'Baik'
+                                    ? 'bg-emerald-50 text-emerald-600'
                                     : 'bg-amber-50 text-amber-600'
                                 }`}>
                                   {aset.kondisi}
@@ -909,7 +916,12 @@ export default function DashboardTab({
                       <tbody className="divide-y divide-slate-50 text-xs">
                         {filteredActiveLoans.length > 0 ? (
                           filteredActiveLoans.map((loan) => (
-                            <tr key={loan.id} className="hover:bg-slate-50/50">
+                            <tr
+                              key={loan.id}
+                              onClick={() => { onOpenAsetDetail(loan.asetId); setSelectedStatModal(null); }}
+                              className="hover:bg-indigo-50/60 cursor-pointer transition"
+                              title="Klik untuk membuka detail aset yang dipinjam"
+                            >
                               <td className="py-2.5 px-3 font-bold text-slate-800">
                                 {loan.namaPeminjam}
                                 <span className="block text-[10px] text-slate-400 font-medium">{loan.jabatanPeminjam}</span>
@@ -951,7 +963,12 @@ export default function DashboardTab({
                       <tbody className="divide-y divide-slate-50 text-xs">
                         {filteredRusakAsets.length > 0 ? (
                           filteredRusakAsets.map((aset) => (
-                            <tr key={aset.id} className="hover:bg-slate-50/50">
+                            <tr
+                              key={aset.id}
+                              onClick={() => { onOpenAsetDetail(aset.id); setSelectedStatModal(null); }}
+                              className="hover:bg-indigo-50/60 cursor-pointer transition"
+                              title="Klik untuk membuka detail aset ini"
+                            >
                               <td className="py-2.5 px-3 font-mono font-bold text-[10px] text-slate-500">{aset.id}</td>
                               <td className="py-2.5 px-3 font-bold text-rose-600">
                                 {aset.nama}
@@ -992,7 +1009,12 @@ export default function DashboardTab({
                       <tbody className="divide-y divide-slate-50 text-xs">
                         {filteredDisposals.length > 0 ? (
                           filteredDisposals.map((disposal) => (
-                            <tr key={disposal.id} className="hover:bg-slate-50/50">
+                            <tr
+                              key={disposal.id}
+                              onClick={() => { onOpenAsetDetail(disposal.asetId); setSelectedStatModal(null); }}
+                              className="hover:bg-indigo-50/60 cursor-pointer transition"
+                              title="Klik untuk membuka detail aset ini (jika catatannya masih ada)"
+                            >
                               <td className="py-2.5 px-3 font-bold text-slate-800">
                                 {disposal.namaAset}
                                 <span className="block text-[10px] text-slate-400 font-mono">ID Aset: {disposal.asetId}</span>

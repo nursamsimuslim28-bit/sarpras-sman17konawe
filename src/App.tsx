@@ -58,6 +58,13 @@ function alertSaveResult(entityLabel: string, synced: boolean) {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  // Aset yang harus langsung dibuka form edit-nya begitu pindah ke tab Aset (mis. klik baris
+  // di modal ringkasan Dashboard) - lihat AsetTab's initialFocusAsetId/onFocusConsumed.
+  const [focusAsetId, setFocusAsetId] = useState<string | null>(null);
+  const handleOpenAsetDetail = (asetId: string) => {
+    setFocusAsetId(asetId);
+    setActiveTab('aset');
+  };
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [asets, setAsets] = useState<Aset[]>([]);
   const [peminjamans, setPeminjamans] = useState<Peminjaman[]>([]);
@@ -683,6 +690,7 @@ export default function App() {
             bhp={bhp}
             pengaturan={pengaturan}
             onNavigateToTab={(tab) => setActiveTab(tab)}
+            onOpenAsetDetail={handleOpenAsetDetail}
           />
         );
       case 'aset':
@@ -701,6 +709,8 @@ export default function App() {
             onOpenScanner={handleOpenScanner}
             onQuickAddRuang={handleQuickAddRuang}
             userRole={userRole}
+            initialFocusAsetId={focusAsetId}
+            onFocusConsumed={() => setFocusAsetId(null)}
           />
         );
       case 'master_ruang':
