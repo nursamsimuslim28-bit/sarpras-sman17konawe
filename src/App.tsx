@@ -13,6 +13,8 @@ import SettingsTab from './components/SettingsTab';
 import DokumenSarprasHub from './components/documents/DokumenSarprasHub';
 import MasterRuangManager from './components/MasterRuangManager';
 import QRScanner from './components/QRScanner';
+import SyncStatusBadge from './components/SyncStatusBadge';
+import { getPendingSyncCount, flushPendingSyncQueue } from './syncQueue';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
@@ -42,6 +44,17 @@ import {
   DoorOpen,
   ClipboardCheck
 } from 'lucide-react';
+
+// Notifikasi hasil simpan yang akurat sesuai status sinkron sesungguhnya - menggantikan pesan
+// lama yang selalu bertuliskan "hubungkan Google Sheets" (fitur itu sudah dihapus total, jadi
+// pesan lama itu keliru dan selalu muncul apa pun yang terjadi, baik online maupun offline).
+function alertSaveResult(entityLabel: string, synced: boolean) {
+  if (synced) {
+    alert(`✓ ${entityLabel} Tersimpan!\nData berhasil disimpan dan langsung tersinkron ke server.`);
+  } else {
+    alert(`✓ ${entityLabel} Tersimpan di Perangkat Ini!\nKoneksi ke server sedang terputus/lambat - data Anda AMAN tersimpan di perangkat ini dan akan otomatis terkirim ke server begitu koneksi kembali normal. Tidak perlu disimpan ulang.`);
+  }
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -166,12 +179,12 @@ export default function App() {
         setBhp(result.bhp);
         setPengambilanBhp(result.pengambilanBhp);
         setKeluhan(result.keluhan || []);
-        if (result.pengaturan.googleAppsScriptUrl) {
-          setSyncStatus('online');
-        }
+        setSyncStatus('online');
       }).catch(err => {
         console.warn('Silent auto-sync poll error:', err);
       });
+      // Selagi online, coba kirim ulang data yang sempat tertunda (kalau ada).
+      if (navigator.onLine) flushPendingSyncQueue();
     }, 30000);
 
     // 2. Re-sync immediately when phone screen unlocks, tab comes to focus, or network re-connects
@@ -187,13 +200,17 @@ export default function App() {
         setBhp(result.bhp);
         setPengambilanBhp(result.pengambilanBhp);
         setKeluhan(result.keluhan || []);
-        if (result.pengaturan.googleAppsScriptUrl) {
-          setSyncStatus('online');
-        }
+        setSyncStatus('online');
       }).catch(err => {
         console.warn('Focus re-sync error:', err);
       });
+      // Koneksi baru pulih (atau tab baru fokus lagi) - langsung coba kirim data yang tertunda,
+      // supaya operator tidak perlu buka ulang item yang gagal tersimpan untuk mencobanya lagi.
+      if (navigator.onLine) flushPendingSyncQueue();
     };
+
+    // Coba kirim antrian yang tersisa dari sesi sebelumnya begitu aplikasi dibuka (kalau online).
+    if (navigator.onLine) flushPendingSyncQueue();
 
     window.addEventListener('focus', handleFocusOrOnline);
     window.addEventListener('online', handleFocusOrOnline);
@@ -221,23 +238,26 @@ export default function App() {
       setBhp(result.bhp);
       setPengambilanBhp(result.pengambilanBhp);
       setKeluhan(result.keluhan || []);
-      
-      if (result.pengaturan.googleAppsScriptUrl) {
-        setSyncStatus('online');
-        if (isManual) {
-          alert('✓ Sinkronisasi Berhasil!\nSemua data telah sinkron dengan database cloud Google Sheets secara real-time.');
-        }
-      } else {
-        setSyncStatus('offline');
-        if (isManual) {
-          alert('✓ Penyegaran Berhasil (Mode Offline)!\nData diperbarui dari memori lokal HP/Perangkat Anda. Hubungkan Google Sheets di menu Pengaturan agar data sinkron antar perangkat.');
+      setSyncStatus('online');
+
+      // Selagi berhasil terhubung, kirim juga data yang sempat tertunda (kalau ada).
+      let syncResult: { succeeded: number; failed: number } | null = null;
+      if (getPendingSyncCount() > 0) {
+        syncResult = await flushPendingSyncQueue();
+      }
+
+      if (isManual) {
+        if (syncResult && syncResult.succeeded > 0) {
+          alert(`✓ Penyegaran Berhasil!\nData terbaru dari server sudah dimuat, dan ${syncResult.succeeded} data yang sempat tertunda berhasil dikirim.` + (syncResult.failed > 0 ? `\n${syncResult.failed} data masih tertunda, akan dicoba lagi otomatis.` : ''));
+        } else {
+          alert('✓ Penyegaran Berhasil!\nData terbaru dari server sudah dimuat.');
         }
       }
     } catch (error) {
       console.error('Error fetching data', error);
       setSyncStatus('error');
       if (isManual) {
-        alert('✗ Gagal Sinkronisasi!\nTidak dapat terhubung ke Google Apps Script. Periksa koneksi internet Anda atau periksa URL di tab Pengaturan.');
+        alert('✗ Gagal Menyegarkan Data!\nTidak dapat terhubung ke server. Periksa koneksi internet Anda dan coba lagi. Data yang sudah Anda simpan tetap aman di perangkat ini.');
       }
     } finally {
       setIsLoading(false);
@@ -312,15 +332,7 @@ export default function App() {
     const newLogs = await api.recordAuditLog(activeOperator, actionType, `${aset.nama} (${aset.id})`, details);
     setAuditLogs(newLogs);
     
-    if (pengaturan.googleAppsScriptUrl) {
-      if (driveError) {
-        alert('✓ Data Aset disimpan ke Google Sheets!\nNamun pengunggahan foto ke Google Drive gagal (foto disimpan sementara di memori lokal HP).');
-      } else {
-        alert('✓ Sukses!\nData aset dan foto berhasil disimpan dan disinkronkan ke Google Sheets & Google Drive.');
-      }
-    } else {
-      alert('✓ Tersimpan Offline!\nData disimpan di memori HP Anda. Agar dapat dibaca di laptop/device lain, harap hubungkan Google Sheets di tab Pengaturan.');
-    }
+    alertSaveResult('Data Aset', updated.synced);
 
     loadAllData(false);
   };
@@ -342,10 +354,10 @@ export default function App() {
       );
       setAuditLogs(newLogs);
 
-      if (pengaturan.googleAppsScriptUrl) {
-        alert(`✓ Import Berhasil!\nSebanyak ${importedAsets.length} data sarpras telah berhasil diunggah dan disinkronkan ke database Google Sheets.`);
+      if (updated.synced) {
+        alert(`✓ Import Berhasil!\nSebanyak ${importedAsets.length} data sarpras telah berhasil diunggah dan disinkronkan ke server.`);
       } else {
-        alert(`✓ Import Berhasil (Tersimpan Lokal)!\nSebanyak ${importedAsets.length} data sarpras telah berhasil ditambahkan ke memori aplikasi. Hubungkan Google Sheets di menu Pengaturan agar tersinkron ke semua perangkat.`);
+        alert(`✓ Import Tersimpan di Perangkat Ini!\nSebanyak ${importedAsets.length} data sarpras berhasil ditambahkan, tapi koneksi ke server sedang terputus/lambat. Data AMAN dan akan otomatis terkirim begitu koneksi kembali normal.`);
       }
 
       loadAllData(false);
@@ -370,11 +382,7 @@ export default function App() {
     );
     setAuditLogs(newLogs);
 
-    if (pengaturan.googleAppsScriptUrl) {
-      alert('✓ Berhasil!\nAset telah dihapus dari Google Sheets.');
-    } else {
-      alert('✓ Berhasil dihapus secara lokal!');
-    }
+    alertSaveResult('Penghapusan Aset', updated.synced);
   };
 
   const handleSplitAset = async (oldId: string, newAsets: Aset[]) => {
@@ -414,11 +422,7 @@ export default function App() {
     const newLogs = await api.recordAuditLog(activeOperator, actionType, `${pinjam.namaAset} (${pinjam.asetId})`, details);
     setAuditLogs(newLogs);
 
-    if (pengaturan.googleAppsScriptUrl) {
-      alert('✓ Transaksi Peminjaman Berhasil!\nData telah langsung disinkronkan ke Google Sheets.');
-    } else {
-      alert('✓ Transaksi Peminjaman Disimpan Offline!\nData disimpan di memori HP Anda. Hubungkan Google Sheets di tab Pengaturan agar sinkron.');
-    }
+    alertSaveResult('Transaksi Peminjaman', updated.synced);
 
     loadAllData(false);
   };
@@ -449,11 +453,7 @@ export default function App() {
     );
     setAuditLogs(newLogs);
 
-    if (pengaturan.googleAppsScriptUrl) {
-      alert('✓ Penghapusan Aset Berhasil!\nStatus aset diubah dan log pemusnahan disinkronkan ke Google Sheets.');
-    } else {
-      alert('✓ Penghapusan Aset Disimpan Offline!');
-    }
+    alertSaveResult('Log Pemusnahan/Penghapusan Aset', updated.synced);
 
     loadAllData(false);
   };
@@ -477,6 +477,8 @@ export default function App() {
       `${log.jenisPerawatan}: ${log.deskripsi}${log.biaya ? ` (Rp ${log.biaya.toLocaleString('id-ID')})` : ''}`
     );
     setAuditLogs(newLogs);
+
+    alertSaveResult('Log Pemeliharaan', updated.synced);
 
     loadAllData(false);
   };
@@ -503,13 +505,7 @@ export default function App() {
     );
     setAuditLogs(newLogs);
 
-    if (cfg.googleAppsScriptUrl) {
-      setSyncStatus('online');
-      alert('✓ Konfigurasi Berhasil Disimpan!\nKoneksi Google Sheets & Google Drive Aktif.');
-    } else {
-      setSyncStatus('offline');
-      alert('✓ Konfigurasi Disimpan (Mode Offline/Demo).');
-    }
+    alert('✓ Konfigurasi Berhasil Disimpan!');
     loadAllData(false);
   };
 
@@ -539,15 +535,7 @@ export default function App() {
     );
     setAuditLogs(newLogs);
 
-    if (pengaturan.googleAppsScriptUrl) {
-      if (driveError) {
-        alert('✓ Data BHP disimpan ke Google Sheets!\nNamun upload foto ke Google Drive gagal (foto disimpan sementara di memori HP).');
-      } else {
-        alert('✓ Sukses!\nData dan foto Barang Habis Pakai berhasil disimpan dan disinkronkan ke Google Sheets & Google Drive.');
-      }
-    } else {
-      alert('✓ Tersimpan Offline!\nData BHP disimpan di memori HP Anda. Agar terbaca di laptop/device lain, hubungkan Google Sheets di tab Pengaturan.');
-    }
+    alertSaveResult('Data BHP', updated.synced);
 
     loadAllData(false);
   };
@@ -583,11 +571,7 @@ export default function App() {
     );
     setAuditLogs(newLogs);
 
-    if (pengaturan.googleAppsScriptUrl) {
-      alert('✓ Berhasil!\nBarang Habis Pakai telah dihapus dari Google Sheets.');
-    } else {
-      alert('✓ Berhasil dihapus secara lokal!');
-    }
+    alertSaveResult('Penghapusan BHP', updated.synced);
   };
 
   const handleSavePengambilanBhp = async (pengambilan: PengambilanBHP) => {
@@ -612,20 +596,12 @@ export default function App() {
       `Pengambilan ${pengambilan.jumlahDiambil} ${pengambilan.satuan} oleh ${pengambilan.namaPenerima} (${pengambilan.jabatanPenerima})`
     );
     setAuditLogs(newLogs);
-    
+
     const result = await api.getAll();
     setBhp(result.bhp);
     setPengambilanBhp(result.pengambilanBhp);
-    
-    if (pengaturan.googleAppsScriptUrl) {
-      if (driveError) {
-        alert('✓ Log Pengambilan BHP disimpan ke Google Sheets!\nNamun upload bukti fisik gagal.');
-      } else {
-        alert('✓ Sukses!\nPengambilan BHP dan bukti fisik berhasil disimpan dan disinkronkan ke Google Sheets & Google Drive.');
-      }
-    } else {
-      alert('✓ Tersimpan Offline!\nLog pengambilan disimpan di memori HP Anda. Hubungkan Google Sheets di tab Pengaturan agar sinkron.');
-    }
+
+    alertSaveResult('Log Pengambilan BHP', updated.synced);
 
     loadAllData(false);
   };
@@ -1080,6 +1056,9 @@ export default function App() {
                 ))}
               </select>
             </div>
+
+            {/* Status Sinkronisasi Offline/Online - terlihat di semua tab, bukan cuma Opname */}
+            <SyncStatusBadge />
 
             {/* Quick Refresh Icon */}
             <button

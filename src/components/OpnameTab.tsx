@@ -395,11 +395,15 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
         merk: form.merk || undefined,
       };
       await onSaveOpnameEntry(entry);
+      // Data selalu tersimpan aman di perangkat ini duluan - kalau kirim ke server gagal
+      // (mis. koneksi terputus), otomatis masuk antrian dan dicoba lagi nanti (lihat badge
+      // status sinkronisasi di bagian atas aplikasi). Tidak perlu ditahan/gagal di sini lagi.
       setSelectedItem(null);
       setForm({});
     } catch (e) {
+      // Seharusnya jarang terjadi (hanya untuk error tak terduga, bukan koneksi terputus biasa).
       console.error('Gagal menyimpan data opname:', e);
-      alert('Gagal menyimpan ke server - kemungkinan koneksi internet terputus. Data BELUM tersimpan, silakan periksa koneksi lalu tekan Simpan lagi.');
+      alert('Terjadi kesalahan tak terduga saat menyimpan. Silakan coba lagi.');
     } finally {
       setIsSaving(false);
     }

@@ -1,7 +1,7 @@
 import { Aset, Peminjaman, LogPemusnahan, LogPemeliharaan, OpnameEntry, OpnameMasterItem, PengaturanSekolah, SAMPLE_ASETS, SAMPLE_PEMINJAMANS, SAMPLE_PEMUSNAHANS, DEFAULT_PENGATURAN, BarangHabisPakai, PengambilanBHP, SAMPLE_BHP, SAMPLE_PENGAMBILAN_BHP, AuditLog, AUTHORIZED_USERS, MasterRuang, DEFAULT_MASTER_RUANGS, KeluhanSarpras } from './types';
-import { 
-  isFirebaseClientConfigured, 
-  saveDocumentClient, 
+import {
+  isFirebaseClientConfigured,
+  saveDocumentClient,
   deleteDocumentClient,
   getAllDataFromClientFirebase,
   testFirebaseClientConnection,
@@ -9,6 +9,46 @@ import {
   clearCustomFirebaseConfig,
   getFirebaseClientConfig
 } from './firebaseClient';
+import { enqueuePendingSync, enqueuePendingDelete, removePendingSync } from './syncQueue';
+
+// Kirim satu dokumen ke Firestore; kalau gagal (mis. koneksi terputus), masukkan ke antrian
+// sinkronisasi supaya otomatis dicoba lagi nanti - data lokalnya sendiri sudah aman tersimpan
+// duluan oleh pemanggil sebelum fungsi ini dipanggil. Mengembalikan true kalau berhasil
+// tersinkron saat ini juga (dipakai UI untuk tahu apakah perlu kasih tahu "masih di perangkat").
+async function syncSetOrQueue(collection: string, docId: string, data: any, label: string): Promise<boolean> {
+  if (!isFirebaseClientConfigured()) return true;
+  try {
+    await saveDocumentClient(collection, docId, data);
+    removePendingSync(collection, docId);
+    return true;
+  } catch (e) {
+    console.warn(`[API] Gagal sinkron ${collection}/${docId} ke server, dimasukkan ke antrian:`, e);
+    enqueuePendingSync(collection, docId, data, label);
+    return false;
+  }
+}
+
+async function syncDeleteOrQueue(collection: string, docId: string, label: string): Promise<boolean> {
+  if (!isFirebaseClientConfigured()) return true;
+  try {
+    await deleteDocumentClient(collection, docId);
+    removePendingSync(collection, docId);
+    return true;
+  } catch (e) {
+    console.warn(`[API] Gagal menghapus ${collection}/${docId} di server, dimasukkan ke antrian:`, e);
+    enqueuePendingDelete(collection, docId, label);
+    return false;
+  }
+}
+
+// Menandai array hasil (Aset[], Peminjaman[], dst) dengan status sinkronisasi operasi TERAKHIR,
+// tanpa mengubah bentuk array itu sendiri - supaya semua pemanggil lama yang cuma pakai isinya
+// (mis. `setAsets(updated)`) tetap jalan seperti biasa, sementara pemanggil baru yang butuh tahu
+// status bisa baca `updated.synced`.
+export type SyncedArray<T> = T[] & { synced: boolean };
+function withSyncFlag<T>(arr: T[], synced: boolean): SyncedArray<T> {
+  return Object.assign(arr, { synced });
+}
 
 // Storage keys
 const KEY_ASETS = 'esarpras_asets';
@@ -259,7 +299,7 @@ export const api = {
 
 
   // Save/Update Aset
-  async saveAset(aset: Aset): Promise<Aset[]> {
+  async saveAset(aset: Aset): Promise<SyncedArray<Aset>> {
     const local: Aset[] = JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
     const index = local.findIndex(x => x.id === aset.id);
     if (index >= 0) {
@@ -270,24 +310,15 @@ export const api = {
     
     safeSetStorage(KEY_ASETS, local);
 
-    // Firebase Client SDK Sync
-    if (isFirebaseClientConfigured()) {
-      try {
-        await saveDocumentClient('asets', aset.id, aset);
-      } catch (e) {
-        console.error('[API] Gagal menyimpan aset ke Firebase Client:', e);
-      }
-    }
+    const synced = await syncSetOrQueue('asets', aset.id, aset, `Aset: ${aset.nama || aset.id}`);
 
-
-
-    return local;
+    return withSyncFlag(local, synced);
   },
 
   // Save multiple asets at once (Bulk import massal)
-  async saveMultipleAsets(newAsets: Aset[]): Promise<Aset[]> {
+  async saveMultipleAsets(newAsets: Aset[]): Promise<SyncedArray<Aset>> {
     if (!newAsets || newAsets.length === 0) {
-      return JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
+      return withSyncFlag(JSON.parse(localStorage.getItem(KEY_ASETS) || '[]'), true);
     }
 
     const local: Aset[] = JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
@@ -298,45 +329,28 @@ export const api = {
     const merged = Array.from(map.values());
     safeSetStorage(KEY_ASETS, merged);
 
-    // Firebase Client SDK Sync
-    if (isFirebaseClientConfigured()) {
-      for (const aset of newAsets) {
-        try {
-          await saveDocumentClient('asets', aset.id, aset);
-        } catch (e) {
-          console.warn('[API] Gagal menyimpan aset batch ke Firebase Client:', e);
-        }
-      }
+    let allSynced = true;
+    for (const aset of newAsets) {
+      const ok = await syncSetOrQueue('asets', aset.id, aset, `Aset: ${aset.nama || aset.id}`);
+      if (!ok) allSynced = false;
     }
 
-    // Express backend sync
-
-    // Google Apps Script batch or iterative sync
-
-    return merged;
+    return withSyncFlag(merged, allSynced);
   },
 
   // Delete Aset
-  async deleteAset(id: string): Promise<Aset[]> {
+  async deleteAset(id: string): Promise<SyncedArray<Aset>> {
     const local: Aset[] = JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
     const filtered = local.filter(x => x.id !== id);
     safeSetStorage(KEY_ASETS, filtered);
 
-    if (isFirebaseClientConfigured()) {
-      try {
-        await deleteDocumentClient('asets', id);
-      } catch (e) {
-        console.error('[API] Gagal menghapus aset di Firebase Client:', e);
-      }
-    }
+    const synced = await syncDeleteOrQueue('asets', id, `Hapus Aset: ${id}`);
 
-
-
-    return filtered;
+    return withSyncFlag(filtered, synced);
   },
 
   // Split single bulk aset into individual 1-unit asets atomically
-  async splitAset(oldId: string, newAsets: Aset[]): Promise<Aset[]> {
+  async splitAset(oldId: string, newAsets: Aset[]): Promise<SyncedArray<Aset>> {
     const local: Aset[] = JSON.parse(localStorage.getItem(KEY_ASETS) || '[]');
     
     // 1. Hapus aset lama (misal SAR-2025-0002)
@@ -353,22 +367,17 @@ export const api = {
     safeSetStorage(KEY_ASETS, filtered);
 
     // 4. Firebase Sync
-    if (isFirebaseClientConfigured()) {
-      try {
-        await deleteDocumentClient('asets', oldId);
-        for (const aset of newAsets) {
-          await saveDocumentClient('asets', aset.id, aset);
-        }
-      } catch (e) {}
+    let allSynced = await syncDeleteOrQueue('asets', oldId, `Hapus Aset (split): ${oldId}`);
+    for (const aset of newAsets) {
+      const ok = await syncSetOrQueue('asets', aset.id, aset, `Aset: ${aset.nama || aset.id}`);
+      if (!ok) allSynced = false;
     }
 
-
-
-    return filtered;
+    return withSyncFlag(filtered, allSynced);
   },
 
   // Save/Update Peminjaman
-  async savePeminjaman(pinjam: Peminjaman): Promise<Peminjaman[]> {
+  async savePeminjaman(pinjam: Peminjaman): Promise<SyncedArray<Peminjaman>> {
     const local: Peminjaman[] = JSON.parse(localStorage.getItem(KEY_PEMINJAMANS) || '[]');
     const index = local.findIndex(x => x.id === pinjam.id);
     if (index >= 0) {
@@ -378,21 +387,13 @@ export const api = {
     }
     safeSetStorage(KEY_PEMINJAMANS, local);
 
-    if (isFirebaseClientConfigured()) {
-      try {
-        await saveDocumentClient('peminjamans', pinjam.id, pinjam);
-      } catch (e) {
-        console.error('[API] Gagal menyimpan peminjaman ke Firebase Client:', e);
-      }
-    }
+    const synced = await syncSetOrQueue('peminjamans', pinjam.id, pinjam, `Peminjaman: ${pinjam.namaAset || pinjam.id} oleh ${pinjam.namaPeminjam || '-'}`);
 
-
-
-    return local;
+    return withSyncFlag(local, synced);
   },
 
   // Save Log Pemusnahan (Penghapusan Aset)
-  async savePemusnahan(log: LogPemusnahan): Promise<LogPemusnahan[]> {
+  async savePemusnahan(log: LogPemusnahan): Promise<SyncedArray<LogPemusnahan>> {
     const local: LogPemusnahan[] = JSON.parse(localStorage.getItem(KEY_PEMUSNAHANS) || '[]');
     local.push(log);
     localStorage.setItem(KEY_PEMUSNAHANS, JSON.stringify(local));
@@ -415,33 +416,17 @@ export const api = {
       currentAset.updatedAt = new Date().toISOString();
 
       safeSetStorage(KEY_ASETS, asets);
-      
-      if (isFirebaseClientConfigured()) {
-        try {
-          await saveDocumentClient('asets', currentAset.id, currentAset);
-        } catch (e) {
-          console.error('[API] Gagal memperbarui status aset di Firebase Client:', e);
-        }
-      }
 
-
+      await syncSetOrQueue('asets', currentAset.id, currentAset, `Aset: ${currentAset.nama || currentAset.id}`);
     }
 
-    if (isFirebaseClientConfigured()) {
-      try {
-        await saveDocumentClient('pemusnahans', log.id, log);
-      } catch (e) {
-        console.error('[API] Gagal menyimpan pemusnahan ke Firebase Client:', e);
-      }
-    }
+    const synced = await syncSetOrQueue('pemusnahans', log.id, log, `Pemusnahan: ${log.namaAset || log.id}`);
 
-
-
-    return local;
+    return withSyncFlag(local, synced);
   },
 
   // Save/Update Pemeliharaan (Perawatan/Perbaikan Aset)
-  async savePemeliharaan(log: LogPemeliharaan): Promise<LogPemeliharaan[]> {
+  async savePemeliharaan(log: LogPemeliharaan): Promise<SyncedArray<LogPemeliharaan>> {
     const local: LogPemeliharaan[] = JSON.parse(localStorage.getItem(KEY_PEMELIHARAAN) || '[]');
     const index = local.findIndex(x => x.id === log.id);
     if (index >= 0) {
@@ -459,46 +444,28 @@ export const api = {
         asets[asetIndex].kondisi = log.kondisiSesudah;
         asets[asetIndex].updatedAt = new Date().toISOString();
         safeSetStorage(KEY_ASETS, asets);
-        if (isFirebaseClientConfigured()) {
-          try {
-            await saveDocumentClient('asets', asets[asetIndex].id, asets[asetIndex]);
-          } catch (e) {
-            console.error('[API] Gagal memperbarui kondisi aset di Firebase Client:', e);
-          }
-        }
+        await syncSetOrQueue('asets', asets[asetIndex].id, asets[asetIndex], `Aset: ${asets[asetIndex].nama || asets[asetIndex].id}`);
       }
     }
 
-    if (isFirebaseClientConfigured()) {
-      try {
-        await saveDocumentClient('pemeliharaans', log.id, log);
-      } catch (e) {
-        console.error('[API] Gagal menyimpan pemeliharaan ke Firebase Client:', e);
-      }
-    }
+    const synced = await syncSetOrQueue('pemeliharaans', log.id, log, `Pemeliharaan: ${log.namaAset || log.id}`);
 
-    return local;
+    return withSyncFlag(local, synced);
   },
 
   // Delete Pemeliharaan
-  async deletePemeliharaan(id: string): Promise<LogPemeliharaan[]> {
+  async deletePemeliharaan(id: string): Promise<SyncedArray<LogPemeliharaan>> {
     const local: LogPemeliharaan[] = JSON.parse(localStorage.getItem(KEY_PEMELIHARAAN) || '[]');
     const filtered = local.filter(x => x.id !== id);
     safeSetStorage(KEY_PEMELIHARAAN, filtered);
 
-    if (isFirebaseClientConfigured()) {
-      try {
-        await deleteDocumentClient('pemeliharaans', id);
-      } catch (e) {
-        console.error('[API] Gagal menghapus pemeliharaan di Firebase Client:', e);
-      }
-    }
+    const synced = await syncDeleteOrQueue('pemeliharaans', id, `Hapus Pemeliharaan: ${id}`);
 
-    return filtered;
+    return withSyncFlag(filtered, synced);
   },
 
   // Save/Update Opname 2026 (Sensus Fisik BMD)
-  async saveOpnameEntry(entry: OpnameEntry): Promise<OpnameEntry[]> {
+  async saveOpnameEntry(entry: OpnameEntry): Promise<SyncedArray<OpnameEntry>> {
     const local: OpnameEntry[] = JSON.parse(localStorage.getItem(KEY_OPNAME) || '[]');
     const index = local.findIndex(x => x.id === entry.id);
     if (index >= 0) {
@@ -508,43 +475,32 @@ export const api = {
     }
     safeSetStorage(KEY_OPNAME, local);
 
-    // Tidak ditelan diam-diam seperti tab lain - kalau sinkron ke server gagal,
-    // pemanggil (OpnameTab) perlu tahu supaya bisa kasih tahu operator dan coba lagi.
-    // Data opname lebih kritis (dasar laporan resmi ke provinsi), jadi harus jelas
-    // kalau baru tersimpan lokal tapi belum sampai ke server.
-    if (isFirebaseClientConfigured()) {
-      await saveDocumentClient('opname_2026', entry.id, entry);
-    }
+    // Data opname lebih kritis (dasar laporan resmi ke provinsi), tapi sekarang tetap ikut pola
+    // antrian offline-first yang sama seperti data lain: TIDAK ditelan diam-diam (dulu begitu, dan
+    // TIDAK melempar error (dulu begitu, bikin operator kira datanya belum tersimpan padahal sudah
+    // aman di perangkat) - dimasukkan ke antrian sinkronisasi dan otomatis dicoba lagi. Pemanggil
+    // (OpnameTab) baca `.synced` untuk tahu apakah perlu kasih tahu operator "masih di perangkat".
+    const synced = await syncSetOrQueue('opname_2026', entry.id, entry, `Opname: ${entry.namaBarang || entry.id}`);
 
-    return local;
+    return withSyncFlag(local, synced);
   },
 
   // Delete Opname Entry
-  async deleteOpnameEntry(id: string): Promise<OpnameEntry[]> {
+  async deleteOpnameEntry(id: string): Promise<SyncedArray<OpnameEntry>> {
     const local: OpnameEntry[] = JSON.parse(localStorage.getItem(KEY_OPNAME) || '[]');
     const filtered = local.filter(x => x.id !== id);
     safeSetStorage(KEY_OPNAME, filtered);
 
-    if (isFirebaseClientConfigured()) {
-      await deleteDocumentClient('opname_2026', id);
-    }
+    const synced = await syncDeleteOrQueue('opname_2026', id, `Hapus Opname: ${id}`);
 
-    return filtered;
+    return withSyncFlag(filtered, synced);
   },
 
   // Save/Update Pengaturan
   async savePengaturan(cfg: PengaturanSekolah): Promise<PengaturanSekolah> {
     localStorage.setItem(KEY_PENGATURAN, JSON.stringify(cfg));
 
-    if (isFirebaseClientConfigured()) {
-      try {
-        await saveDocumentClient('pengaturan', 'default', cfg);
-      } catch (e) {
-        console.error('[API] Gagal menyimpan pengaturan ke Firebase Client:', e);
-      }
-    }
-
-
+    await syncSetOrQueue('pengaturan', 'default', cfg, 'Pengaturan Sekolah');
 
     return cfg;
   },
@@ -555,7 +511,7 @@ export const api = {
   },
 
   // Save/Update Barang Habis Pakai (BHP)
-  async saveBHP(item: BarangHabisPakai): Promise<BarangHabisPakai[]> {
+  async saveBHP(item: BarangHabisPakai): Promise<SyncedArray<BarangHabisPakai>> {
     const local: BarangHabisPakai[] = JSON.parse(localStorage.getItem(KEY_BHP) || '[]');
     const index = local.findIndex(x => x.id === item.id);
     if (index >= 0) {
@@ -565,40 +521,24 @@ export const api = {
     }
     safeSetStorage(KEY_BHP, local);
 
-    if (isFirebaseClientConfigured()) {
-      try {
-        await saveDocumentClient('bhp', item.id, item);
-      } catch (e) {
-        console.error('[API] Gagal menyimpan BHP ke Firebase Client:', e);
-      }
-    }
+    const synced = await syncSetOrQueue('bhp', item.id, item, `BHP: ${item.nama || item.id}`);
 
-
-
-    return local;
+    return withSyncFlag(local, synced);
   },
 
   // Delete Barang Habis Pakai (BHP)
-  async deleteBHP(id: string): Promise<BarangHabisPakai[]> {
+  async deleteBHP(id: string): Promise<SyncedArray<BarangHabisPakai>> {
     const local: BarangHabisPakai[] = JSON.parse(localStorage.getItem(KEY_BHP) || '[]');
     const filtered = local.filter(x => x.id !== id);
     localStorage.setItem(KEY_BHP, JSON.stringify(filtered));
 
-    if (isFirebaseClientConfigured()) {
-      try {
-        await deleteDocumentClient('bhp', id);
-      } catch (e) {
-        console.error('[API] Gagal menghapus BHP di Firebase Client:', e);
-      }
-    }
+    const synced = await syncDeleteOrQueue('bhp', id, `Hapus BHP: ${id}`);
 
-
-
-    return filtered;
+    return withSyncFlag(filtered, synced);
   },
 
   // Save/Update Pengambilan BHP (Issuance / Disbursement)
-  async savePengambilanBHP(pengambilan: PengambilanBHP): Promise<PengambilanBHP[]> {
+  async savePengambilanBHP(pengambilan: PengambilanBHP): Promise<SyncedArray<PengambilanBHP>> {
     const local: PengambilanBHP[] = JSON.parse(localStorage.getItem(KEY_PENGAMBILAN_BHP) || '[]');
     const index = local.findIndex(x => x.id === pengambilan.id);
     
@@ -614,17 +554,8 @@ export const api = {
       if (bhpIndex >= 0) {
         bhpList[bhpIndex].stokSekarang = Math.max(0, bhpList[bhpIndex].stokSekarang - pengambilan.jumlahDiambil);
         localStorage.setItem(KEY_BHP, JSON.stringify(bhpList));
-        
-        // Sync the updated BHP stock
-        if (isFirebaseClientConfigured()) {
-          try {
-            await saveDocumentClient('bhp', bhpList[bhpIndex].id, bhpList[bhpIndex]);
-          } catch (e) {
-            console.error('[API] Gagal menyelaraskan stok BHP ke Firebase Client:', e);
-          }
-        }
 
-
+        await syncSetOrQueue('bhp', bhpList[bhpIndex].id, bhpList[bhpIndex], `BHP: ${bhpList[bhpIndex].nama || bhpList[bhpIndex].id}`);
       }
     } else {
       // If updating, adjust stock difference
@@ -638,33 +569,17 @@ export const api = {
         if (bhpIndex >= 0) {
           bhpList[bhpIndex].stokSekarang = Math.max(0, bhpList[bhpIndex].stokSekarang - diff);
           localStorage.setItem(KEY_BHP, JSON.stringify(bhpList));
-          
-          if (isFirebaseClientConfigured()) {
-            try {
-              await saveDocumentClient('bhp', bhpList[bhpIndex].id, bhpList[bhpIndex]);
-            } catch (e) {
-              console.error('[API] Gagal menyelaraskan stok BHP ke Firebase Client:', e);
-            }
-          }
 
-
+          await syncSetOrQueue('bhp', bhpList[bhpIndex].id, bhpList[bhpIndex], `BHP: ${bhpList[bhpIndex].nama || bhpList[bhpIndex].id}`);
         }
       }
     }
-    
+
     localStorage.setItem(KEY_PENGAMBILAN_BHP, JSON.stringify(local));
 
-    if (isFirebaseClientConfigured()) {
-      try {
-        await saveDocumentClient('pengambilan_bhp', pengambilan.id, pengambilan);
-      } catch (e) {
-        console.error('[API] Gagal menyimpan pengambilan BHP ke Firebase Client:', e);
-      }
-    }
+    const synced = await syncSetOrQueue('pengambilan_bhp', pengambilan.id, pengambilan, `Pengambilan BHP: ${pengambilan.namaBhp || pengambilan.id} oleh ${pengambilan.namaPenerima || '-'}`);
 
-
-
-    return local;
+    return withSyncFlag(local, synced);
   },
 
   getMasterRuangs(): MasterRuang[] {
@@ -971,7 +886,7 @@ export const api = {
     }
   },
 
-  async saveKeluhan(item: KeluhanSarpras): Promise<KeluhanSarpras[]> {
+  async saveKeluhan(item: KeluhanSarpras): Promise<SyncedArray<KeluhanSarpras>> {
     const local = this.getKeluhan();
     const index = local.findIndex(x => x.id === item.id);
     if (index >= 0) {
@@ -981,28 +896,18 @@ export const api = {
     }
     safeSetStorage(KEY_KELUHAN, local);
 
-    if (isFirebaseClientConfigured()) {
-      try {
-        await saveDocumentClient('keluhan', item.id, item);
-      } catch (e) {}
-    }
+    const synced = await syncSetOrQueue('keluhan', item.id, item, `Keluhan: ${item.namaBarangFasilitas || item.id}`);
 
-
-    return local;
+    return withSyncFlag(local, synced);
   },
 
-  async deleteKeluhan(id: string): Promise<KeluhanSarpras[]> {
+  async deleteKeluhan(id: string): Promise<SyncedArray<KeluhanSarpras>> {
     const local = this.getKeluhan();
     const filtered = local.filter(x => x.id !== id);
     safeSetStorage(KEY_KELUHAN, filtered);
 
-    if (isFirebaseClientConfigured()) {
-      try {
-        await deleteDocumentClient('keluhan', id);
-      } catch (e) {}
-    }
+    const synced = await syncDeleteOrQueue('keluhan', id, `Hapus Keluhan: ${id}`);
 
-
-    return filtered;
+    return withSyncFlag(filtered, synced);
   }
 };
