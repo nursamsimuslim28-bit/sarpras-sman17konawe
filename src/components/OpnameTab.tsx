@@ -227,12 +227,16 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
     const existing = opnameByRefId.get(item.id);
     const jumlahUnit = existing?.jumlahUnit || guessJumlahUnit(item);
     const photoSlots = getPhotoSlotCount(item.kib, jumlahUnit);
+    // Format kode stiker standar sekolah, sesuai yang sudah dikonfirmasi cocok dengan fisik
+    // stiker pada seluruh data yang sudah dioperasikan - dijadikan isian otomatis (bisa diedit),
+    // bukan cuma contoh, supaya operator tidak perlu ketik ulang untuk kasus yang sama persis.
+    const suggestedKodeStiker = `${item.kib}/${item.register}/1/B/${item.tahun || '2020'}`;
     setSelectedItem(item);
-    setForm(existing ? { ...existing, jumlahUnit, fotoUnits: normalizeFotoUnits(existing, photoSlots), merk: existing.merk || item.merk || '' } : {
+    setForm(existing ? { ...existing, jumlahUnit, fotoUnits: normalizeFotoUnits(existing, photoSlots), merk: existing.merk || item.merk || '', kodeStiker: existing.kodeStiker || suggestedKodeStiker } : {
       ditemukan: 'Ya',
       statusPenguasaan: 'Digunakan',
       kondisi: 'Baik',
-      kodeStiker: '',
+      kodeStiker: suggestedKodeStiker,
       keterangan: '',
       jumlahUnit,
       fotoUnits: normalizeFotoUnits(undefined, photoSlots),
@@ -705,9 +709,10 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
                   type="text"
                   value={form.kodeStiker || ''}
                   onChange={(e) => setForm({ ...form, kodeStiker: e.target.value })}
-                  placeholder={`Contoh: ${selectedItem.kib}/${selectedItem.register}/1/B/${selectedItem.tahun || '2020'}`}
+                  placeholder="Contoh: B/0734/1/B/2020"
                   className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
                 />
+                <p className="text-[10px] text-slate-400 mt-1">Terisi otomatis sesuai format kode standar - koreksi kalau berbeda dengan stiker fisiknya.</p>
               </div>
 
               {/* Kolom wajib format resmi yang tidak ada di data provinsi - diisi manual */}
