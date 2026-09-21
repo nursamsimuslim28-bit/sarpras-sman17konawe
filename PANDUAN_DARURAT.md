@@ -125,6 +125,9 @@ Riwayat lengkap ada di `git log`, tapi ringkasan yang relevan untuk konteks cepa
    diatur lewat Pengaturan, dengan fallback ke "Amonggedo" supaya tidak ada perubahan sama sekali
    untuk sekolah ini selama field-nya belum diisi. Lihat juga bagian "Membagikan aplikasi ini ke
    sekolah lain" di bawah.
+5. **`9ef00d1`** — Tambah sistem **sinkronisasi offline-first** yang sesungguhnya (antrian otomatis
+   + notifikasi akurat). Lihat bagian "Arsitektur: sinkronisasi offline-first" di bawah untuk detail
+   teknisnya - penting dibaca sebelum menyentuh fungsi simpan/hapus data mana pun di `src/api.ts`.
 
 **Sesi-sesi sebelumnya (18 Sep 2026 dan sebelumnya) — fitur Opname Fisik BMD 2026:**
 - Form opname mendukung data acuan verbatim dari file resmi provinsi (KIB B/C/E), dengan filter
@@ -139,6 +142,33 @@ Riwayat lengkap ada di `git log`, tapi ringkasan yang relevan untuk konteks cepa
   menampilkan KIB sesuai data yang benar-benar ada (B/C/E, bukan A/D/F kosong).
 - Nama sekolah pada laporan Opname 2026 khusus memakai nama lama "SMA Negeri 1 Amonggedo"
   (bukan nama baru "SMA Negeri 17 Konawe" yang dipakai di bagian aplikasi lainnya).
+
+## Arsitektur: sinkronisasi offline-first (sejak `9ef00d1`)
+
+Pemilik aplikasi eksplisit minta: aplikasi tetap bisa dipakai walau koneksi jelek/putus, data
+tidak boleh hilang, dan harus ada notifikasi jelas soal status sinkron. Jadi sekarang SEMUA fungsi
+simpan/hapus di `src/api.ts` (Aset, Peminjaman, Pemusnahan, Pemeliharaan, Opname, BHP, Pengambilan
+BHP, Keluhan) mengikuti pola ini:
+
+1. **Data selalu ditulis ke localStorage dulu** (source of truth lokal), baru dicoba dikirim ke
+   Firestore.
+2. Pengiriman ke Firestore lewat helper `syncSetOrQueue()` / `syncDeleteOrQueue()` di `src/api.ts`.
+   **Jangan pernah panggil `saveDocumentClient`/`deleteDocumentClient` langsung** di fungsi baru -
+   selalu lewat dua helper ini, supaya kegagalan otomatis masuk antrian, bukan ditelan diam-diam
+   atau melempar error (dua-duanya pernah jadi bug nyata sebelum `9ef00d1`).
+3. Kalau gagal, dicatat di `src/syncQueue.ts` (`enqueuePendingSync`/`enqueuePendingDelete`,
+   tersimpan di localStorage key `esarpras_pending_sync`) untuk dicoba lagi otomatis nanti
+   (`flushPendingSyncQueue()`, dipanggil App.tsx saat koneksi pulih/tab fokus/tiap 30 detik).
+4. Setiap fungsi simpan/hapus mengembalikan **`SyncedArray<T>`** (array biasa + properti
+   `.synced: boolean`, lewat helper `withSyncFlag()`) - dipakai pemanggil di `App.tsx` untuk
+   menampilkan pesan yang akurat (`alertSaveResult()`) sesuai status sinkron SEBENARNYA, bukan
+   dari field mati `pengaturan.googleAppsScriptUrl` (fitur Google Sheets sudah dihapus total -
+   field itu SELALU kosong, jangan pernah dipakai lagi sebagai penanda status koneksi/sinkron).
+5. `src/components/SyncStatusBadge.tsx` menampilkan status antrian secara reaktif (lewat
+   `subscribeSyncQueue()`) di header, terlihat di semua tab.
+
+**Kalau menambah fungsi simpan/hapus data baru**: ikuti pola yang sama (lihat `saveAset`/`saveBHP`
+di `src/api.ts` sebagai contoh) - jangan tulis try/catch Firestore manual lagi.
 
 ## Kalau pemilik aplikasi minta ini dibagikan/di-copy untuk sekolah lain
 
