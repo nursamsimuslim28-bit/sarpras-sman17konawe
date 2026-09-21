@@ -104,7 +104,7 @@ Project settings → Your apps) maupun dashboard Vercel (Settings → Environmen
 
 Riwayat lengkap ada di `git log`, tapi ringkasan yang relevan untuk konteks cepat:
 
-**Hari ini (21 Sep 2026) — perbaikan darurat & penyempurnaan form opname:**
+**Hari ini (21 Sep 2026) — perbaikan darurat, penyempurnaan form opname, & persiapan berbagi aplikasi:**
 1. **`e134959`** — Perbaiki bug kritis: sebelumnya kalau koneksi ke Firestore gagal sesaat
    (mis. internet putus pas reload halaman), aplikasi salah mengira "gagal ambil data" sebagai
    "datanya memang kosong", lalu menimpa cache lokal dengan data kosong — aset sempat tampil "0"
@@ -118,6 +118,13 @@ Riwayat lengkap ada di `git log`, tapi ringkasan yang relevan untuk konteks cepa
    Berat, kode resmi yang sama dipakai di laporan sensus) sekarang otomatis mengikuti kondisi
    barang yang benar-benar dipilih operator (termasuk kondisi per-unit untuk barang >1 unit,
    diambil dari yang paling parah), dan tidak menimpa kode yang sudah diedit manual.
+4. **`506f7b2`** — Field baru **"Lokasi Tanda Tangan"** di Pengaturan (`pengaturan.lokasiTandaTangan`).
+   Sebelumnya kata "Amonggedo" (nama kecamatan sekolah ini) hardcode langsung di ±18 tempat
+   sebagai lokasi tanda tangan dokumen resmi (format "&lt;Lokasi&gt;, &lt;tanggal&gt;") — kalau aplikasi
+   ini di-copy sekolah lain, semua dokumennya akan tetap salah tertulis "Amonggedo". Sekarang bisa
+   diatur lewat Pengaturan, dengan fallback ke "Amonggedo" supaya tidak ada perubahan sama sekali
+   untuk sekolah ini selama field-nya belum diisi. Lihat juga bagian "Membagikan aplikasi ini ke
+   sekolah lain" di bawah.
 
 **Sesi-sesi sebelumnya (18 Sep 2026 dan sebelumnya) — fitur Opname Fisik BMD 2026:**
 - Form opname mendukung data acuan verbatim dari file resmi provinsi (KIB B/C/E), dengan filter
@@ -132,6 +139,29 @@ Riwayat lengkap ada di `git log`, tapi ringkasan yang relevan untuk konteks cepa
   menampilkan KIB sesuai data yang benar-benar ada (B/C/E, bukan A/D/F kosong).
 - Nama sekolah pada laporan Opname 2026 khusus memakai nama lama "SMA Negeri 1 Amonggedo"
   (bukan nama baru "SMA Negeri 17 Konawe" yang dipakai di bagian aplikasi lainnya).
+
+## Kalau pemilik aplikasi minta ini dibagikan/di-copy untuk sekolah lain
+
+Pemilik aplikasi (Bu Nursamsi) pernah menanyakan ini — kode aplikasi ini standar dan BOLEH
+dibagikan/di-copy untuk sekolah lain, tapi ada beberapa hal yang wajib disiapkan dulu:
+
+**Sudah bisa diatur lewat menu Pengaturan (tidak perlu ubah kode):**
+- Nama Sekolah, NPSN, Alamat, Kepala Sekolah, Wakasek Sarpras, dan (sejak `506f7b2`) **Lokasi
+  Tanda Tangan Dokumen**.
+
+**Masih perlu disiapkan manual oleh sekolah yang baru (bukan bug, memang harus beda per sekolah):**
+1. **Firebase project sendiri** — Firestore terpisah, bukan numpang ke project `sman17konawe`
+   milik sekolah ini. Deploy juga `firestore.rules` yang sama ke project baru itu.
+2. **Deployment/hosting sendiri** (mis. akun Vercel sendiri) dengan `.env.local` / environment
+   variables terisi konfigurasi Firebase project baru itu (lihat pola di `.env.example`).
+3. **Data induk opname (KIB B/C/E) sekolah itu sendiri** — koleksi `opname_master_2026` harus
+   diisi data aset sekolah baru, bukan data SMA Negeri 17 Konawe.
+
+**Masih hardcode khusus sekolah ini (belum digeneralisasi, kalau suatu saat perlu):**
+- `NAMA_SEKOLAH_OPNAME` di `src/utils/opnameLaporanExport.ts` — literal `'SMA Negeri 1 Amonggedo'`,
+  dipakai khusus untuk laporan Opname 2026 sesuai permintaan eksplisit pemilik aplikasi (nama lama
+  sekolah ini untuk keperluan sensus BMD provinsi). Untuk sekolah lain, ini perlu diubah manual di
+  kode atau dijadikan field Pengaturan juga kalau dibutuhkan.
 
 ## Kalau butuh bantuan lebih jauh
 
