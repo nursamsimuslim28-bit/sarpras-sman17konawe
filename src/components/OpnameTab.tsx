@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { OpnameEntry, OpnameFotoUnit, OpnameMasterItem, KondisiAset, StatusPenguasaan, PengaturanSekolah } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -60,6 +60,18 @@ function worstKondisi(kondisiList: (KondisiAset | undefined)[], fallback: Kondis
     }
   }
   return worstScore >= 0 ? worst : fallback;
+}
+
+// Kode kondisi baku B/KB/RB sesuai konvensi resmi yang sama dipakai di laporan sensus
+// (lihat opnameLaporanExport.ts) - dipakai juga untuk segmen kondisi pada saran Kode Stiker.
+function kondisiKodeFor(kondisi?: KondisiAset): 'B' | 'KB' | 'RB' {
+  if (kondisi === 'Rusak Ringan') return 'KB';
+  if (kondisi === 'Rusak Berat') return 'RB';
+  return 'B';
+}
+
+function buildSuggestedKodeStiker(item: OpnameMasterItem, kondisi?: KondisiAset): string {
+  return `${item.kib}/${item.register}/1/${kondisiKodeFor(kondisi)}/${item.tahun || '2020'}`;
 }
 
 // Data harga dari provinsi tersimpan dalam satuan "ribuan Rp" (sama seperti di
@@ -168,6 +180,10 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
   }, [opnameEntries]);
 
   const [form, setForm] = useState<Partial<OpnameEntry>>({});
+  // Menyimpan nilai Kode Stiker yang terakhir diisi OTOMATIS oleh aplikasi (bukan yang
+  // diketik manual oleh operator) - dipakai untuk tahu apakah aman memperbarui saran kode
+  // saat kondisi barang berubah, tanpa menimpa ketikan manual operator.
+  const autoKodeStikerRef = useRef<string>('');
 
   const filteredItems = useMemo(() => {
     let list = opnameMasterList;
@@ -230,7 +246,10 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
     // Format kode stiker standar sekolah, sesuai yang sudah dikonfirmasi cocok dengan fisik
     // stiker pada seluruh data yang sudah dioperasikan - dijadikan isian otomatis (bisa diedit),
     // bukan cuma contoh, supaya operator tidak perlu ketik ulang untuk kasus yang sama persis.
-    const suggestedKodeStiker = `${item.kib}/${item.register}/1/B/${item.tahun || '2020'}`;
+    // Segmen kondisinya (B/KB/RB) ikut kondisi awal barang - lihat useEffect di bawah yang
+    // memperbaruinya otomatis saat operator mengubah pilihan kondisi.
+    const suggestedKodeStiker = buildSuggestedKodeStiker(item, existing?.kondisi || 'Baik');
+    autoKodeStikerRef.current = existing?.kodeStiker ? '' : suggestedKodeStiker;
     setSelectedItem(item);
     setForm(existing ? { ...existing, jumlahUnit, fotoUnits: normalizeFotoUnits(existing, photoSlots), merk: existing.merk || item.merk || '', kodeStiker: existing.kodeStiker || suggestedKodeStiker } : {
       ditemukan: 'Ya',
@@ -244,6 +263,26 @@ export default function OpnameTab({ opnameMasterList, opnameEntries, activeOpera
       merk: item.merk || '',
     });
   };
+
+  // Saat operator mengubah kondisi barang (baik lewat pilihan tunggal maupun per-unit),
+  // segmen kondisi (B/KB/RB) pada saran Kode Stiker ikut diperbarui - TAPI hanya kalau
+  // kode di kolom masih persis sama dengan saran otomatis sebelumnya (belum diedit manual
+  // oleh operator). Kalau operator sudah mengetik/mengubah kodenya sendiri, tidak disentuh lagi.
+  useEffect(() => {
+    if (!selectedItem) return;
+    const photoSlots = getPhotoSlotCount(selectedItem.kib, Math.max(1, form.jumlahUnit || 1));
+    const isMultiUnitKondisi = selectedItem.kib !== 'E' && photoSlots > 1;
+    const currentKondisi = isMultiUnitKondisi
+      ? worstKondisi((form.fotoUnits || []).map(u => u.kondisi), form.kondisi || 'Baik')
+      : (form.kondisi || 'Baik');
+    const nextSuggestion = buildSuggestedKodeStiker(selectedItem, currentKondisi);
+    const kodeStikerMasihOtomatis = (form.kodeStiker || '') === autoKodeStikerRef.current;
+    if (kodeStikerMasihOtomatis && form.kodeStiker !== nextSuggestion) {
+      setForm(prev => ({ ...prev, kodeStiker: nextSuggestion }));
+    }
+    autoKodeStikerRef.current = nextSuggestion;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedItem, form.kondisi, form.fotoUnits, form.jumlahUnit]);
 
   const handleFotoChange = async (unitIdx: number, slot: 1 | 2, file: File | null) => {
     if (!file) return;
