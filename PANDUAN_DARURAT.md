@@ -32,22 +32,61 @@
 | `keluhan` | Keluhan sarpras dari warga sekolah |
 | `pengaturan` (doc `default`) | Konfigurasi sekolah (nama, NPSN, dll) |
 
-## ⚠️ PENTING: soal Google AI Studio yang juga terhubung ke repo ini
+## 🚨 Kalau Claude Code tidak bisa diakses (langganan/token habis): urutan pilihan darurat
+
+Kode aplikasi ini standar (React/TypeScript, tersimpan di GitHub), jadi bisa dibuka/diedit tools
+AI apa saja atau developer manapun — tidak ada kuncian ke Claude. Urutan prioritas yang disarankan
+(dari paling aman & praktis ke yang paling belakang):
+
+### 1. GitHub Copilot app (disarankan pertama)
+
+Tombol **"Code" → "Open in GitHub Copilot app"** di halaman repo GitHub ini. Kelebihannya:
+- **Tidak ada risiko sinkronisasi ganda** — Copilot bekerja LANGSUNG di atas repo GitHub ini
+  (bukan salinan terpisah yang bisa ketinggalan versi seperti AI Studio di bawah).
+- Ada jatah gratis (per akun GitHub pribadi): ±2000 saran kode/bulan + ±50 permintaan chat/agent
+  premium/bulan — cukup untuk perbaikan darurat sesekali (bukan pemakaian harian). Paket gratis
+  ini bahkan menyediakan pilihan model Claude Haiku 4.5, selain GPT-5 mini.
+- Tidak perlu daftar akun baru — tinggal pakai akun GitHub yang sudah ada.
+
+### 2. Google AI Studio (kalau Copilot tidak memungkinkan)
 
 Ada project AI Studio lama yang **masih tersambung dua-arah** ke repo GitHub yang sama (menu
-"GitHub sync" di AI Studio). Kalau dipakai untuk perbaikan darurat:
+"GitHub sync" di AI Studio). **Wajib** ikuti urutan ini:
 
-1. **WAJIB klik "Step 1: Pull changes to Google AI Studio" dulu** sebelum minta perubahan apa
-   pun — supaya AI Studio bekerja dari kode TERBARU, bukan versi lama yang sudah tertinggal
-   puluhan perubahan.
+1. **Klik "Step 1: Pull changes to Google AI Studio" dulu** sebelum minta perubahan apa pun —
+   supaya AI Studio bekerja dari kode TERBARU, bukan versi lama yang tertinggal jauh.
 2. Baru setelah yakin perbaikannya benar, klik **"Step 2: Push changes to GitHub"**.
 3. **JANGAN PERNAH klik "Push changes to GitHub" tanpa Pull dulu** — berisiko menimpa/merusak
    banyak perbaikan yang sudah dikerjakan lewat Claude Code.
 
-**Alternatif yang lebih aman** (tidak tergantung fitur sync manapun): tanya AI gratis apa saja
-(Gemini, ChatGPT, dll) untuk menulis kodenya, lalu tempel langsung lewat editor bawaan di
-github.com (ikon pensil di file yang mau diedit, di browser, gratis, tanpa instalasi). Ini paling
-aman karena langsung ke sumber aslinya, tanpa risiko konflik sinkronisasi.
+### 3. Chat AI gratis apa saja + editor web GitHub (paling aman, paling manual)
+
+Tanya AI gratis apa saja (Gemini, ChatGPT, dll — tidak perlu terhubung ke repo) untuk menuliskan
+kode perbaikannya, lalu tempel manual lewat editor bawaan di github.com (ikon pensil di file yang
+mau diedit, langsung di browser, gratis, tanpa instalasi apa pun). Ini paling aman karena langsung
+ke sumber aslinya, tanpa risiko konflik sinkronisasi apa pun — hanya lebih manual.
+
+### GitHub Desktop itu BUKAN AI
+
+Opsi "Open with GitHub Desktop" di menu Code cuma aplikasi resmi GitHub untuk klik-klik
+clone/commit/push tanpa command line — tidak punya kemampuan AI sendiri. Berguna sebagai
+pendamping kalau sudah dapat kode perbaikan dari salah satu opsi AI di atas dan butuh cara mudah
+menyimpannya. Jangan pakai "Download ZIP" untuk perbaikan — itu memutus riwayat Git dan berisiko
+bentrok dengan histori commit yang sudah ada.
+
+### Kalau salinan aplikasi (dari tools manapun di atas) tidak otomatis terhubung ke data asli
+
+Data opname/aset sesungguhnya **tidak tersimpan di kode**, tapi di Firebase Firestore cloud
+(lihat tabel koleksi di atas) — jadi bisa diakses tools AI apa pun, ASALKAN tahu kunci koneksinya.
+Kunci ini sengaja TIDAK disimpan di file manapun di repo ini (repo bersifat publik, dan file
+`.env.local` yang berisi kunci itu memang dikecualikan lewat `.gitignore`).
+
+Kalau salinan aplikasi baru (dari AI Studio/Copilot/dll) tidak otomatis tersambung ke data asli,
+pemilik aplikasi bisa menempelkan kunci koneksi itu sendiri di menu
+**Pengaturan → "Override Konfigurasi Firebase (Opsional)"** di aplikasi manapun. Kunci itu
+tersimpan aman terpisah (di catatan pribadi pemilik aplikasi, bukan di repo), atau bisa diambil
+ulang kapan saja dari Firebase Console (console.firebase.google.com → project `sman17konawe` →
+Project settings → Your apps) maupun dashboard Vercel (Settings → Environment Variables).
 
 ## Aturan kerja yang disukai pemilik aplikasi (penting diikuti)
 
