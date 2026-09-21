@@ -91,9 +91,29 @@ function safeSetStorage(key: string, data: any): void {
 // Jika fetch ke server berhasil (remote adalah array), pakai remote apa adanya
 // supaya item yang dihapus di Cloud ikut hilang di semua perangkat.
 // Local storage hanya dipakai sebagai fallback ketika fetch ke server gagal (mode offline).
-function mergeById<T extends { id: string }>(remote: T[] | undefined, local: T[]): T[] {
-  const source = Array.isArray(remote) ? remote : local;
-  return source.filter(item => item && item.id && !DUMMY_IDS.has(item.id));
+// Gabungkan data server dengan data lokal berdasarkan ID.
+// PENTING: remote === null berarti pengambilan data dari server GAGAL (bukan koleksinya
+// memang kosong) - dalam kasus itu cache lokal harus dipertahankan apa adanya, jangan
+// ditimpa kosong. Sebelumnya bug di sini membuat aset tampil 0 saat koneksi terputus
+// sesaat lalu halaman di-reload: fetch gagal -> dianggap "kosong" -> menimpa cache lokal.
+function mergeById<T extends { id: string }>(remote: T[] | null | undefined, local: T[]): T[] {
+  const cleanLocal = local.filter(item => item && item.id && !DUMMY_IDS.has(item.id));
+  if (!Array.isArray(remote)) {
+    // Pengambilan dari server gagal - pertahankan data lokal apa adanya.
+    return cleanLocal;
+  }
+  const merged = new Map<string, T>();
+  for (const item of cleanLocal) {
+    merged.set(item.id, item);
+  }
+  // Data server menang jika ID sama (server = sumber kebenaran untuk yang sudah tersinkron),
+  // sementara item yang baru dibuat lokal dan belum sempat sinkron tetap dipertahankan.
+  for (const item of remote) {
+    if (item && item.id && !DUMMY_IDS.has(item.id)) {
+      merged.set(item.id, item);
+    }
+  }
+  return Array.from(merged.values());
 }
 
 const KEY_INITIALIZED = 'esarpras_app_initialized';

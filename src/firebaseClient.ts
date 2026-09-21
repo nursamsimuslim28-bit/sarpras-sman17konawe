@@ -200,15 +200,15 @@ export async function testFirebaseClientConnection(): Promise<{ success: boolean
  * Ambil semua data dari Firestore Client SDK
  */
 export async function getAllDataFromClientFirebase(): Promise<{
-  asets: any[];
-  peminjamans: any[];
-  pemusnahans: any[];
-  pemeliharaans: any[];
-  opnameEntries: any[];
-  opnameMasterList: any[];
-  bhp: any[];
-  pengambilanBhp: any[];
-  keluhan: any[];
+  asets: any[] | null;
+  peminjamans: any[] | null;
+  pemusnahans: any[] | null;
+  pemeliharaans: any[] | null;
+  opnameEntries: any[] | null;
+  opnameMasterList: any[] | null;
+  bhp: any[] | null;
+  pengambilanBhp: any[] | null;
+  keluhan: any[] | null;
   pengaturan: any;
 } | null> {
   const db = getClientFirestore();
@@ -227,8 +227,10 @@ export async function getAllDataFromClientFirebase(): Promise<{
       console.warn('[Firebase Client] Gagal memuat pengaturan:', e);
     }
 
-    // 2. Helper ambil koleksi
-    const fetchColl = async (collName: string) => {
+    // 2. Helper ambil koleksi. Mengembalikan null (bukan array kosong) saat gagal,
+    // supaya pemanggil tahu ini "gagal ambil data" dan TIDAK menimpa cache lokal
+    // dengan data kosong - itu yang menyebabkan aset tampil 0 saat koneksi terputus sesaat.
+    const fetchColl = async (collName: string): Promise<any[] | null> => {
       try {
         const snap = await getDocsFromServer(collection(db, collName));
         const items: any[] = [];
@@ -238,7 +240,7 @@ export async function getAllDataFromClientFirebase(): Promise<{
         return items;
       } catch (e) {
         console.warn(`[Firebase Client] Gagal memuat koleksi ${collName}:`, e);
-        return [];
+        return null;
       }
     };
 
