@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Aset, Peminjaman, LogPemusnahan, PengaturanSekolah, BarangHabisPakai } from '../types';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
-import { AlertTriangle, Archive, Award, BookOpen, CheckCircle, Clock, Database, MapPin, Users, Smartphone, Download, ExternalLink, Chrome, Compass, Laptop, Info, ArrowUpRight, X, Search, FileText, FileCheck2, Scale, Package, ShoppingCart, ArrowRight, BellRing } from 'lucide-react';
+import { AlertTriangle, Archive, Award, BookOpen, CheckCircle, Clock, Database, MapPin, Users, Smartphone, ArrowUpRight, X, Search, FileText, FileCheck2, Scale, Package, ShoppingCart, ArrowRight, BellRing } from 'lucide-react';
 
 interface DashboardTabProps {
   asets: Aset[];
@@ -29,15 +29,17 @@ export default function DashboardTab({
   const [modalSearchQuery, setModalSearchQuery] = useState<string>('');
   const [filterRuangDashboard, setFilterRuangDashboard] = useState<string>('Semua');
 
-  // PWA states and hooks
+  // PWA install notification (ringkas, khusus HP) - dasbor sengaja tidak lagi menampilkan
+  // kartu panduan instalasi yang panjang, supaya isinya fokus ke informasi sarpras.
   const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
   const [isInstallable, setIsInstallable] = React.useState<boolean>(false);
-  const [activeGuideTab, setActiveGuideTab] = React.useState<'android' | 'ios' | 'pc'>('android');
-  const [isIframe, setIsIframe] = React.useState<boolean>(false);
+  const [isMobileDevice, setIsMobileDevice] = React.useState<boolean>(false);
+  const [isPwaNoticeDismissed, setIsPwaNoticeDismissed] = React.useState<boolean>(
+    () => { try { return localStorage.getItem('esarpras_pwa_notice_dismissed') === '1'; } catch (e) { return false; } }
+  );
 
   React.useEffect(() => {
-    // Cek apakah di dalam iframe
-    setIsIframe(window.self !== window.top);
+    setIsMobileDevice(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
 
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
@@ -59,6 +61,11 @@ export default function DashboardTab({
       setDeferredPrompt(null);
       setIsInstallable(false);
     }
+  };
+
+  const handleDismissPwaNotice = () => {
+    setIsPwaNoticeDismissed(true);
+    try { localStorage.setItem('esarpras_pwa_notice_dismissed', '1'); } catch (e) {}
   };
 
   // 1. Calculations for high-level metrics
@@ -327,130 +334,31 @@ export default function DashboardTab({
         </button>
       </motion.div>
 
-      {/* PWA Installation Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-        className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 relative overflow-hidden"
-      >
-        <div className="flex flex-col lg:flex-row gap-6 items-stretch justify-between">
-          <div className="flex-1 flex flex-col justify-between space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2.5">
-                <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                  <Smartphone size={20} />
-                </span>
-                <div>
-                  <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">Pasang Aplikasi e-Sarpras di Android / iOS</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Akses cepat tanpa browser, responsif penuh, dan mendukung mode luring!</p>
-                </div>
-              </div>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Aplikasi ini mendukung teknologi **PWA (Progressive Web App)** sehingga Anda dapat memasangnya langsung di layar utama smartphone Android atau iPhone Anda seperti aplikasi asli yang diunduh dari Play Store/App Store.
-              </p>
-            </div>
-
-            {isIframe ? (
-              <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-2xl text-xs space-y-2.5">
-                <div className="flex items-center gap-2 font-bold">
-                  <Info size={16} />
-                  <span>Petunjuk Deteksi Preview</span>
-                </div>
-                <p className="leading-relaxed">
-                  Saat ini Anda sedang membuka aplikasi di dalam bingkai preview AI Studio. 
-                  Agar tombol instalasi dan menu browser dapat berfungsi dengan baik, silakan buka aplikasi ini di **Tab Baru** terlebih dahulu.
-                </p>
-                <div className="pt-1">
-                  <a
-                    href={window.location.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-extrabold px-4 py-2.5 rounded-xl transition shadow-sm cursor-pointer text-xs"
-                  >
-                    <span>Buka Aplikasi di Tab Baru</span>
-                    <ArrowUpRight size={14} />
-                  </a>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2.5 items-center">
-                {isInstallable ? (
-                  <button
-                    onClick={handleInstallClick}
-                    className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-extrabold text-xs py-3 px-5 rounded-xl transition shadow-md shadow-indigo-600/15 cursor-pointer"
-                  >
-                    <Download size={14} />
-                    <span>Instal Sekarang</span>
-                  </button>
-                ) : (
-                  <div className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 text-emerald-700 font-semibold text-xs py-2 px-3.5 rounded-xl">
-                    <CheckCircle size={14} />
-                    <span>PWA Siap Dipasang Manual</span>
-                  </div>
-                )}
-                <span className="text-[11px] text-slate-400">Atau ikuti panduan manual di samping kanan ini:</span>
-              </div>
-            )}
-          </div>
-
-          <div className="w-full lg:w-auto min-w-[280px] lg:min-w-[380px] bg-slate-50 border border-slate-100 rounded-2xl p-4 shrink-0 flex flex-col justify-between">
-            <div>
-              {/* Guide Tabs */}
-              <div className="flex border-b border-slate-200 pb-2 mb-3">
-                {[
-                  { id: 'android', label: 'Android (Chrome)', icon: <Chrome size={12} /> },
-                  { id: 'ios', label: 'iOS (Safari)', icon: <Compass size={12} /> },
-                  { id: 'pc', label: 'Komputer', icon: <Laptop size={12} /> }
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveGuideTab(tab.id as any)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 pb-2 text-[11px] font-extrabold tracking-wide transition-all border-b-2 cursor-pointer ${
-                      activeGuideTab === tab.id
-                        ? 'border-indigo-600 text-indigo-600'
-                        : 'border-transparent text-slate-400 hover:text-slate-600'
-                    }`}
-                  >
-                    {tab.icon}
-                    <span>{tab.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Guide Body */}
-              <div className="text-xs text-slate-600 leading-relaxed space-y-2">
-                {activeGuideTab === 'android' && (
-                  <ol className="list-decimal pl-4 space-y-1.5">
-                    <li>Buka browser <strong>Chrome</strong> di HP Android Anda.</li>
-                    <li>Buka tautan aplikasi ini secara mandiri (di luar frame preview).</li>
-                    <li>Ketuk ikon <strong>titik tiga (⋮)</strong> di pojok kanan atas Chrome.</li>
-                    <li>Pilih menu <strong>"Tambahkan ke Layar Utama"</strong> atau <strong>"Instal Aplikasi"</strong>.</li>
-                    <li>Konfirmasi dan tunggu hingga aplikasi e-Sarpras terpasang di menu HP Anda!</li>
-                  </ol>
-                )}
-                {activeGuideTab === 'ios' && (
-                  <ol className="list-decimal pl-4 space-y-1.5">
-                    <li>Buka browser <strong>Safari</strong> di iPhone/iPad Anda.</li>
-                    <li>Buka tautan aplikasi e-Sarpras secara mandiri.</li>
-                    <li>Ketuk tombol <strong>Bagikan (Share icon)</strong> di bilah menu bawah Safari.</li>
-                    <li>Gulir ke bawah dan pilih opsi <strong>"Tambahkan ke Layar Utama"</strong> (Add to Home Screen).</li>
-                    <li>Ketuk tombol <strong>"Tambah"</strong> di kanan atas layar. Selesai!</li>
-                  </ol>
-                )}
-                {activeGuideTab === 'pc' && (
-                  <ol className="list-decimal pl-4 space-y-1.5">
-                    <li>Gunakan browser desktop seperti <strong>Google Chrome</strong> atau <strong>Edge</strong>.</li>
-                    <li>Perhatikan ujung kanan bilah alamat URL di bagian atas browser Anda.</li>
-                    <li>Klik ikon <strong>Instal (Monitor/Komputer dengan tanda panah bawah)</strong>.</li>
-                    <li>Klik tombol <strong>"Instal"</strong> pada dialog konfirmasi yang muncul.</li>
-                  </ol>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </motion.div>
+      {/* Notifikasi pasang aplikasi - ringkas, cuma muncul di HP saat memang bisa dipasang.
+          Dashboard difokuskan ke informasi sarpras, bukan panduan instalasi yang panjang. */}
+      {isMobileDevice && isInstallable && !isPwaNoticeDismissed && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3 flex items-center gap-3"
+        >
+          <Smartphone size={16} className="text-indigo-600 shrink-0" />
+          <p className="text-xs text-indigo-800 flex-1">Pasang e-Sarpras di layar utama HP Anda untuk akses lebih cepat.</p>
+          <button
+            onClick={handleInstallClick}
+            className="shrink-0 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold text-[11px] py-1.5 px-3 rounded-lg transition cursor-pointer"
+          >
+            Pasang
+          </button>
+          <button
+            onClick={handleDismissPwaNotice}
+            className="shrink-0 p-1 text-indigo-400 hover:text-indigo-600 cursor-pointer"
+            title="Tutup notifikasi ini"
+          >
+            <X size={14} />
+          </button>
+        </motion.div>
+      )}
 
       {/* Top counters */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

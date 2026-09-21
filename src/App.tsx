@@ -849,76 +849,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* Active Peran Badge / Controller */}
-        {!isSidebarCollapsed ? (
-          <div className="px-6 py-4 border-b border-slate-800/60 bg-slate-950/20">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Peran Pengguna</span>
-              <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                userRole === 'admin' 
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                  : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
-              }`}>
-                {userRole === 'admin' ? 'Admin' : 'Operator'}
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
-              {userRole === 'admin' 
-                ? 'Akses penuh ke semua kontrol, laporan & pengaturan.' 
-                : 'Bisa menambah/input data tanpa login.'}
-            </p>
-            <div className="mt-3">
-              {userRole === 'admin' ? (
-                <button
-                  onClick={handleLogout}
-                  className="w-full py-1.5 bg-rose-600/10 hover:bg-rose-600/20 active:bg-rose-600/35 text-rose-300 hover:text-white rounded-lg text-[10px] font-bold tracking-wide transition flex items-center justify-center gap-1.5 cursor-pointer border border-rose-500/20"
-                >
-                  <LogOut size={10} />
-                  Keluar Admin
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    setPasswordError(null);
-                    setPasswordInput('');
-                    setIsLoginModalOpen(true);
-                  }}
-                  className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-lg text-[10px] font-bold tracking-wide transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shadow-indigo-600/10"
-                >
-                  <Key size={10} />
-                  Masuk Admin
-                </button>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="py-4 border-b border-slate-800/60 flex flex-col items-center gap-3" title={
-            userRole === 'admin' ? 'Peran: Admin (Akses Penuh)' : 'Peran: Operator (Tambah Data Tanpa Login)'
-          }>
-            {userRole === 'admin' ? (
-              <button
-                onClick={handleLogout}
-                className="p-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-rose-500/20 hover:text-rose-400 hover:border-rose-500/20 rounded-lg transition cursor-pointer"
-                title="Keluar Admin"
-              >
-                <Lock size={14} />
-              </button>
-            ) : (
-              <button
-                onClick={() => {
-                  setPasswordError(null);
-                  setPasswordInput('');
-                  setIsLoginModalOpen(true);
-                }}
-                className="p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-600 hover:text-white rounded-lg transition cursor-pointer"
-                title="Masuk Admin"
-              >
-                <Key size={14} />
-              </button>
-            )}
-          </div>
-        )}
-
         {/* Navigation list */}
         <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
           {navigationItems.map((item) => {
@@ -941,17 +871,6 @@ export default function App() {
           })}
         </nav>
 
-        {/* Bottom FAB Trigger inside Sidebar */}
-        <div className="p-4 border-t border-slate-800">
-          <button
-            onClick={() => handleOpenScanner('search')}
-            title="Scanner Kamera"
-            className={`w-full bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white font-bold text-xs ${isSidebarCollapsed ? 'p-3' : 'py-2.5 px-4'} rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-sm border border-slate-700`}
-          >
-            <Camera size={14} className="text-indigo-400 animate-pulse" />
-            {!isSidebarCollapsed && <span>Scanner Kamera</span>}
-          </button>
-        </div>
       </aside>
 
       {/* Mobile Drawer Navigation Menu */}
@@ -1006,19 +925,6 @@ export default function App() {
                   </button>
                 ))}
               </nav>
-
-              <div className="p-4 border-t border-slate-800">
-                <button
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    handleOpenScanner('search');
-                  }}
-                  className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs py-2.5 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer border border-slate-700"
-                >
-                  <Camera size={14} className="text-indigo-400 animate-pulse" />
-                  Scanner Kamera
-                </button>
-              </div>
             </motion.div>
           </div>
         )}
