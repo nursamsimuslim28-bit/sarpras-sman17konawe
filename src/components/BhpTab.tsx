@@ -570,8 +570,10 @@ export default function BhpTab({
       const singleItemTitle = customSingleName ? customSingleName.toUpperCase() : 'KERTAS HVS / SPIDOL / ATK / KEBERSIHAN';
       doc.text(`Nama Barang Habis Pakai : ${singleItemTitle}`, 15, 67);
     } else {
+      // Kolom "NAMA BARANG" di tabel diisi bebas per baris - daftar ini cuma contoh/referensi
+      // barang yang tersedia semester ini, BUKAN daftar kolom tetap di tabel.
       const displayItems = itemsList.length > 0 ? itemsList.join(', ') : 'Kertas HVS, Spidol, Pulpen, Sapu';
-      doc.text(`Rincian Jenis Barang Massal (${itemsList.length} Jenis): ${displayItems}`, 15, 67);
+      doc.text(`Contoh Barang Tersedia: ${displayItems}`, 15, 67);
     }
 
     // 3. Setup Columns & Body Rows with Alternating Zig-Zag Signatures
@@ -609,49 +611,42 @@ export default function BhpTab({
         };
       }
     } else {
-      // Multi-Item Columns Matrix
-      const safeItems = itemsList.length > 0 ? itemsList : ['Kertas HVS A4', 'Spidol Boardmarker', 'Pulpen ATK', 'Sapu Kebersihan'];
-      headCols = ['NO', 'NAMA GURU / STAF', ...safeItems.map(i => i.toUpperCase()), 'TANGGAL PENGAMBILAN', 'TANDA TANGAN'];
+      // Kolektif fleksibel: SATU kolom "NAMA BARANG" yang diisi tangan per baris (barang apa
+      // saja bisa dicatat di situ, beda-beda tiap guru/staf) - bukan dipecah jadi kolom
+      // terpisah per jenis barang (dulu begitu, bikin operator harus menebak/membatasi jenis
+      // barang di depan sebelum tahu siapa mengambil apa).
+      headCols = ['NO', 'NAMA GURU / STAF', 'NAMA BARANG', 'JUMLAH', 'TANGGAL PENGAMBILAN', 'TANDA TANGAN'];
 
       bodyRows = Array.from({ length: rowCount }, (_, idx) => {
         const num = idx + 1;
-        // Pushed even numbers further to the right side
-        const sigText = idx % 2 === 0 
-          ? `${num}. ....................` 
+        const sigText = idx % 2 === 0
+          ? `${num}. ....................`
           : `                   ${num}. ....................`;
-        return [
-          num,
-          '',
-          ...safeItems.map(() => ''), // blank cells for quantity/check marks
-          '',
-          sigText
-        ];
+        return [num, '', '', '', '', sigText];
       });
 
-      const printableWidth = pageWidth - 30; // 15mm margins left & right
-      const noWidth = 10;
-      const tglWidth = isLandscape ? 32 : 26;
-      const ttdWidth = isLandscape ? 58 : 44;
-      const namaWidth = isLandscape ? 52 : 38;
-      
-      const fixedWidthTotal = noWidth + namaWidth + tglWidth + ttdWidth;
-      const remainingWidthForItems = Math.max(30, printableWidth - fixedWidthTotal);
-      const perItemWidth = Math.max(12, remainingWidthForItems / safeItems.length);
-
-      colStyles[0] = { cellWidth: noWidth, halign: 'center' };
-      colStyles[1] = { cellWidth: namaWidth };
-      
-      safeItems.forEach((_, idx) => {
-        colStyles[2 + idx] = { cellWidth: perItemWidth, halign: 'center' };
-      });
-
-      const tglColIdx = 2 + safeItems.length;
-      const ttdColIdx = 3 + safeItems.length;
-      colStyles[tglColIdx] = { cellWidth: tglWidth, halign: 'center' };
-      colStyles[ttdColIdx] = { cellWidth: ttdWidth, halign: 'left' };
+      if (isLandscape) {
+        colStyles = {
+          0: { cellWidth: 12, halign: 'center' },
+          1: { cellWidth: 82 },
+          2: { cellWidth: 75 },
+          3: { cellWidth: 26, halign: 'center' },
+          4: { cellWidth: 38, halign: 'center' },
+          5: { cellWidth: 64, halign: 'left' }
+        };
+      } else {
+        colStyles = {
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 52 },
+          2: { cellWidth: 46 },
+          3: { cellWidth: 16, halign: 'center' },
+          4: { cellWidth: 24, halign: 'center' },
+          5: { cellWidth: 42, halign: 'left' }
+        };
+      }
     }
 
-    const ttdColIdxFinal = mode === 'single' ? 4 : (3 + (itemsList.length > 0 ? itemsList.length : 4));
+    const ttdColIdxFinal = mode === 'single' ? 4 : 5;
 
     autoTable(doc, {
       startY: 71,
@@ -662,7 +657,7 @@ export default function BhpTab({
       didParseCell: (data) => {
         if (data.section === 'body' && data.column.index === ttdColIdxFinal) {
           if (data.row.index % 2 === 1) { // Even numbers: row 1 (num 2), row 3 (num 4)
-            const padLeft = isLandscape ? (mode === 'single' ? 42 : 28) : (mode === 'single' ? 25 : 20);
+            const padLeft = isLandscape ? (mode === 'single' ? 42 : 32) : (mode === 'single' ? 25 : 20);
             data.cell.styles.cellPadding = { top: 1, bottom: 1, left: padLeft, right: 2 };
           } else {
             data.cell.styles.cellPadding = { top: 1, bottom: 1, left: 3, right: 2 };
@@ -671,7 +666,7 @@ export default function BhpTab({
       },
       styles: {
         font: 'times',
-        fontSize: mode === 'multi' && itemsList.length > 5 ? 7.5 : 8.5,
+        fontSize: 8.5,
         minCellHeight: 6.8,
         valign: 'middle',
         overflow: 'linebreak',
@@ -2182,7 +2177,7 @@ export default function BhpTab({
                   <div className="space-y-3 p-3.5 bg-white rounded-2xl border border-emerald-200 shadow-2xs">
                     <div className="flex items-center justify-between">
                       <label className="block text-[10px] font-extrabold text-emerald-900 uppercase tracking-wider">
-                        Daftar Kolom Barang Massal ({multiItemsList.length} Barang):
+                        Contoh Barang Tersedia ({multiItemsList.length} Barang) - referensi saja, bukan kolom tabel:
                       </label>
                       <button
                         type="button"
@@ -2320,11 +2315,6 @@ export default function BhpTab({
                         Lanskap (Landscape)
                       </button>
                     </div>
-                    {templateMode === 'multi' && multiItemsList.length >= 4 && templateOrientation === 'portrait' && (
-                      <p className="text-[10px] text-amber-600 font-bold mt-1">
-                        * Disarankan memilih Lanskap jika barang &ge; 4 kolom agar tabel lebih lapang.
-                      </p>
-                    )}
                   </div>
 
                   {/* Jumlah Baris Kosong */}
@@ -2379,26 +2369,34 @@ export default function BhpTab({
                     <span className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">1. NO</span>
                     <span className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">2. NAMA GURU / STAF</span>
                     {templateMode === 'multi' ? (
-                      multiItemsList.map((item, idx) => (
-                        <span key={idx} className="px-1.5 py-0.5 bg-emerald-100 text-emerald-900 rounded border border-emerald-300">
-                          {idx + 3}. {item.toUpperCase()}
+                      <>
+                        <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-900 rounded border border-emerald-300">
+                          3. NAMA BARANG
                         </span>
-                      ))
+                        <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-900 rounded border border-emerald-300">
+                          4. JUMLAH
+                        </span>
+                      </>
                     ) : (
                       <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-900 rounded border border-emerald-300">
                         3. JUMLAH
                       </span>
                     )}
                     <span className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">
-                      {templateMode === 'multi' ? multiItemsList.length + 3 : 4}. TGL PENGAMBILAN
+                      {templateMode === 'multi' ? 5 : 4}. TGL PENGAMBILAN
                     </span>
                     <span className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">
-                      {templateMode === 'multi' ? multiItemsList.length + 4 : 5}. TANDA TANGAN (ZIG-ZAG)
+                      {templateMode === 'multi' ? 6 : 5}. TANDA TANGAN (ZIG-ZAG)
                     </span>
                   </div>
                   {templateMode === 'single' && (
                     <p className="text-[9.5px] text-slate-500 font-medium italic mt-2">
                       * Kolom &quot;Nama Barang&quot; telah dipindahkan ke Sub-Header PDF di atas tabel ({templateV2Barang ? `"${templateV2Barang.toUpperCase()}"` : 'sesuai isian'}) agar tabel lebih lapang.
+                    </p>
+                  )}
+                  {templateMode === 'multi' && (
+                    <p className="text-[9.5px] text-slate-500 font-medium italic mt-2">
+                      * Kolom &quot;Nama Barang&quot; diisi bebas tangan per baris - barang bisa beda-beda tiap guru/staf, tidak dipecah jadi kolom terpisah per jenis.
                     </p>
                   )}
                 </div>
