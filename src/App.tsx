@@ -821,11 +821,11 @@ export default function App() {
       {/* Sidebar for Desktop */}
       <aside className={`hidden lg:flex flex-col ${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-slate-900 text-slate-200 shrink-0 border-r border-slate-800 transition-all duration-300 relative`}>
         <div className={`p-6 border-b border-slate-800 flex flex-col items-center relative ${isSidebarCollapsed ? 'px-2 py-4' : 'px-6 py-6'}`}>
-          <div className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-16 h-16'} bg-white rounded-full p-1.5 shadow-lg shadow-black/25 flex items-center justify-center mb-3 transition-all duration-300`}>
+          <div className={`${isSidebarCollapsed ? 'w-12 h-12' : 'w-20 h-20'} bg-white rounded-full shadow-lg shadow-black/25 flex items-center justify-center mb-3 transition-all duration-300`}>
             <img
               src={pengaturan.logoUrl || SCHOOL_LOGO_BASE64}
               alt="logo SMA Negeri 17 Konawe"
-              className={`${isSidebarCollapsed ? 'w-7 h-7' : 'w-12 h-12'} object-contain rounded-full transition-all duration-300`}
+              className={`${isSidebarCollapsed ? 'w-10 h-10' : 'w-[70px] h-[70px]'} object-contain rounded-full transition-all duration-300`}
             />
           </div>
           {!isSidebarCollapsed && (
@@ -888,11 +888,11 @@ export default function App() {
             >
               <div className="p-4 border-b border-slate-800 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 bg-white rounded-full p-0.5 flex items-center justify-center shadow-md">
+                  <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md">
                     <img
                       src={pengaturan.logoUrl || SCHOOL_LOGO_BASE64}
                       alt="logo SMA Negeri 17 Konawe"
-                      className="w-7 h-7 object-contain rounded-full"
+                      className="w-9 h-9 object-contain rounded-full"
                     />
                   </div>
                   <span className="font-black text-white tracking-widest text-sm">E-SARPRAS</span>
