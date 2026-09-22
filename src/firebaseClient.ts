@@ -274,6 +274,26 @@ export async function getAllDataFromClientFirebase(): Promise<{
   }
 }
 
+// Saat koneksi benar-benar terputus, setDoc()/deleteDoc() dari SDK Firestore TIDAK langsung
+// gagal - keduanya menunggu tanpa batas waktu sampai berhasil terkirim (perilaku bawaan SDK,
+// menganggu akan online lagi nanti), sehingga tombol Simpan bisa "loading" selamanya tanpa
+// pernah gagal maupun berhasil. Race dengan timeout ini supaya setelah beberapa detik dianggap
+// gagal-untuk-saat-ini, data otomatis masuk antrian offline (lihat syncSetOrQueue di api.ts)
+// dan tombol Simpan tidak menggantung - percobaan asli tetap berjalan di background dan boleh
+// saja berhasil belakangan (menulis data yang sama, aman karena pakai merge/idempotent).
+const WRITE_TIMEOUT_MS = 8000;
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`[Firebase Client] Timeout (${ms}ms) menunggu ${label} - kemungkinan sedang offline.`));
+    }, ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
 /**
  * Simpan dokumen ke Firestore Client SDK
  */
@@ -285,7 +305,7 @@ export async function saveDocumentClient(collName: string, docId: string, data: 
     const docRef = doc(db, collName, docId);
     // Bersihkan undefined values agar tidak ditolak Firestore
     const cleanData = JSON.parse(JSON.stringify(data));
-    await setDoc(docRef, cleanData, { merge: true });
+    await withTimeout(setDoc(docRef, cleanData, { merge: true }), WRITE_TIMEOUT_MS, `simpan ${collName}/${docId}`);
     console.log(`[Firebase Client] Berhasil menyimpan ${collName}/${docId}`);
   } catch (err) {
     console.error(`[Firebase Client Save Error ${collName}/${docId}]:`, err);
@@ -302,7 +322,7 @@ export async function deleteDocumentClient(collName: string, docId: string): Pro
 
   try {
     const docRef = doc(db, collName, docId);
-    await deleteDoc(docRef);
+    await withTimeout(deleteDoc(docRef), WRITE_TIMEOUT_MS, `hapus ${collName}/${docId}`);
     console.log(`[Firebase Client] Berhasil menghapus ${collName}/${docId}`);
   } catch (err) {
     console.error(`[Firebase Client Delete Error ${collName}/${docId}]:`, err);

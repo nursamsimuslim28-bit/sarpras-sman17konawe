@@ -493,11 +493,13 @@ export default function App() {
   const handleSaveOpnameEntry = async (entry: OpnameEntry) => {
     const updated = await api.saveOpnameEntry(entry);
     setOpnameEntries(updated);
+    alertSaveResult('Data Opname', updated.synced);
   };
 
   const handleDeleteOpnameEntry = async (id: string) => {
     const updated = await api.deleteOpnameEntry(id);
     setOpnameEntries(updated);
+    alertSaveResult('Penghapusan Data Opname', updated.synced);
   };
 
   const handleSavePengaturan = async (cfg: PengaturanSekolah) => {
