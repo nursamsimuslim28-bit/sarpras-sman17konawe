@@ -156,6 +156,42 @@ function mergeById<T extends { id: string }>(remote: T[] | null | undefined, loc
   return Array.from(merged.values());
 }
 
+// Jaring pengaman: kalau ada data yang tersimpan di perangkat ini tapi TIDAK ada di server
+// (mis. dulu sempat "menggantung" saat disimpan offline sebelum perbaikan timeout, lalu tab/app
+// ditutup sebelum sempat terkirim - jadi tidak pernah masuk antrian sinkronisasi sama sekali),
+// masukkan otomatis ke antrian setiap kali data berhasil diambil dari server. Supaya data yang
+// "nyangkut" di satu perangkat itu tetap otomatis terkirim lain kali, tanpa operator perlu tahu
+// item mana yang belum sinkron atau simpan ulang manual satu-satu.
+//
+// Baru dimasukkan ke antrian setelah "hilang" di server pada DUA kali pengambilan data berturut-
+// turut (bukan sekali langsung) - supaya satu kali gagal ambil data yang tidak lengkap/kepotong
+// (mis. karena batas kuota Firestore sesaat) tidak salah dikira "data yatim" dan memicu kirim
+// ulang yang sebenarnya tidak perlu. Penanda "dicurigai" ini hanya hidup selama sesi ini berjalan
+// (hilang kalau aplikasi dimuat ulang), jadi cukup aman dan ringan.
+const suspectedOrphanIds = new Set<string>();
+function reconcileOrphans<T extends { id: string }>(
+  collectionName: string,
+  remote: T[] | null | undefined,
+  merged: T[],
+  labelFn: (item: T) => string
+): void {
+  if (!Array.isArray(remote)) return; // fetch dari server gagal - tidak bisa dipercaya untuk deteksi data yatim
+  const remoteIds = new Set(remote.filter(r => r && r.id).map(r => r.id));
+  for (const item of merged) {
+    if (!item || !item.id) continue;
+    const key = `${collectionName}/${item.id}`;
+    if (remoteIds.has(item.id)) {
+      suspectedOrphanIds.delete(key);
+      continue;
+    }
+    if (suspectedOrphanIds.has(key)) {
+      enqueuePendingSync(collectionName, item.id, item, labelFn(item));
+    } else {
+      suspectedOrphanIds.add(key);
+    }
+  }
+}
+
 const KEY_INITIALIZED = 'esarpras_app_initialized';
 
 // Inisialisasi storage awal (bersih, tanpa data contoh/demo bawaan)
@@ -259,6 +295,17 @@ export const api = {
           safeSetStorage(KEY_BHP, mergedBhp);
           safeSetStorage(KEY_PENGAMBILAN_BHP, mergedPengambilanBhp);
           safeSetStorage(KEY_KELUHAN, mergedKeluhan);
+
+          // Jaring pengaman untuk data yang "nyangkut" di perangkat ini saja (lihat catatan di
+          // reconcileOrphans) - masukkan ke antrian supaya otomatis terkirim lain kali.
+          reconcileOrphans('asets', clientData.asets, mergedAsets, a => `Aset: ${a.nama || a.id}`);
+          reconcileOrphans('peminjamans', clientData.peminjamans, mergedPeminjamans, p => `Peminjaman: ${p.namaAset || p.id} oleh ${p.namaPeminjam || '-'}`);
+          reconcileOrphans('pemusnahans', clientData.pemusnahans, mergedPemusnahans, p => `Pemusnahan: ${p.namaAset || p.id}`);
+          reconcileOrphans('pemeliharaans', clientData.pemeliharaans, mergedPemeliharaans, p => `Pemeliharaan: ${p.namaAset || p.id}`);
+          reconcileOrphans('opname_2026', clientData.opnameEntries, mergedOpnameEntries, o => `Opname: ${o.namaBarang || o.id}`);
+          reconcileOrphans('bhp', clientData.bhp, mergedBhp, b => `BHP: ${b.nama || b.id}`);
+          reconcileOrphans('pengambilan_bhp', clientData.pengambilanBhp, mergedPengambilanBhp, pb => `Pengambilan BHP: ${pb.namaBhp || pb.id} oleh ${pb.namaPenerima || '-'}`);
+          reconcileOrphans('keluhan', clientData.keluhan, mergedKeluhan, k => `Keluhan: ${k.namaBarangFasilitas || k.id}`);
 
           return {
             asets: mergedAsets,
