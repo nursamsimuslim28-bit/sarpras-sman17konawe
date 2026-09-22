@@ -398,15 +398,23 @@ export default function AsetTab({
 
   const conditions: KondisiAset[] = ['Baik', 'Rusak Ringan', 'Rusak Berat', 'Dihapuskan'];
 
-  // Standard funding sources for Indonesian schools (Permendikbudristek & BSKAP Juknis reference)
+  // Standard funding sources for Indonesian schools (Permendikbudristek & BSKAP Juknis reference).
+  // Diperluas berdasarkan nilai Sumber Dana yang benar-benar ada di data aset (hasil impor
+  // ARKAS) dan Asal Usul di data Opname 2026 - "BOS Reguler (BOSP)" adalah label ARKAS asli
+  // yang dipakai mayoritas aset, dan APBN/Dana DAK/Hibah ditambahkan supaya aset non-BOS juga
+  // punya pilihan dropdown yang bersih, bukan jatuh ke mode "Tulis Kustom".
   const fundingSources = [
+    'BOS Reguler (BOSP)',
     'BOS Reguler',
     'BOS Kinerja',
     'BOS Daerah (BOSDA)',
-    'DAK Fisik Pendidikan',
+    'APBN',
     'APBD Provinsi / Kabupaten',
-    'Sumbangan Komite Sekolah',
+    'DAK Fisik Pendidikan',
+    'Dana DAK (Dana Alokasi Khusus)',
+    'Hibah',
     'Dana Hibah / Donasi / CSR',
+    'Sumbangan Komite Sekolah',
     'Kas Yayasan',
     'Anggaran Internal Sekolah (APBS)'
   ];
