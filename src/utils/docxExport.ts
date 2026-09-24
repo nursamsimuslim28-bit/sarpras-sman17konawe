@@ -723,7 +723,7 @@ export async function exportSuratUsulanDocx(pengaturan: PengaturanSekolah, surat
         new Paragraph({
           children: [
             new TextRun({
-              text: `Dengan hormat, sehubungan dengan hasil pemeriksaan berkala kondisi Barang Milik Daerah (BMD) pada satuan pendidikan ${pengaturan.namaSekolah || 'SMA Negeri 17 Konawe'}, dengan ini kami mengusulkan penghapusan dan pemusnahan BMD dalam kondisi Rusak Berat sebanyak ${bapItems.reduce((s, i) => s + i.jumlah, 0)} unit barang.`,
+              text: `Dengan hormat, sehubungan dengan hasil pemeriksaan berkala kondisi Barang Milik Daerah (BMD) pada satuan pendidikan ${pengaturan.namaSekolah || 'SMA Negeri 17 Konawe'}, dengan ini kami mengusulkan penghapusan dan pemusnahan BMD dalam kondisi Rusak Berat sebanyak ${bapItems.reduce((s, i) => s + (Number(i.jumlah) || 0), 0)} unit barang.`,
               size: 20,
               font: 'Times New Roman'
             })

@@ -70,18 +70,22 @@ export default function DashboardTab({
 
   // 1. Calculations for high-level metrics
   const activeAsets = asets.filter(a => a.kondisi !== 'Dihapuskan');
-  const totalItemCount = activeAsets.reduce((sum, item) => sum + item.jumlah, 0);
+  // Kolom jumlah yang kosong/tidak valid dihitung 0 (sama seperti di Laporan) supaya total
+  // tidak berubah jadi "NaN" hanya karena satu aset jumlahnya kosong.
+  const qty = (v: unknown) => Number(v) || 0;
+  const totalItemCount = activeAsets.reduce((sum, item) => sum + qty(item.jumlah), 0);
   const totalItemJenis = activeAsets.length;
-  
+  const asetJumlahKosong = activeAsets.filter(a => !(Number(a.jumlah) > 0));
+
   const dipinjamCount = peminjamans
     .filter(p => p.status === 'Dipinjam')
-    .reduce((sum, p) => sum + p.jumlahPinjam, 0);
-    
+    .reduce((sum, p) => sum + qty(p.jumlahPinjam), 0);
+
   const rusakBeratCount = activeAsets
     .filter(a => a.kondisi === 'Rusak Berat')
-    .reduce((sum, item) => sum + item.jumlah, 0);
+    .reduce((sum, item) => sum + qty(item.jumlah), 0);
 
-  const dihapuskanCount = pemusnahans.reduce((sum, p) => sum + p.jumlah, 0);
+  const dihapuskanCount = pemusnahans.reduce((sum, p) => sum + qty(p.jumlah), 0);
 
   // Details Modal Filtering
   const modalQ = modalSearchQuery.toLowerCase();
@@ -115,7 +119,7 @@ export default function DashboardTab({
     : activeAsets.filter(a => a.ruangLokasi === filterRuangDashboard);
 
   const kondisiStats = roomFilteredAsets.reduce((acc, item) => {
-    acc[item.kondisi] = (acc[item.kondisi] || 0) + item.jumlah;
+    acc[item.kondisi] = (acc[item.kondisi] || 0) + qty(item.jumlah);
     return acc;
   }, {} as Record<string, number>);
 
@@ -130,7 +134,7 @@ export default function DashboardTab({
 
   // 3. Data preparation for Location Bar Chart
   const lokasiStats = activeAsets.reduce((acc, item) => {
-    acc[item.ruangLokasi] = (acc[item.ruangLokasi] || 0) + item.jumlah;
+    acc[item.ruangLokasi] = (acc[item.ruangLokasi] || 0) + qty(item.jumlah);
     return acc;
   }, {} as Record<string, number>);
 
@@ -147,7 +151,7 @@ export default function DashboardTab({
          ((a.nama || '').toLowerCase().includes('meja') || (a.nama || '').toLowerCase().includes('kursi'))
   );
   
-  const totalFurnitureSiswa = furnitureSiswa.reduce((sum, a) => sum + a.jumlah, 0);
+  const totalFurnitureSiswa = furnitureSiswa.reduce((sum, a) => sum + qty(a.jumlah), 0);
   // Divide by 2 because Meja and Kursi are separate, or approximate 1 table + 1 chair = 2 units per student
   const estimatedCapacity = Math.round(totalFurnitureSiswa / 2);
   const complianceRate = Math.min(
@@ -366,7 +370,7 @@ export default function DashboardTab({
           {
             type: 'sarpras_aktif',
             title: 'Total Sarpras Aktif',
-            subtitle: `${totalItemJenis} Jenis Inventaris`,
+            subtitle: `${totalItemJenis} Jenis Inventaris` + (asetJumlahKosong.length > 0 ? ` • ${asetJumlahKosong.length} aset jumlahnya kosong` : ''),
             value: totalItemCount,
             color: 'bg-blue-50/40 text-blue-600 border-blue-100/80 hover:border-blue-300',
             icon: <Database size={20} />

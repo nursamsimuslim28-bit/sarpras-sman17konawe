@@ -311,7 +311,7 @@ export default function PenghapusanBmdDoc({
       doc.text(`    ${suratData.kotaTujuan}`, marginX, currentY + 15);
 
       currentY += 25;
-      const body1 = `Dengan hormat, sehubungan dengan hasil pemeriksaan berkala kondisi Barang Milik Daerah (BMD) pada satuan pendidikan ${pengaturan.namaSekolah}, dengan ini kami sampaikan usulan penghapusan dan pemusnahan BMD dalam kondisi Rusak Berat (RB) sebanyak ${bapList.reduce((s, i) => s + i.jumlah, 0)} unit barang sebagaimana rincian Berita Acara Pemeriksaan terlampir.`;
+      const body1 = `Dengan hormat, sehubungan dengan hasil pemeriksaan berkala kondisi Barang Milik Daerah (BMD) pada satuan pendidikan ${pengaturan.namaSekolah}, dengan ini kami sampaikan usulan penghapusan dan pemusnahan BMD dalam kondisi Rusak Berat (RB) sebanyak ${bapList.reduce((s, i) => s + (Number(i.jumlah) || 0), 0)} unit barang sebagaimana rincian Berita Acara Pemeriksaan terlampir.`;
       doc.text(doc.splitTextToSize(body1, pageWidth - (marginX * 2)), marginX, currentY);
 
       currentY += 20;
@@ -763,7 +763,7 @@ export default function PenghapusanBmdDoc({
               </div>
 
               <p className="leading-relaxed text-justify pt-2">
-                Dengan hormat, sehubungan dengan hasil pemeriksaan berkala kondisi Barang Milik Daerah (BMD) pada satuan pendidikan {pengaturan.namaSekolah || 'SMA Negeri 17 Konawe'}, dengan ini kami sampaikan usulan penghapusan dan pemusnahan BMD dalam kondisi Rusak Berat (RB) sebanyak {bapList.reduce((s, i) => s + i.jumlah, 0)} unit barang sebagaimana rincian Berita Acara Pemeriksaan terlampir.
+                Dengan hormat, sehubungan dengan hasil pemeriksaan berkala kondisi Barang Milik Daerah (BMD) pada satuan pendidikan {pengaturan.namaSekolah || 'SMA Negeri 17 Konawe'}, dengan ini kami sampaikan usulan penghapusan dan pemusnahan BMD dalam kondisi Rusak Berat (RB) sebanyak {bapList.reduce((s, i) => s + (Number(i.jumlah) || 0), 0)} unit barang sebagaimana rincian Berita Acara Pemeriksaan terlampir.
               </p>
 
               <p className="leading-relaxed text-justify">
