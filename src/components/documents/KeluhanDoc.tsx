@@ -305,9 +305,9 @@ export default function KeluhanDoc({ pengaturan, keluhanList, onRefresh, masterR
 
   // Blanko register kosong (F4 lanskap, margin kiri lebar untuk dijilid) - diisi tulis tangan
   const handleExportBlankPDF = () => {
-    const input = window.prompt('Berapa baris kosong per lembar? (5 - 30)', '15');
+    const input = window.prompt('Blanko dicetak 2 lembar. Berapa baris kosong per lembar? (5 - 20)', '15');
     if (input === null) return;
-    const rowCount = Math.min(30, Math.max(5, parseInt(input, 10) || 15));
+    const rowCount = Math.min(20, Math.max(5, parseInt(input, 10) || 15));
 
     const pageW = 330;
     const pageH = 215;
@@ -347,13 +347,17 @@ export default function KeluhanDoc({ pengaturan, keluhanList, onRefresh, masterR
     const startY = 47;
     const signatureH = 30;
     const headH = 9;
-    const rowH = Math.max(7, (pageH - mBottom - signatureH - startY - headH) / rowCount);
+    const startY2 = 12;
+    const rowH = Math.max(7, Math.min(
+      (pageH - mBottom - startY - headH - 4) / rowCount,
+      (pageH - mBottom - signatureH - startY2 - headH - 4) / rowCount
+    ));
 
-    autoTable(doc, {
-      startY,
+    const tableOptions = (from: number, y: number): any => ({
+      startY: y,
       margin: { left: mLeft, right: mRight, bottom: mBottom },
       head: [['No', 'Kode Reg', 'Tanggal', 'Pelapor', 'Barang/Ruang', 'Uraian Keluhan', 'Urgensi', 'Status', 'Tindak Lanjut', 'Est. Biaya']],
-      body: Array.from({ length: rowCount }, (_, i) => [i + 1, '', '', '', '', '', '', '', '', '']),
+      body: Array.from({ length: rowCount }, (_, i) => [from + i, '', '', '', '', '', '', '', '', '']),
       theme: 'grid',
       styles: { fontSize: 8, cellPadding: 2, minCellHeight: rowH, lineColor: [80, 80, 80], lineWidth: 0.2, textColor: [0, 0, 0], valign: 'middle' },
       headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', minCellHeight: headH },
@@ -370,6 +374,10 @@ export default function KeluhanDoc({ pengaturan, keluhanList, onRefresh, masterR
         9: { cellWidth: 16 }
       }
     });
+
+    autoTable(doc, tableOptions(1, startY));
+    doc.addPage([215, 330], 'landscape');
+    autoTable(doc, tableOptions(rowCount + 1, startY2));
 
     let sigY = (doc as any).lastAutoTable.finalY + 6;
     if (sigY + 26 > pageH - mBottom) sigY = pageH - mBottom - 26;
