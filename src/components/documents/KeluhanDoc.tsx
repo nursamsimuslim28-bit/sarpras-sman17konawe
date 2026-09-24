@@ -303,6 +303,91 @@ export default function KeluhanDoc({ pengaturan, keluhanList, onRefresh, masterR
     doc.save(`Buku_Register_Keluhan_Sarpras_${pengaturan.namaSekolah.replace(/\s+/g, '_')}.pdf`);
   };
 
+  // Blanko register kosong (F4 lanskap, margin kiri lebar untuk dijilid) - diisi tulis tangan
+  const handleExportBlankPDF = () => {
+    const input = window.prompt('Berapa baris kosong per lembar? (5 - 30)', '15');
+    if (input === null) return;
+    const rowCount = Math.min(30, Math.max(5, parseInt(input, 10) || 15));
+
+    const pageW = 330;
+    const pageH = 215;
+    const mLeft = 30;
+    const mRight = 10;
+    const mBottom = 10;
+    const centerX = (mLeft + pageW - mRight) / 2;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [215, 330] });
+
+    try {
+      doc.addImage(SULTRA_LOGO_BASE64, 'PNG', mLeft, 8, 20, 20);
+      const schoolLogo = (pengaturan.logoUrl && pengaturan.logoUrl.startsWith('data:image')) ? pengaturan.logoUrl : SCHOOL_LOGO_BASE64;
+      doc.addImage(schoolLogo, 'PNG', pageW - mRight - 20, 8, 20, 20);
+    } catch (e) {
+      console.warn('Gagal menggambar logo kop blanko keluhan', e);
+    }
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PEMERINTAH PROVINSI SULAWESI TENGGARA', centerX, 12, { align: 'center' });
+    doc.text('DINAS PENDIDIKAN DAN KEBUDAYAAN', centerX, 17, { align: 'center' });
+    doc.setFontSize(13);
+    doc.text((pengaturan.namaSekolah || 'SMA NEGERI 17 KONAWE').toUpperCase(), centerX, 23, { align: 'center' });
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${pengaturan.alamat || 'Jl. Poros Amonggedo - Meluhu'} | NPSN: ${pengaturan.npsn || '40404643'}`, centerX, 28, { align: 'center' });
+    doc.setLineWidth(0.8);
+    doc.line(mLeft, 31, pageW - mRight, 31);
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('BUKU REGISTER KELUHAN & PENANGANAN KERUSAKAN SARPRAS', centerX, 38, { align: 'center' });
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Tahun Ajaran ........... / ...........', centerX, 43, { align: 'center' });
+
+    const startY = 47;
+    const signatureH = 30;
+    const headH = 9;
+    const rowH = Math.max(7, (pageH - mBottom - signatureH - startY - headH) / rowCount);
+
+    autoTable(doc, {
+      startY,
+      margin: { left: mLeft, right: mRight, bottom: mBottom },
+      head: [['No', 'Kode Reg', 'Tanggal', 'Pelapor', 'Barang/Ruang', 'Uraian Keluhan', 'Urgensi', 'Status', 'Tindak Lanjut', 'Est. Biaya']],
+      body: Array.from({ length: rowCount }, (_, i) => [i + 1, '', '', '', '', '', '', '', '', '']),
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 2, minCellHeight: rowH, lineColor: [80, 80, 80], lineWidth: 0.2, textColor: [0, 0, 0], valign: 'middle' },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', minCellHeight: headH },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 8 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 36 },
+        4: { cellWidth: 40 },
+        5: { cellWidth: 58 },
+        6: { cellWidth: 18 },
+        7: { cellWidth: 22 },
+        8: { cellWidth: 50 },
+        9: { cellWidth: 16 }
+      }
+    });
+
+    let sigY = (doc as any).lastAutoTable.finalY + 6;
+    if (sigY + 26 > pageH - mBottom) sigY = pageH - mBottom - 26;
+    doc.setFontSize(8);
+    doc.text('Mengetahui,', mLeft + 20, sigY);
+    doc.text('Kepala Sekolah', mLeft + 20, sigY + 4);
+    doc.text(pengaturan.kepalaSekolah || 'Hapri, S.Pd., M.Pd', mLeft + 20, sigY + 20);
+    doc.text(`NIP. ${pengaturan.nipKepalaSekolah || '-'}`, mLeft + 20, sigY + 24);
+
+    const rightX = pageW - mRight - 70;
+    doc.text('Konawe, ........................................', rightX, sigY);
+    doc.text('Wakasek Sarana Prasarana', rightX, sigY + 4);
+    doc.text(pengaturan.namaPetugasSarpras || 'Nursamsi Muslim Widuri, S.Pd.', rightX, sigY + 20);
+    doc.text(`NIP. ${pengaturan.nipPetugasSarpras || '-'}`, rightX, sigY + 24);
+
+    doc.save(`Blanko_Register_Keluhan_F4_${(pengaturan.namaSekolah || 'Sekolah').replace(/\s+/g, '_')}.pdf`);
+  };
+
   // Stats Counters
   const totalCount = keluhanList.length;
   const waitingCount = keluhanList.filter(x => x.status === 'Menunggu').length;
@@ -345,6 +430,14 @@ export default function KeluhanDoc({ pengaturan, keluhanList, onRefresh, masterR
           >
             <Printer size={16} />
             <span>Cetak Register PDF</span>
+          </button>
+
+          <button
+            onClick={handleExportBlankPDF}
+            className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-2 cursor-pointer"
+          >
+            <FileText size={16} />
+            <span>Cetak Blanko Kosong (F4)</span>
           </button>
         </div>
       </div>
